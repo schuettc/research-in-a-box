@@ -243,3 +243,41 @@ def test_recommended_fields_parse() -> None:
 def test_coverage_with_a_start_alone_is_refused() -> None:
     with pytest.raises(ValidationError):
         Manifest.model_validate({"archive:temporalCoverage": {"start": "2024-06-01"}})
+
+
+def test_coverage_can_end_unknown() -> None:
+    manifest = Manifest.model_validate(
+        {"archive:temporalCoverage": {"start": "1991-01-01", "end": "unknown"}}
+    )
+
+    assert manifest.temporal_coverage is not None
+    assert manifest.temporal_coverage.end == "unknown"
+    assert manifest.dump()["archive:temporalCoverage"] == {
+        "start": "1991-01-01",
+        "end": "unknown",
+        "ongoing": False,
+    }
+
+
+def test_coverage_ending_unknown_and_ongoing_is_refused() -> None:
+    with pytest.raises(ValidationError, match="ongoing"):
+        Manifest.model_validate(
+            {"archive:temporalCoverage": {"start": "1991-01-01", "end": "unknown", "ongoing": True}}
+        )
+
+
+def test_coverage_end_refuses_other_words() -> None:
+    with pytest.raises(ValidationError):
+        Manifest.model_validate(
+            {"archive:temporalCoverage": {"start": "1991-01-01", "end": "someday"}}
+        )
+
+
+def test_citation_and_purpose_parse_and_dump() -> None:
+    manifest = Manifest.model_validate(
+        {"archive:citation": "Researcher, A. (2026). Streams.", "archive:purpose": "To track."}
+    )
+
+    assert manifest.citation == "Researcher, A. (2026). Streams."
+    assert manifest.purpose == "To track."
+    assert manifest.dump()["archive:purpose"] == "To track."

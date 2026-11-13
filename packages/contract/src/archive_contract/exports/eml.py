@@ -16,6 +16,7 @@ How the manifest maps where EML has no direct equivalent:
 
 import csv
 from collections.abc import Iterable
+from datetime import date
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -259,7 +260,7 @@ def _coverage(parent: ET.Element, manifest: Manifest) -> None:
             _sub(box, tag, str(value))
     if temporal is not None:
         when = _sub(coverage, "temporalCoverage")
-        if temporal.end is not None:
+        if isinstance(temporal.end, date):
             dates = _sub(when, "rangeOfDates")
             _sub(_sub(dates, "beginDate"), "calendarDate", temporal.start.isoformat())
             _sub(_sub(dates, "endDate"), "calendarDate", temporal.end.isoformat())

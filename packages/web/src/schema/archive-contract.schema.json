@@ -24,6 +24,31 @@
       "title": "Actor",
       "type": "object"
     },
+    "AncillaryOf": {
+      "additionalProperties": true,
+      "description": "The column this one qualifies, and how: its uncertainty, detection limit or flag.",
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "uncertainty",
+            "detection-limit",
+            "quality-flag"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "role"
+      ],
+      "title": "AncillaryOf",
+      "type": "object"
+    },
     "ArchiveConfig": {
       "additionalProperties": true,
       "description": "Which profiles apply, extra required fields, vocabularies, themes, the licenses and\naccess levels offered, and the publisher the archive fills in at publish.",
@@ -289,8 +314,19 @@
     },
     "Field": {
       "additionalProperties": true,
-      "description": "One column of a table, described by logical type rather than file format.\n\n`name` is the column's name in the tidy table. When a rename was accepted, the column's\nname in the source file is kept in `archive:sourceName`.",
+      "description": "One column of a table, described by logical type rather than file format.\n\n`name` is the column's name in the tidy table. When a rename was accepted, the column's\nname in the source file is kept in `archive:sourceName`. `archive:unit` is free text\n(`degC`, `mg/L`); `archive:ancillaryOf` names another column of the same schema that\nthis one qualifies.",
       "properties": {
+        "archive:ancillaryOf": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AncillaryOf"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "archive:codeList": {
           "anyOf": [
             {
@@ -303,6 +339,25 @@
           ],
           "default": null,
           "title": "Archive:Codelist"
+        },
+        "archive:measurementScale": {
+          "anyOf": [
+            {
+              "enum": [
+                "nominal",
+                "ordinal",
+                "interval",
+                "ratio",
+                "dateTime"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archive:Measurementscale"
         },
         "archive:sensitivity": {
           "anyOf": [
@@ -332,6 +387,18 @@
           ],
           "default": null,
           "title": "Archive:Sourcename"
+        },
+        "archive:unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archive:Unit"
         },
         "constraints": {
           "anyOf": [
@@ -842,6 +909,21 @@
           "title": "Id",
           "type": "string"
         },
+        "keywords": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Keywords"
+        },
         "links": {
           "items": {
             "$ref": "#/$defs/Link"
@@ -929,7 +1011,7 @@
     },
     "Resource": {
       "additionalProperties": true,
-      "description": "A Frictionless resource with the archive's additions.\n\n- `archive:kind` says what the resource is; with none it reads as `table` when `type` is\n  `table`, and as `file` otherwise. Frictionless's `type` is `table` for a table (written\n  when absent) and is refused on any other kind.\n- `archive:files` lists every member file of a multi-file resource (a shapefile set),\n  with `path` naming the main file.\n- `archive:alternateOf` names the primary when this is the same data in another format;\n  only the primary carries the schema.\n- A `linked` resource is held elsewhere: `path` is its URL and it has no hash or size.",
+      "description": "A Frictionless resource with the archive's additions.\n\n- `archive:kind` says what the resource is; with none it reads as `table` when `type` is\n  `table`, and as `file` otherwise. Frictionless's `type` is `table` for a table (written\n  when absent) and is refused on any other kind.\n- `archive:files` lists every member file of a multi-file resource (a shapefile set),\n  with `path` naming the main file.\n- `archive:alternateOf` names the primary when this is the same data in another format;\n  only the primary carries the schema.\n- A `linked` resource is held elsewhere: `path` is its URL and it has no hash or size.\n- `archive:attributes` describes a `vector` resource's attribute table as a Table Schema.",
       "properties": {
         "archive:alternateOf": {
           "anyOf": [
@@ -942,6 +1024,17 @@
           ],
           "default": null,
           "title": "Archive:Alternateof"
+        },
+        "archive:attributes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TableSchema"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "archive:files": {
           "anyOf": [
@@ -1340,12 +1433,16 @@
     },
     "TemporalCoverage": {
       "additionalProperties": true,
-      "description": "When the data covers: a start, and an end date or `ongoing`.",
+      "description": "When the data covers: a start, and an end date, `end: \"unknown\"` or `ongoing`.\n\n`end: \"unknown\"` is for data that stopped at a date nobody recorded.",
       "properties": {
         "end": {
           "anyOf": [
             {
               "format": "date",
+              "type": "string"
+            },
+            {
+              "const": "unknown",
               "type": "string"
             },
             {
@@ -1471,6 +1568,18 @@
       "default": null,
       "title": "Archive:Access"
     },
+    "archive:citation": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archive:Citation"
+    },
     "archive:funding": {
       "anyOf": [
         {
@@ -1539,6 +1648,18 @@
       ],
       "default": null,
       "title": "Archive:Project"
+    },
+    "archive:purpose": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archive:Purpose"
     },
     "archive:quality": {
       "anyOf": [
