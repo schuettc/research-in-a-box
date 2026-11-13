@@ -10,7 +10,8 @@ How the manifest maps where EML has no direct equivalent:
 - Each column's logical type is kept as its `storageType`, in the `TABLE_SCHEMA_TYPES` system.
   Its measurement scale is `archive:measurementScale` when set, else guessed from the type
   (`guessed_scale`). An interval or ratio column's unit is its `archive:unit` as a custom
-  unit, or `UNKNOWN_UNIT` when it has none.
+  unit, or `UNKNOWN_UNIT` when it has none. A code-list column whose scale is set to interval,
+  ratio or dateTime is refused, since EML holds codes only under a nominal or ordinal scale.
 - A column with `archive:ancillaryOf` ends its `attributeDefinition` with `related_note`.
 - Ongoing coverage, which EML can't write as a range, is the start date as a single date plus
   a `maintenance` element with update frequency `continually`. Coverage whose end is unknown
@@ -179,7 +180,11 @@ def _measurement(
     kind = field.type or "string"
     level = field.measurement_scale or guessed_scale(field.type, codes is not None)
     if codes is not None:
-        level = "ordinal" if level == "ordinal" else "nominal"
+        if level not in ("nominal", "ordinal"):
+            raise ValueError(
+                f"column {field.name!r} has measurement scale {level!r} and a code list, "
+                "which EML can't write together: only a nominal or ordinal scale holds codes"
+            )
         domain = _sub(_sub(_sub(scale, level), "nonNumericDomain"), "enumeratedDomain")
         for row in codes:
             code = _sub(domain, "codeDefinition")

@@ -134,6 +134,34 @@ def test_the_fields_measurement_scale_is_used() -> None:
     assert depth.findtext("measurementScale/interval/numericDomain/numberType") == "integer"
 
 
+@pytest.mark.parametrize("scale", ["ratio", "interval", "dateTime"])
+def test_a_coded_column_with_an_explicit_numeric_scale_is_refused(scale: str) -> None:
+    manifest = sample()
+    logger = manifest.resource("logger")
+    assert logger is not None and logger.table_schema is not None
+    for field in logger.table_schema.fields:
+        if field.name == "condition":
+            field.measurement_scale = scale  # type: ignore[assignment]
+            field.unit = "degC"
+
+    with pytest.raises(ValueError, match=f"condition.*{scale}.*code list"):
+        to_eml(manifest, root=SAMPLE)
+
+
+def test_a_coded_column_with_an_explicit_ordinal_scale_keeps_it() -> None:
+    manifest = sample()
+    logger = manifest.resource("logger")
+    assert logger is not None and logger.table_schema is not None
+    for field in logger.table_schema.fields:
+        if field.name == "condition":
+            field.measurement_scale = "ordinal"
+    xml = to_eml(manifest, root=SAMPLE)
+
+    assert_valid(xml)
+    attr = attribute(xml, "logger", "condition")
+    assert attr.find("measurementScale/ordinal/nonNumericDomain/enumeratedDomain") is not None
+
+
 def test_a_related_column_is_noted_in_the_attribute_definition() -> None:
     attr = attribute(to_eml(sample(), root=SAMPLE), "logger", "water_temp_unc_c")
 
