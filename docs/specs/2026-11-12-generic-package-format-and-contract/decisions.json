@@ -3,11 +3,7 @@
   "schema": 4,
   "title": "Package format and contract (Plan 2)",
   "expect": 6,
-  "working": {
-    "text": "Watching CI on main after PR #1 merged",
-    "since": "2026-11-13T09:08:54.715078-06:00"
-  },
-  "agent_at": "2026-11-13T15:08:54.715078Z",
+  "agent_at": "2026-11-13T15:13:35.267715Z",
   "start": {
     "opening": {
       "text": "i think we got started incorrectly here.\n\nthe goal here is to build a research in abox.  we'll use the FEMC data as an example, but we want to build this generically.  once we have the correct format, we can work on a process to migrate FEMC data\n\n[...]\n\nyes, let's do that.  we can delete that plan 2 and restart fresh\n\n(Brief: Plan 2 in docs/planning-handoff.md, revised 2026-11-12 to be generic first. Read the handoff, including the Decision log, before continuing.)"
@@ -700,8 +696,8 @@
   "follow_ups": [
     {
       "id": "PARK1",
-      "name": "Protect main on GitHub",
-      "text": "main has no branch protection, so auto-merge merged PR #1 at once instead of waiting for CI. Require the python and typescript checks on main so auto-merge waits.",
+      "name": "Protect main, allow auto-merge",
+      "text": "main has no branch protection and auto-merge is off for the repo: PR #1 merged before CI ran, and PR #2 had to be merged by hand after CI. Require the python and typescript checks on main and turn on auto-merge in the repo settings.",
       "kind": "improvement"
     }
   ],
@@ -931,17 +927,8 @@
           ],
           "state": "keep",
           "build": "done",
-          "result": "1064ecf · merged in PR #1 as c7ba8fc · CI on main pending",
-          "build_at": "2026-11-13T09:02:29.119669-06:00",
-          "waits": [
-            {
-              "link": "https://github.com/schuettc/research-in-a-box/actions/runs/43449582602",
-              "text": "research-in-a-box CI run 43449582602 on main c7ba8fc",
-              "who": "agent",
-              "check_by": "2026-11-13T09:16:00-06:00",
-              "since": "2026-11-13T09:08:54.715078-06:00"
-            }
-          ]
+          "result": "1064ecf · merged in PR #1 as c7ba8fc · CI run 43449582602 on main success (python, typescript)",
+          "build_at": "2026-11-13T09:02:29.119669-06:00"
         }
       ],
       "approved": {
@@ -956,7 +943,83 @@
       "covers": "EML, DataCite, schema.org and README exports, EML import, and FEMC's six datasets written in the format on paper",
       "waits_on": [
         "PLAN1"
-      ]
+      ],
+      "hash": "79c66f8263b96913a9fceaaacec3bb350f7e630b8d8c1263a9777079a2de19e3",
+      "tasks": [
+        {
+          "id": "TASK7",
+          "heading": "Task 1: README export",
+          "does": "render_readme from the manifest, with each resource and the column dictionary; the sample's README becomes generated and its gap list moves to _build/GAPS.md",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN3",
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK8",
+          "heading": "Task 2: DataCite export",
+          "does": "to_datacite produces DataCite 4.x JSON, validated against DataCite's vendored JSON Schema; undetermined rights are refused",
+          "pulls_in": "jsonschema (dev), a vendored DataCite schema",
+          "serves": [
+            "DCSN1",
+            "DCSN4",
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK9",
+          "heading": "Task 3: schema.org export",
+          "does": "to_schemaorg produces Dataset JSON-LD with Google's required fields, ongoing coverage as an open interval, and distributions",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK10",
+          "heading": "Task 4: EML 2.2.0 export",
+          "does": "to_eml writes dataTables with enumerated domains from code lists and otherEntity for other files, validated against the vendored EML 2.2.0 XSD",
+          "pulls_in": "lxml (dev), vendored EML XSDs",
+          "serves": [
+            "DCSN3",
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK11",
+          "heading": "Task 5: EML import",
+          "does": "from_eml reads standard EML 2.1.1 and 2.2.0 into a manifest and code-list rows, lists what it skipped, and round-trips the sample",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN1",
+            "DCSN3"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK12",
+          "heading": "Task 6: The FEMC paper test",
+          "does": "Writes each of FEMC's six datasets down in the format, with what from_eml reads and skips, and lists what the format can't express",
+          "pulls_in": "Nothing new; no FEMC data committed",
+          "serves": [
+            "DCSN1",
+            "DCSN3",
+            "DCSN5",
+            "DCSN6"
+          ],
+          "state": "keep"
+        }
+      ],
+      "approved": {
+        "hash": "79c66f8263b96913a9fceaaacec3bb350f7e630b8d8c1263a9777079a2de19e3",
+        "at": "2026-11-13T10:46:53.67042-06:00",
+        "body": "# PLAN2: Exports, EML import and the FEMC paper test\n\n## Spec\n\n`docs/specs/2026-11-12-generic-package-format-and-contract/spec.md`, approved 2026-11-13. PLAN1 (merged in research-in-a-box#1) built the models this plan reads: `Manifest`, `Resource`, `Field`, `TableSchema`, `Project`, `RightsStatus`, `License` in `archive_contract`.\n\n## The change\n\nAdd the four exports the spec names (EML 2.2.0, DataCite, schema.org JSON-LD, README) and EML import (2.1.1 and 2.2.0), all generated from the manifest and never edited by hand. Prove them on the sample package: EML export validates against the EML 2.2.0 schema and imports back to the same manifest fields; DataCite validates against DataCite's JSON Schema; schema.org carries every field Google requires. Then write each of FEMC's six practice datasets down in the format on paper, listing anything the format can't express.\n\nRisk: low. New code and one document in a repo with no users; undone by reverting the PR. The paper test describes FEMC's public metadata and commits no FEMC data files.\n\n## Left out\n\n- Tolerating FEMC's non-standard EML (the misspelled `distibution` tag and others): Plan 5.\n- Converting FEMC's data into packages: Plan 5.\n- A DataCite XML export: the JSON form is what DataCite's REST API takes, and Plan 7 mints DOIs through it.\n- Exporting a whole project on its own: a project appears inside each package's exports.\n\n## Where\n\nRepo `schuettc/research-in-a-box`. Worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-in-a-box/plan2-exports-import`, branch `plan2-exports-import` from `origin/main`, finishing with a PR merged once CI passes.\n\n### Task 1: README export\n\n**Does:** Adds `exports/readme.py` with `render_readme(manifest, project=None) -\u003e str`: title, description, citation line, creators, rights, project title, access level, coverage, and one section per resource with its kind and, for tables, the column dictionary (name, title, type, description, code list). Switches the sample build to write the generated README, and moves the sample's list of seeded gaps to `examples/sample-package/_build/GAPS.md`.\n**Files:** `packages/contract/src/archive_contract/exports/__init__.py`, `exports/readme.py`, `packages/contract/tests/test_export_readme.py`, `examples/sample-package/_build/make.py`, `examples/sample-package/_build/GAPS.md`, `examples/sample-package/README.md`, `examples/sample-package/checksums.sha256`\n**Checks:** `uv run pytest packages/contract`; `uv run python examples/sample-package/_build/make.py \u0026\u0026 git diff --exit-code examples/sample-package`; `just check`\n**Serves:** DCSN3, DCSN5 (rests on call AGNT11)\n\nTests: the sample's README names every resource and every column; a field marked `archive:codeList: \"undocumented\"` is shown as undocumented; a missing standard property prints nothing, not \"None\".\n\n### Task 2: DataCite export\n\n**Does:** Adds `exports/datacite.py` with `to_datacite(manifest, project=None, publisher=..., year=..., identifier=None) -\u003e dict` producing DataCite 4.x JSON: creators, titles, publisher, publicationYear, types (resourceTypeGeneral Dataset), descriptions (Abstract, plus Methods when present), subjects from keywords, dates (Collected from temporal coverage), geoLocations from the bounding box, rightsList from licenses or the rights statement, relatedIdentifiers (including IsPartOf the project), fundingReferences and version. Validates against DataCite's JSON Schema, vendored as a test fixture with its source URL and licence noted.\n**Files:** `packages/contract/src/archive_contract/exports/datacite.py`, `packages/contract/tests/test_export_datacite.py`, `packages/contract/tests/fixtures/schemas/datacite/`, root `pyproject.toml` dev dependency jsonschema, `uv.lock`\n**Checks:** `uv run pytest packages/contract`; `just check`\n**Serves:** DCSN1, DCSN4, DCSN5 (rests on call AGNT11)\n\nTests: the sample's record validates; an `undetermined` rights status is refused with a clear error (it can't be published); `third-party` writes its statement into rightsList.\n\n### Task 3: schema.org export\n\n**Does:** Adds `exports/schemaorg.py` with `to_schemaorg(manifest, project=None, url=None) -\u003e dict`, a schema.org `Dataset` JSON-LD: name, description, creator, license, keywords, temporalCoverage (an open interval `start/..` when ongoing), spatialCoverage as a GeoShape box, distribution (one DataDownload per non-linked resource with encodingFormat), isPartOf the project, version and identifier.\n**Files:** `packages/contract/src/archive_contract/exports/schemaorg.py`, `packages/contract/tests/test_export_schemaorg.py`\n**Checks:** `uv run pytest packages/contract`; `just check`\n**Serves:** DCSN5 (rests on call AGNT11)\n\nTests: Google's required name and 50-to-5000-character description are present; ongoing coverage gives `2024-06-01/..`; a linked resource appears with its remote URL as contentUrl.\n\n### Task 4: EML 2.2.0 export\n\n**Does:** Adds `exports/eml.py` with `to_eml(manifest, project=None) -\u003e str`: dataset title, creators, abstract, keywords, intellectual rights, coverage (temporal and geographic), methods, project, one `dataTable` per table resource with its attributes (code lists as `enumeratedDomain`, read from the code-list table; `archive:codeList: \"undocumented\"` as a text domain with a note), and `otherEntity` for every other local resource. Validates against the EML 2.2.0 XSD with lxml; the XSDs are vendored as a test fixture with their source and licence noted.\n**Files:** `packages/contract/src/archive_contract/exports/eml.py`, `packages/contract/tests/test_export_eml.py`, `packages/contract/tests/fixtures/schemas/eml-2.2.0/`, root `pyproject.toml` dev dependency lxml, `uv.lock`\n**Checks:** `uv run pytest packages/contract`; `just check`\n**Serves:** DCSN3, DCSN5 (rests on call AGNT7)\n\nThe export uses only the standard library's XML writer at run time; lxml is test-only, to validate.\n\n### Task 5: EML import\n\n**Does:** Adds `imports/eml.py` with `from_eml(xml: str) -\u003e Manifest` reading standard EML 2.1.1 and 2.2.0: title, creators, abstract, keywords, rights (a recognised licence URL or name becomes a license, other text becomes a `third-party` or `all-rights-reserved` status with the text as its statement), coverage, methods, project, and each `dataTable`'s attributes as fields (an `enumeratedDomain` becomes a code list, returned alongside the manifest as table rows to write under `data/codes/`). The original package id goes into `archive:legacyIdentifiers` with scheme `eml-package-id`. Round trip: `from_eml(to_eml(sample))` gives the same title, creators, description, keywords, rights, coverage, fields and code lists as the sample.\n**Files:** `packages/contract/src/archive_contract/imports/__init__.py`, `imports/eml.py`, `packages/contract/tests/test_import_eml.py`, `packages/contract/tests/fixtures/eml/` (one small invented 2.1.1 record and one 2.2.0 record)\n**Checks:** `uv run pytest packages/contract`; `just check`\n**Serves:** DCSN1, DCSN3 (rests on calls AGNT7, AGNT8)\n\nStandard EML only: a record with a non-standard tag imports what is standard and returns a list of what it skipped, rather than failing.\n\n### Task 6: The FEMC paper test\n\n**Does:** Writes `docs/specs/2026-11-12-generic-package-format-and-contract/documents/femc-paper-test.md`: for each of the six practice datasets in `practice-data/femc/`, which resources it becomes and of which kind, how its rights are stated, its code lists, its legacy identifiers, its project, and what `from_eml` reads from its EML record and what it skips. Ends with a list of anything the format cannot express, each with the dataset that showed it. Runs `from_eml` on each record locally to fill in what is read and skipped; nothing from `practice-data/` is committed.\n**Files:** `docs/specs/2026-11-12-generic-package-format-and-contract/documents/femc-paper-test.md`\n**Checks:** `git status --porcelain --ignored practice-data` shows only `!! practice-data/`; `just check`\n**Serves:** DCSN1, DCSN3, DCSN5, DCSN6 (rests on calls AGNT1, AGNT3, AGNT8)\n\nAnything the paper test finds the format can't express is brought to the user as a decision before changing the contract.\n"
+      }
     }
   ],
   "messages": [
@@ -1206,6 +1269,15 @@
       "at": "2026-11-13T08:46:29.858131-06:00",
       "state": "answered",
       "claim": "813669732102e21f"
+    },
+    {
+      "id": 25,
+      "card": "PLAN2",
+      "from": "user",
+      "action": "approve-plan",
+      "at": "2026-11-13T10:46:53.67042-06:00",
+      "state": "answered",
+      "claim": "76b40e0a29e3945c"
     }
   ]
 }

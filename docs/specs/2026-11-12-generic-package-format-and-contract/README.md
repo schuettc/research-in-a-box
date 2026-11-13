@@ -4,13 +4,13 @@
 
 `research-archive-in-a-box/generic-package-format-and-contract` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 to write** → **Build · 6 of 6** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 6 of 12** → Sign off
 
-PLAN1 built · PLAN2 can be written now
+PLAN1 built · PLAN2 building · 0 of 6 done
 
 ## Pick up next
 
-- **PARK1 Protect main on GitHub:** main has no branch protection, so auto-merge merged PR #1 at once instead of waiting for CI. Require the python and typescript checks on main so auto-merge waits.
+- **PARK1 Protect main, allow auto-merge:** main has no branch protection and auto-merge is off for the repo: PR #1 merged before CI ran, and PR #2 had to be merged by hand after CI. Require the python and typescript checks on main and turn on auto-merge in the repo settings.
 
 ## What was asked
 
@@ -74,8 +74,14 @@ PLAN1 built · PLAN2 can be written now
   - TASK3 Task 3: Change, Finding, Profile and ArchiveConfig: done. 6d94716 · contract tests exit 0 · just check exit 0 · uv lock --check exit 0
   - TASK4 Task 4: Structural validation: done. 37b3cf9 + 03cf2b6 (symlinks refused, checksums all but _build, hash allowlist) · 158 tests pass
   - TASK5 Task 5: The real JSON Schema: done. 0a38fa1 · just schema exit 0 · just check (with drift check) exit 0
-  - TASK6 Task 6: The sample package: done. 1064ecf · merged in PR #1 as c7ba8fc · CI on main pending
-- PLAN2 Exports import and paper test: can be written now
+  - TASK6 Task 6: The sample package: done. 1064ecf · merged in PR #1 as c7ba8fc · CI run 43449582602 on main success (python, typescript)
+- [PLAN2](plans/2-exports-import-and-paper-test.md) Exports, EML import and the FEMC paper test: building · 0 of 6 done
+  - TASK7 Task 1: README export: not started
+  - TASK8 Task 2: DataCite export: not started
+  - TASK9 Task 3: schema.org export: not started
+  - TASK10 Task 4: EML 2.2.0 export: not started
+  - TASK11 Task 5: EML import: not started
+  - TASK12 Task 6: The FEMC paper test: not started
 
 ## Files
 
