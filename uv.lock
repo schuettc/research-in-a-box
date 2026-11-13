@@ -38,12 +38,14 @@ version = "0.1.0"
 source = { editable = "packages/backend" }
 dependencies = [
     { name = "archive-contract" },
+    { name = "aws-durable-execution-sdk-python" },
     { name = "boto3" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "archive-contract", editable = "packages/contract" },
+    { name = "aws-durable-execution-sdk-python", specifier = "==3.0.2" },
     { name = "boto3" },
 ]
 
@@ -133,6 +135,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c03148528be8cac2408564a6c9a0cc7e9171802bc1d26985/attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32", size = 952055, upload-time = "2026-03-19T14:22:25.026Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309", size = 67548, upload-time = "2026-03-19T14:22:23.645Z" },
+]
+
+[[package]]
+name = "aws-durable-execution-sdk-python"
+version = "3.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "boto3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/b1/0ac80c258272139fe218d476bd580efd513708c1e17ed8ca902ed8e1d05a/aws_durable_execution_sdk_python-3.0.2.tar.gz", hash = "sha256:ffeab0c7668ea606f75cc63c37bd5feb24f6f6d376661c293e8739d228a565a0", size = 423056, upload-time = "2026-11-09T23:34:29.88Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a7/d1/9de01fd3409b68866e40f996a6602fa7017779920fda7229b62492703867/aws_durable_execution_sdk_python-3.0.2-py3-none-any.whl", hash = "sha256:7fa9a5d2ca21c63bbaeaa5cff349c16f7404c951f76770d884b1468e72f683f9", size = 160964, upload-time = "2026-11-09T23:34:28.252Z" },
 ]
 
 [[package]]
