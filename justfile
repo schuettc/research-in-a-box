@@ -20,6 +20,31 @@ check-ts: lambda-assets
     npm test --workspaces
     npm run build -w packages/web
 
+# Start a reindex of the stage's catalog, with the caller's AWS_PROFILE and region
+reindex stage:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fn="$(aws cloudformation describe-stacks --stack-name "ResearchArchive-{{stage}}" \
+        --query "Stacks[0].Outputs[?OutputKey=='ReindexFunction'].OutputValue" --output text)"
+    aws lambda invoke --invocation-type Event --function-name "$fn" --payload '{}' \
+        --cli-binary-format raw-in-base64-out /dev/null >/dev/null
+    echo "reindex started on {{stage}}; follow it with just reindex-status {{stage}}"
+
+# Show the status and result of the stage's latest reindex
+reindex-status stage:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fn="$(aws cloudformation describe-stacks --stack-name "ResearchArchive-{{stage}}" \
+        --query "Stacks[0].Outputs[?OutputKey=='ReindexFunction'].OutputValue" --output text)"
+    arn="$(aws lambda list-durable-executions-by-function --function-name "$fn" --max-items 1 \
+        --query "DurableExecutions[0].DurableExecutionArn" --output text)"
+    if [ -z "$arn" ] || [ "$arn" = "None" ]; then
+        echo "no reindex has run on {{stage}}"
+        exit 1
+    fi
+    aws lambda get-durable-execution --durable-execution-arn "$arn" \
+        --query "{status: Status, result: Result}" --output json
+
 # Install archive-backend and its locked dependencies as arm64 Lambda wheels, without Docker
 lambda-assets:
     #!/usr/bin/env bash
