@@ -87,11 +87,11 @@ def test_sample_records_one_accepted_rename() -> None:
     assert renamed.source_name == change.before
 
 
-def test_sample_seeds_the_gaps_its_readme_lists() -> None:
+def test_sample_seeds_the_gaps_its_gap_list_names() -> None:
     logger = manifest().resource("logger")
     assert logger is not None and logger.table_schema is not None
     fields = logger.table_schema.fields
-    readme = (SAMPLE / "README.md").read_text(encoding="utf-8")
+    gaps = (SAMPLE / "_build" / "GAPS.md").read_text(encoding="utf-8")
 
     no_description = [f.name for f in fields if not f.description]
     repeats_name = [f.name for f in fields if f.description == f.name]
@@ -104,4 +104,4 @@ def test_sample_seeds_the_gaps_its_readme_lists() -> None:
     assert len(rows) - 1 >= 50
     for gap in [no_description, repeats_name, undocumented, constant]:
         assert len(gap) == 1
-        assert f"`{gap[0]}`" in readme
+        assert f"`{gap[0]}`" in gaps

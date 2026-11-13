@@ -1,40 +1,101 @@
 # Stream temperature at three invented sites
 
-A small sample package for the research archive. Every site, reading and person in it is
-invented. It is licensed [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/).
+Hourly water temperature from loggers at three invented stream sites, with each logger's condition, the site locations, a depth grid and the methods. A sample package for the research archive; every site and reading is invented.
 
-This README is written by hand for now; the generated README replaces it later.
+This README is generated from `datapackage.json`. Edit the manifest, not this file.
 
-## What is in it
+## Citation
 
-| Resource          | Kind     | Files                                                          |
-| ----------------- | -------- | -------------------------------------------------------------- |
-| `logger`          | table    | `data/logger.csv`: 60 hourly readings at three sites           |
-| `condition-codes` | table    | `data/codes/condition-codes.csv`: the condition column codes   |
-| `sites`           | vector   | `data/sites/sites.shp` with its `.shx`, `.dbf` and `.prj`      |
-| `depth`           | raster   | `data/depth.asc` with `data/depth.prj`                         |
-| `logger-xlsx`     | table    | `data/logger.xlsx`, an alternate of `logger`                   |
-| `logger-original` | file     | `original/logger-raw.csv`, the untouched export                |
-| `methods`         | document | `docs/methods.md`                                              |
-| `site-photo`      | media    | `docs/site-photo.png`                                          |
-| `discharge`       | linked   | held at `https://example.org/stream-temperature/discharge.csv` |
+Ada Invented. Stream temperature at three invented sites. Version 1. `stream-temperature-sample`.
 
-The temporal coverage is ongoing. `changes.jsonl` records one accepted rename: the source
-column `WTemp` became `water_temp_c`.
+## Creators
 
-## Seeded gaps
+- Ada Invented
 
-These are left in on purpose, so the audit has findings to report:
+## Rights
 
-- `battery_v` has no description.
-- `depth_cm` has a description that only repeats its name.
-- `qc_flag` holds codes with no code list, marked `archive:codeList: "undocumented"`.
-- `logger_model` has the same value in every row.
+- Licensed CC-BY-4.0 (Creative Commons Attribution 4.0 International): <https://creativecommons.org/licenses/by/4.0/>
 
-## Rebuilding
+## About
 
-Everything except this README is written by `_build/make.py`, which is deterministic:
+- **Access:** open
+- **Keywords:** stream temperature, water quality, loggers
+- **Temporal coverage:** 2024-06-01 to ongoing
+- **Spatial coverage:** west -72.74, south 44.23, east -72.66, north 44.32. Three invented sites along two streams.
 
-```sh
-uv run python examples/sample-package/_build/make.py
-```
+## Resources
+
+### `logger`: Logger readings
+
+Kind: table. File: `data/logger.csv`.
+
+Hourly water temperature at three sites on 1 June 2024.
+
+| Column         | Title                 | Type     | Description                                                | Codes             |
+| -------------- | --------------------- | -------- | ---------------------------------------------------------- | ----------------- |
+| `timestamp`    | Reading time          | datetime | Local standard time of the reading, on the hour.           |                   |
+| `site`         | Site                  | string   | Site code; the sites resource holds each site's location.  |                   |
+| `water_temp_c` | Water temperature (C) | number   | Water temperature in degrees Celsius.                      |                   |
+| `condition`    | Logger condition      | string   | The logger's condition at the reading, from the code list. | `condition-codes` |
+| `qc_flag`      | QC flag               | string   | Quality flag set by the logger's software.                 | undocumented      |
+| `logger_model` | Logger model          | string   | Model of the temperature logger.                           |                   |
+| `battery_v`    |                       | number   |                                                            |                   |
+| `depth_cm`     |                       | integer  | depth_cm                                                   |                   |
+
+### `condition-codes`: Logger condition codes
+
+Kind: table. File: `data/codes/condition-codes.csv`.
+
+The codes used in the logger table's condition column.
+
+| Column        | Title | Type   | Description          | Codes |
+| ------------- | ----- | ------ | -------------------- | ----- |
+| `code`        |       | string | The code.            |       |
+| `label`       |       | string | A short label.       |       |
+| `description` |       | string | What the code means. |       |
+
+### `sites`: Sites
+
+Kind: vector. File: `data/sites/sites.shp`.
+
+The three logger sites as points, in WGS 84.
+
+With `data/sites/sites.shx`, `data/sites/sites.dbf`, `data/sites/sites.prj`.
+
+### `depth`: Stream depth
+
+Kind: raster. File: `data/depth.asc`.
+
+Stream depth in centimetres on a coarse grid, as an ESRI ASCII grid.
+
+With `data/depth.prj`.
+
+### `logger-xlsx`: Logger readings (Excel)
+
+Kind: table. File: `data/logger.xlsx`. The same data as `logger`, in another format.
+
+The logger table as an Excel workbook.
+
+### `logger-original`: Logger export, untouched
+
+Kind: file. File: `original/logger-raw.csv`.
+
+The logger software's export before cleaning.
+
+### `methods`: Methods
+
+Kind: document. File: `docs/methods.md`.
+
+How the loggers were placed, read and checked.
+
+### `site-photo`: Site photo
+
+Kind: media. File: `docs/site-photo.png`.
+
+A stand-in picture of site S1.
+
+### `discharge`: Discharge
+
+Kind: linked. Held at <https://example.org/stream-temperature/discharge.csv>.
+
+Stream discharge at the same sites, held by a partner program.
