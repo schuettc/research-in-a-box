@@ -253,10 +253,11 @@ def test_catalog_items_for_the_sample_package() -> None:
 
 def test_dataset_item_takes_the_highest_version_and_its_prefix() -> None:
     item = dataset_item(
+        "ds",
         [
             ("restricted", 2, _manifest("ds", title="Second", **{"archive:access": "restricted"})),
             ("open", 1, _manifest("ds", title="First")),
-        ]
+        ],
     )
 
     assert item == {
@@ -271,14 +272,36 @@ def test_dataset_item_takes_the_highest_version_and_its_prefix() -> None:
 
 
 def test_dataset_item_has_gsi1_only_with_a_project() -> None:
-    plain = dataset_item([("open", 1, _manifest("ds", **{"archive:project": None}))])
-    with_project = dataset_item([("open", 1, _manifest("ds", **{"archive:project": "lakes"}))])
+    plain = dataset_item("ds", [("open", 1, _manifest("ds", **{"archive:project": None}))])
+    with_project = dataset_item(
+        "ds", [("open", 1, _manifest("ds", **{"archive:project": "lakes"}))]
+    )
 
     assert not {"project", "GSI1PK", "GSI1SK"} & set(plain)
     assert plain["access"] == {"S": "open"}
     assert with_project["project"] == {"S": "lakes"}
     assert with_project["GSI1PK"] == {"S": "PROJECT#lakes"}
     assert with_project["GSI1SK"] == {"S": "DATASET#ds"}
+
+
+def test_dataset_item_keys_on_the_folder_id_not_the_manifest_id() -> None:
+    # A package copied to a new folder can keep its old manifest id; its dataset item must
+    # still sit beside its version and file items, which key on the folder.
+    item = dataset_item(
+        "second-sample",
+        [("open", 1, _manifest("stream-temperature-sample", **{"archive:project": "lakes"}))],
+    )
+
+    assert item["PK"] == {"S": "DATASET#second-sample"}
+    assert item["id"] == {"S": "second-sample"}
+    assert item["GSI1SK"] == {"S": "DATASET#second-sample"}
+
+
+def test_dataset_item_works_without_a_manifest_id() -> None:
+    manifest = _manifest("ds")
+    del manifest["id"]
+
+    assert dataset_item("ds", [("open", 1, manifest)])["id"] == {"S": "ds"}
 
 
 def test_to_lines_is_one_item_per_line() -> None:

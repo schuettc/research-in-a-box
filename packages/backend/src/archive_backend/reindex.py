@@ -143,10 +143,15 @@ def catalog_items(
     return items
 
 
-def dataset_item(versions: list[tuple[str, int, dict[str, Any]]]) -> dict[str, Any]:
-    """The dataset item, from the highest of one dataset's `(prefix, version, manifest)`."""
+def dataset_item(
+    dataset_id: str, versions: list[tuple[str, int, dict[str, Any]]]
+) -> dict[str, Any]:
+    """The dataset item, from the highest of one dataset's `(prefix, version, manifest)`.
+
+    It keys on the folder's dataset id, as the version and file items do, never on the
+    manifest's `id`, so all of a dataset's items share one partition.
+    """
     prefix, version, manifest = max(versions, key=lambda v: v[1])
-    dataset_id = manifest["id"]
     item: dict[str, Any] = {
         "PK": _s(f"DATASET#{dataset_id}"),
         "SK": _s("META"),
@@ -230,7 +235,7 @@ def _write(
         text = c.s3.get_object(Bucket=archive, Key=key)["Body"].read().decode("utf-8")
         items.extend(catalog_items(prefix, dataset_id, version, text))
         versions.setdefault(dataset_id, []).append((prefix, version, json.loads(text)))
-    items.extend(dataset_item(v) for v in versions.values())
+    items.extend(dataset_item(d, v) for d, v in versions.items())
     c.s3.put_object(
         Bucket=derived,
         Key=f"reindex/{run}/data/part-{n:05d}.json",
