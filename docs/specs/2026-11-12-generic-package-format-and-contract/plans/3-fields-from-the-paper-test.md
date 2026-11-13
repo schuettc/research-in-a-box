@@ -1,7 +1,7 @@
 ---
 diazo: research-archive-in-a-box/generic-package-format-and-contract
 file: PLAN3
-status: building
+status: done
 approved: 2026-11-13T11:41:31-06:00
 hash: 436ec49749e1e54a5515f5aafd1bd24a936596a52cb1fb73afbdc34c415a2b80
 rests_on: [DCSN7]

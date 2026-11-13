@@ -3,11 +3,7 @@
   "schema": 4,
   "title": "Package format and contract (Plan 2)",
   "expect": 7,
-  "working": {
-    "text": "Fixing three PLAN3 review findings, test first",
-    "since": "2026-11-13T11:54:30.707926-06:00"
-  },
-  "agent_at": "2026-11-13T17:54:30.707926Z",
+  "agent_at": "2026-11-13T18:05:45.132084Z",
   "start": {
     "opening": {
       "text": "i think we got started incorrectly here.\n\nthe goal here is to build a research in abox.  we'll use the FEMC data as an example, but we want to build this generically.  once we have the correct format, we can work on a process to migrate FEMC data\n\n[...]\n\nyes, let's do that.  we can delete that plan 2 and restart fresh\n\n(Brief: Plan 2 in docs/planning-handoff.md, revised 2026-11-12 to be generic first. Read the handoff, including the Decision log, before continuing.)"
@@ -1194,9 +1190,9 @@
             "DCSN7"
           ],
           "state": "keep",
-          "build": "building",
-          "result": "d169882 + 6556d17 · review: shapefile reader escapes the folder, code lists override explicit scales, related-column encoding misreads prose; fixing",
-          "build_at": "2026-11-13T11:54:30.707926-06:00"
+          "build": "done",
+          "result": "d169882 + review fixes 73c5be0, 323ddfc, 04b042e · 255 tests · PR #4 CI green (runs 43478057995, 43478066110) · merged as ea2636d",
+          "build_at": "2026-11-13T12:03:10.357107-06:00"
         }
       ],
       "approved": {
@@ -1207,8 +1203,28 @@
       "edited": "2026-11-13T11:58:11.110505-06:00"
     }
   ],
+  "wrap_up": {
+    "file": "wrap-up.md",
+    "hash": "78715205d00700610fdbe6d668fc765a566b7935831811228401247265c12292",
+    "printed_at": "2026-11-13T12:05:45.132084-06:00",
+    "due_at": "2026-11-13T12:05:05.509571-06:00",
+    "plans_at_print": [
+      "PLAN1",
+      "PLAN2",
+      "PLAN3"
+    ]
+  },
   "signoff": {
-    "due_at": "2026-11-13T11:52:30.762405-06:00"
+    "due_at": "2026-11-13T12:03:10.357107-06:00",
+    "built": "The package format and the archive_contract package, on main in schuettc/research-in-a-box: the models, structural validation and generated JSON Schema with the sample package (PLAN1, #1); README, DataCite, schema.org and EML exports, EML import and the FEMC paper test (PLAN2, #3); the eight fields the paper test found missing (PLAN3, #4). CI green on each.",
+    "try": [
+      "Read the sample package's generated README: examples/sample-package/README.md on GitHub. It shows the citation, purpose, units, scales, the code list and the shapefile's columns.",
+      "Read the paper test: docs/specs/2026-11-12-generic-package-format-and-contract/documents/femc-paper-test.md, with each of the eight gaps marked closed.",
+      "In a fresh clone (or after git fetch and git reset --hard origin/main in your clone), run just check: it exits 0 with 255 Python tests.",
+      "Export the sample to EML: uv run python -c \"from pathlib import Path; from archive_contract.manifest import Manifest; from archive_contract.exports.eml import to_eml; p=Path('examples/sample-package'); print(to_eml(Manifest.model_validate_json((p/'datapackage.json').read_text()), root=p)[:2000])\""
+    ],
+    "posted_at": "2026-11-13T12:03:16.359706-06:00",
+    "signed_at": "2026-11-13T12:05:05.509571-06:00"
   },
   "messages": [
     {
@@ -1527,6 +1543,15 @@
       "at": "2026-11-13T11:41:31.686286-06:00",
       "state": "answered",
       "claim": "0fcfbb209eac0eb8"
+    },
+    {
+      "id": 32,
+      "card": "SIGNOFF",
+      "from": "user",
+      "action": "sign-off",
+      "at": "2026-11-13T12:05:05.509571-06:00",
+      "state": "answered",
+      "claim": "7f14bf7c2072c314"
     }
   ]
 }
