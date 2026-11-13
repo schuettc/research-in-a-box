@@ -1,9 +1,9 @@
 ---
 diazo: research-archive-in-a-box/generic-package-format-and-contract
 file: PLAN3
-status: approved
+status: building
 approved: 2026-11-13T11:41:31-06:00
-hash: bc06ad27d33826e603cbce7ed94bb41ab5ab0a9d1f13c32d0baf547af63f164f
+hash: 436ec49749e1e54a5515f5aafd1bd24a936596a52cb1fb73afbdc34c415a2b80
 rests_on: [DCSN7]
 record: README.md
 ---
@@ -50,7 +50,7 @@ Reading the `.dbf` keeps to the package folder and refuses symlinks, as the rest
 
 ### Task 3: Exports, import and the sample package
 
-**Does:** Carries the new fields through: README (citation, purpose, units, scale, related columns, the vector resource's attribute columns, project keywords); EML 2.2.0 (unit in place of `unknown`, measurementScale from the field when set, purpose, project keywords, attribute definition noting the related column, spatialVector attributeList, open-ended coverage for `end: "unknown"`); schema.org (`creditText`, open interval for unknown end); DataCite (purpose as a description of type Other). `from_eml` reads back units, scales, purpose, project keywords and the spatialVector attribute list, and drops their entries from `skipped`. Adds every new field to the sample package (a unit and scale on each logger column, a citation, a purpose, an uncertainty column for temperature, attribute columns on the sites shapefile) and extends the round-trip test to compare them.
+**Does:** Carries the new fields through: README (citation, purpose, units, scale, related columns, the vector resource's attribute columns, project keywords); EML 2.2.0 (unit in place of `unknown`, measurementScale from the field when set, purpose, project keywords, an attribute annotation for the related column, spatialVector attributeList, open-ended coverage for `end: "unknown"`); schema.org (`creditText`, open interval for unknown end); DataCite (purpose as a description of type Other). `from_eml` reads back units, scales, purpose, project keywords and the spatialVector attribute list, and drops their entries from `skipped`. Adds every new field to the sample package (a unit and scale on each logger column, a citation, a purpose, an uncertainty column for temperature, attribute columns on the sites shapefile) and extends the round-trip test to compare them.
 **Files:** `packages/contract/src/archive_contract/exports/readme.py`, `exports/eml.py`, `exports/schemaorg.py`, `exports/datacite.py`, `imports/eml.py`, matching tests, `examples/sample-package/_build/make.py`, `examples/sample-package/` (regenerated)
 **Checks:** `uv run pytest packages/contract`; `uv run python examples/sample-package/_build/make.py && git diff --exit-code examples/sample-package` (after commit); `just check`
 **Serves:** DCSN7

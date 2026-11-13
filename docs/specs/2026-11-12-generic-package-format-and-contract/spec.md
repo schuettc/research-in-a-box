@@ -3,7 +3,7 @@ diazo: research-archive-in-a-box/generic-package-format-and-contract
 file: spec
 status: approved
 approved: 2026-11-13T00:16:25-06:00
-hash: ba5b481fc01fb3105ca6a42cb0ce62dca3f3ea0b68b4e626d6e4a8c20b476011
+hash: ae37f7aaefa571fa594832c66fe67e61bf5c01ea3a2c3f4a98e22de6eadd7f47
 rests_on: [AGNT1, AGNT11, AGNT8, DCSN1, AGNT2, AGNT3, DCSN6, DCSN2, DCSN3, AGNT5, DCSN4, DCSN5, AGNT4, AGNT6, AGNT10, AGNT7, AGNT9, DCSN7]
 record: README.md
 ---
@@ -170,7 +170,7 @@ Writing FEMC's six datasets down in the format found eight things it couldn't ho
 - **Preferred citation:** `archive:citation` on the package, the citation the data's authors ask for. The README and schema.org (`creditText`) show it.
 - **Purpose:** `archive:purpose` on the package, why the data was collected. EML writes it as `purpose`, DataCite as a description of type Other.
 - **Project keywords:** `keywords` on the project record, written into EML's project.
-- **Related columns:** `archive:ancillaryOf: {field, role}` on a column that qualifies another, with role `uncertainty`, `detection-limit` or `quality-flag`. Shown in the README's column dictionary and EML's attribute definition.
+- **Related columns:** `archive:ancillaryOf: {field, role}` on a column that qualifies another, with role `uncertainty`, `detection-limit` or `quality-flag`. Shown in the README's column dictionary, and written to EML as an annotation on the attribute.
 - **A vector resource's attribute table:** `archive:attributes`, a Table Schema on a `vector` resource describing its attribute table. EML writes it as the spatialVector's attribute list, and the validator checks its columns against the `.dbf`.
 
 The EML import reads each of these back where EML has a place for it.

@@ -4,15 +4,18 @@
 
 `research-archive-in-a-box/generic-package-format-and-contract` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 12 of 15** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 14 of 15** → Sign off
 
-PLAN1 built · PLAN2 built · PLAN3 building · 0 of 3 done
+PLAN1 built · PLAN2 built · PLAN3 building · 2 of 3 done
+
+Running: Task 3: Exports, import and the sample package (PLAN3)
 
 ## Pick up next
 
 - **PARK1 Protect main, allow auto-merge:** main has no branch protection and auto-merge is off for the repo: PR #1 merged before CI ran, and PR #2 had to be merged by hand after CI. Require the python and typescript checks on main and turn on auto-merge in the repo settings.
 - **PARK2 EML code label delimiter:** The EML export writes a code's definition as 'label: description' and the import splits on ': ', so a label containing ': ' changes meaning on round trip. Pick an unambiguous encoding.
 - **PARK3 schema.org rights statuses:** The schema.org export reads only licenses and ignores archive:rightsStatus (public-domain, third-party, all-rights-reserved). Map statuses where schema.org has a form.
+- **PARK4 EML keyword descriptor losses:** The EML import reads descriptorValue from a project descriptor named keywords but doesn't list the descriptor's other contents (citation, classification) as skipped.
 
 ## What was asked
 
@@ -88,10 +91,10 @@ PLAN1 built · PLAN2 built · PLAN3 building · 0 of 3 done
   - TASK10 Task 4: EML 2.2.0 export: done. da9963e · validates against the EML 2.2.0 XSD (a broken document fails)
   - TASK11 Task 5: EML import: done. 7b692fd + a204e7a · reads EML 2.1.1 and 2.2.0, lists what it skips · sample round-trips
   - TASK12 Task 6: The FEMC paper test: done. c2c058d + 0906808 (review fixes) · 198 tests · PR #3 CI green (runs 43470879322, 43470887680) · merged as 90e1a0b
-- [PLAN3](plans/3-fields-from-the-paper-test.md) The eight fields from the paper test: building · 0 of 3 done
-  - TASK13 Task 1: The eight fields on the models: not started
-  - TASK14 Task 2: Validator check for attribute tables: not started
-  - TASK15 Task 3: Exports, import and the sample package: not started
+- [PLAN3](plans/3-fields-from-the-paper-test.md) The eight fields from the paper test: building · 2 of 3 done
+  - TASK13 Task 1: The eight fields on the models: done. c4a6c64 · eight optional fields with their rules, JSON Schema regenerated · just check exit 0
+  - TASK14 Task 2: Validator check for attribute tables: done. 5939b79 · .dbf header checked against archive:attributes (standard library) · just check exit 0
+  - TASK15 Task 3: Exports, import and the sample package: building. d169882 + 6556d17 · review: shapefile reader escapes the folder, code lists override explicit scales, related-column encoding misreads prose; fixing
 
 ## Files
 
