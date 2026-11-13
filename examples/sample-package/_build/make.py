@@ -14,6 +14,7 @@ import hashlib
 import io
 import json
 import math
+import os
 import re
 import shutil
 import struct
@@ -22,8 +23,12 @@ import zlib
 from pathlib import Path
 from typing import Any
 
-import openpyxl
-import shapefile
+# openpyxl serialises XML with lxml when lxml is installed and with the standard library
+# otherwise, and the bytes differ. lxml is a dev dependency, so pin the standard library.
+os.environ["OPENPYXL_LXML"] = "False"
+
+import openpyxl  # noqa: E402
+import shapefile  # noqa: E402
 
 from archive_contract.changes import Change, write_changes
 from archive_contract.exports.readme import render_readme
