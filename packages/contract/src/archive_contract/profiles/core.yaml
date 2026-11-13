@@ -1,0 +1,11 @@
+# The core profile: only the fields every package needs before it can be published.
+name: core
+description: The core fields every published package needs.
+required:
+  - title
+  - description
+  - creator
+  - rights
+  - resources
+vocabularies: []
+rules: []
