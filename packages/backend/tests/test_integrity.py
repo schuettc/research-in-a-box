@@ -129,3 +129,17 @@ def test_handler_alerts_only_when_there_are_problems(monkeypatch: pytest.MonkeyP
             "Message": "missing open/ds-1/1/data/a.csv\nmismatch restricted/ds-2/3/README.md",
         }
     ]
+
+
+def test_integrity_imports_without_the_type_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The Lambda asset is built --no-dev, so the mypy_boto3 stubs aren't there at run time.
+    import importlib
+    import sys
+
+    monkeypatch.setitem(sys.modules, "mypy_boto3_s3", None)
+    monkeypatch.setitem(sys.modules, "mypy_boto3_sns", None)
+    monkeypatch.delitem(sys.modules, "archive_backend.integrity", raising=False)
+
+    module = importlib.import_module("archive_backend.integrity")
+
+    assert callable(module.handler)

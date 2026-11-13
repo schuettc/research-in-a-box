@@ -5,16 +5,21 @@ Each published version sits at `<open|restricted>/<datasetId>/<version>/` with
 a full-object SHA-256 checksum, which S3 returns from a HEAD with checksum mode on.
 """
 
+from __future__ import annotations
+
 import base64
 import binascii
 import os
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import boto3
 from botocore.exceptions import ClientError
-from mypy_boto3_s3 import S3Client
-from mypy_boto3_sns import SNSClient
+
+if TYPE_CHECKING:
+    # Dev-only stubs: the Lambda asset is built without them.
+    from mypy_boto3_s3 import S3Client
+    from mypy_boto3_sns import SNSClient
 
 CHECKSUMS = "checksums.sha256"
 PREFIXES = ("open/", "restricted/")
