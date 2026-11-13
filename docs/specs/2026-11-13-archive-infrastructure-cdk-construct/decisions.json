@@ -1,0 +1,789 @@
+{
+  "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
+  "schema": 4,
+  "title": "Archive infrastructure (Plan 4)",
+  "expect": 4,
+  "agent_at": "2026-11-13T21:13:35.930967Z",
+  "start": {
+    "opening": {
+      "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 1, repo layout, folder d65ecf18be29, and the manifest shape from Plan 2, folder 8da653f233f9.)\n\nBrief: Plan 4 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the archive infrastructure as a TypeScript CDK construct (Plan 4). The service choices are decided and listed under \"Infrastructure\". Do not reopen them. Plan the resources, the DynamoDB design and the construct's interface, and take the open questions with me one at a time."
+    },
+    "findings": [
+      {
+        "text": "Plans 1 and 2 are built and on origin/main: the npm workspace, the empty ResearchArchive construct, the contract models and the generated JSON Schema.",
+        "source": "git log origin/main",
+        "output": "c6a969a Wrap up Plan 2 and record both planning folders' final state (#5)\nc7ba8fc Contract models, validation, schema and sample package (Plan 2, PLAN1) (#1)\n41e471b Add the npm workspace with the empty ResearchArchive construct and web app",
+        "cases": "2 of 2 plans this one waits on"
+      },
+      {
+        "text": "The construct is an empty stub taking only scope and id; the default app makes one stack, ResearchArchive, and tags it Repo.",
+        "source": "origin/main packages/infra/src/research-archive.ts, packages/infra/bin/app.ts",
+        "output": "export class ResearchArchive extends Construct {\n  constructor(scope: Construct, id: string) {\n    super(scope, id);\n  }\n}",
+        "cases": "1 construct"
+      },
+      {
+        "text": "The archive config (Python, YAML) holds only catalog settings today: publisher, profiles, required fields, vocabularies, themes, licenses and access levels. Nothing about stages, domains, sign-in providers or optional modules yet.",
+        "source": "origin/main packages/contract/src/archive_contract/config.py",
+        "output": "publisher: str\nprofiles: list[str]\nrequired: list[str]\nvocabularies: list[Vocabulary]\nthemes: list[str]\nlicenses: list[str]\naccess: list[AccessLevel]",
+        "cases": "1 model, 7 fields"
+      },
+      {
+        "text": "Access levels are four: open, restricted, by-request, description-only. Storage needs an open prefix and a restricted prefix; by-request and restricted both sit behind the API check.",
+        "source": "origin/main packages/contract/src/archive_contract/manifest.py:13",
+        "output": "AccessLevel = Literal[\"open\", \"restricted\", \"by-request\", \"description-only\"]",
+        "cases": "1 literal"
+      },
+      {
+        "text": "Package identity is one stable id plus an integer version string; projects are their own record that packages point to with archive:project. These are the keys the table design keys on.",
+        "source": "origin/main packages/contract/src/archive_contract/manifest.py, project.py; handoff decision log 2026-11-13",
+        "cases": "2 models"
+      },
+      {
+        "text": "CDK 2.276 has a high-level durableConfig on lambda.Function (executionTimeout up to 366 days, retentionPeriod 1 to 90 days).",
+        "source": "node_modules/aws-cdk-lib/aws-lambda/lib/durable-config.d.ts",
+        "output": "readonly durableConfig?: DurableConfig;  // function.d.ts:497",
+        "cases": "aws-cdk-lib 2.276.0"
+      },
+      {
+        "text": "CDK has no high-level vector index: it exists only as vectorIndexes on the low-level CfnTable and CfnGlobalTable, so the construct sets it through an escape hatch or uses CfnTable directly.",
+        "source": "grep -i vector node_modules/aws-cdk-lib/aws-dynamodb/lib/*.d.ts",
+        "output": "only dynamodb.generated.d.ts matches; table.d.ts and table-v2.d.ts have no vector property",
+        "cases": "aws-cdk-lib 2.276.0"
+      },
+      {
+        "text": "Bulk put items is an API operation that starts an asynchronous job (StartBulkOperation, then BulkPutItems on the table), not a CloudFormation resource. CDK cannot start it at deploy time; a Lambda or the CLI starts it, and CDK grants the permissions.",
+        "source": "https://aws.amazon.com/blogs/database/introducing-bulk-put-items-for-amazon-dynamodb-load-data-from-amazon-s3-into-existing-tables-at-scale/",
+        "output": "The identity starting the import needs the account-scoped dynamodb:StartBulkOperation action, the table-scoped dynamodb:BulkPutItems action, read access to the input bucket, write access to the report bucket",
+        "cases": "1 AWS post"
+      },
+      {
+        "text": "Each bulk put record can carry its own condition expression, so a reindex can be made re-runnable (insert-only or version-guarded writes). One operation per table at a time.",
+        "source": "https://aws.amazon.com/blogs/database/introducing-bulk-put-items-for-amazon-dynamodb-load-data-from-amazon-s3-into-existing-tables-at-scale/",
+        "cases": "1 AWS post"
+      },
+      {
+        "text": "Vector indexes need an on-demand table, allow at most one vector partition key (every search must name its value), filter inline by equality only, and SearchVectors has no pagination with a 16 MB response cap. Indexing is asynchronous after each write.",
+        "source": "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/VectorSearch.html and VectorSearch.Requirements.html",
+        "cases": "2 AWS doc pages"
+      },
+      {
+        "text": "No other plan has started: Plans 3, 6, 7 and 10a have no rounds and no decisions yet, so nothing they decided constrains the table design or the construct's interface.",
+        "source": "docs/specs/2026-11-13-*/decisions.json",
+        "cases": "9 of 9 sibling folders"
+      }
+    ],
+    "rounds": [
+      {
+        "take": "Plan 4's job is the archive's **foundations**: everything later plans plug their code into. The service choices are settled, so the real design work is three things: **how the construct is shaped**, **how the one config file drives it**, and **the DynamoDB design**.\n\n**What I think Plan 4 should build, end to end.** Running `cdk deploy` on the default app gives you a working, empty archive in your account:\n\n- **Storage:** three buckets (staging, archive, derived), with `open/` and `restricted/` prefixes in the archive, versioning on, write-once locking when the config asks for it, and a scheduled integrity check.\n- **Index:** the DynamoDB table or tables, on-demand, with the vector index when embeddings are on.\n- **Auth:** a Cognito user pool with email sign-in, plus ORCID and university sign-in when configured.\n- **API shell:** API Gateway with throttling, a Cognito authorizer and one health route. It uses the Python Lambda packaging that Plans 6 and 7 reuse.\n- **Web:** CloudFront over the web bucket and over the open data prefix.\n- **Operations:** a budget alarm, failure alerts, a dashboard and optional WAF.\n- **Reindex:** the Lambda that starts a bulk put job, with its permissions.\n\nPlan 6's endpoints and Plan 7's durable function don't live here. The construct exposes the table, buckets, user pool and API so those plans can attach their Lambdas without editing Plan 4's code.\n\n**Shape.** One public `ResearchArchive` construct, built from small internal parts. Optional modules are switched on by the config, not by subclassing or forking, so a fork only ever edits the config file.\n\n**What I found that changes the details:**\n\n- **Bulk put items is not a CloudFormation resource.** It's an API call that starts an asynchronous job, so CDK can't start it at deploy time. That nearly settles the handoff's open question between CDK, a Lambda and the CLI.\n- **The vector index exists only on CDK's low-level table resource**, so the construct needs a small escape hatch for it.\n- **The archive config is Python and YAML today**, with catalog settings only. The construct is TypeScript. How it reads the same file, and which infrastructure settings get added to it, is one of the decisions ahead.\n\n**What I expect to ask you, one at a time once you agree the direction:** single-table or several tables; how the config file reaches the construct; how optional modules switch on; who starts a reindex; and how dev and prod stages are named and split. Each will come with a recommendation.",
+        "visuals": [
+          {
+            "kind": "mermaid",
+            "caption": "The construct's parts, and what later plans attach to",
+            "mermaid": "flowchart LR\n  cfg[archive config file] --\u003e RA\n  subgraph RA[ResearchArchive construct]\n    S[Storage: staging, archive, derived buckets]\n    I[Index: DynamoDB plus optional vector index]\n    A[Auth: Cognito, optional ORCID and SSO]\n    API[API shell: gateway, authorizer, health route]\n    W[Web: CloudFront for app and open data]\n    O[Operations: throttling, budget, alerts, dashboard, optional WAF]\n    R[Reindex: Lambda that starts a bulk put job]\n  end\n  P6[Plan 6 endpoints] -.attach to.-\u003e API\n  P6 -.read.-\u003e I\n  P7[Plan 7 durable function] -.attach to.-\u003e S\n  P7 -.write.-\u003e I\n  P8[Plan 8 web bundle] -.deploys to.-\u003e W"
+          }
+        ],
+        "recommendation": "Plan 4 builds a deployable foundation: one ResearchArchive construct made of internal parts (storage, index, auth, API shell, web, operations, reindex), switched by the one archive config file, exposing its table, buckets, user pool and API for Plans 6 and 7 to attach to. Endpoints and the pipeline stay in their own plans."
+      }
+    ],
+    "direction": {
+      "round": 1,
+      "at": "2026-11-13T12:25:03.027443-06:00",
+      "by": "user"
+    }
+  },
+  "understanding": {
+    "points": [
+      {
+        "kind": "outcome",
+        "text": "Running cdk deploy on the default app stands up an empty, working archive in the adopter's own AWS account: storage, index, auth, an API shell, web hosting, operations defaults and the reindex path.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "One public ResearchArchive construct, built from internal parts and switched by the one archive config file, so a fork edits only that file.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "The construct exposes its tables, buckets, user pool and API so Plan 6's endpoints and Plan 7's durable function attach without editing Plan 4's code.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "The service choices under Infrastructure in the handoff are settled and not reopened.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "API endpoints (Plan 6), the ingest pipeline (Plan 7) and the deployment skill and CI (Plan 10a) are out of scope.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Complete packages in S3 are the source of truth; everything in DynamoDB that comes from packages is rebuildable by one reindex.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "CDK in TypeScript, Lambdas in Python; nothing published to npm or PyPI.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "The config crosses from Python to TypeScript, so that boundary is typed and checked by the build: drift between the contract and the construct fails CI.",
+        "source": "assumed"
+      },
+      {
+        "kind": "constraint",
+        "text": "One stage, prod, by default; an adopter adds a dev stage by adding it to the config.",
+        "source": "said"
+      },
+      {
+        "kind": "success",
+        "text": "The resource list, the table design and the construct's interface are written and agreed.",
+        "source": "said"
+      },
+      {
+        "kind": "success",
+        "text": "Tests synthesise the default app with the sample config and find every resource; with optional modules off, none of the optional resources appear; with a second stage in the config, a second stack appears.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "A test deploy reaches AWS: the health route answers behind throttling, an email user can sign in, and a file under the open prefix downloads through CloudFront at a stable URL.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "A reindex on the test deploy loads a DynamoDB JSON file from S3 into the catalog with bulk put items and reports the operation's outcome.",
+        "source": "assumed"
+      }
+    ],
+    "confirmed": true,
+    "revisions": [
+      {
+        "at": "0001-01-01T00:00:00Z",
+        "text": "One stage, prod, by default, with dev added in the config; the success checks run on a test deploy instead of a dev stage.",
+        "because": "DCSN4"
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "DCSN1",
+      "name": "Table layout",
+      "question": "How should the DynamoDB data be split across tables?",
+      "example": "A curator takes a dataset down. Next week an admin runs reindex after restoring a bucket. If the catalog shares a table with open submissions and the review audit trail, reindex can't simply clear and reload it: it would wipe submissions that exist nowhere in S3, and to stay safe it would have to leave the taken-down dataset's stale items behind.",
+      "options": [
+        {
+          "id": "A",
+          "title": "One table for everything",
+          "includes": "Datasets, versions, projects, submissions, review state, settings, user profiles and download counts in one table with generic PK/SK keys and overloaded indexes; the vector index on the same table.",
+          "pulls_in": "Reindex can't empty the table, so it writes version-guarded records and needs a separate sweep to delete stale catalog items. The vector index also covers non-catalog items unless every write leaves the vector attribute off."
+        },
+        {
+          "id": "B",
+          "title": "Two tables: catalog and operations",
+          "includes": "A Catalog table holding only what comes from packages (datasets, versions, projects, files, embeddings, with the vector index), and an Operations table holding what exists nowhere else (submissions, review state and audit trail, admin settings, user profiles, download counts). Each is single-table inside.",
+          "pulls_in": "Reindex replaces one table. The Operations table mixes five kinds of record behind overloaded keys, which is harder to read and change for a team that forks it."
+        },
+        {
+          "id": "C",
+          "title": "One table per kind of record",
+          "includes": "Separate tables for datasets, versions, projects, files, submissions, reviews, settings, user profiles and download counts.",
+          "pulls_in": "Reindex builds fresh datasets, versions, projects and files tables and has to switch the API to all four together; until every load finishes and the switch lands, the API can pair new datasets with old projects or files. A project page that lists its datasets is two reads, not one."
+        },
+        {
+          "id": "D",
+          "title": "One catalog table, one table per kind of operational record",
+          "includes": "A Catalog table for everything rebuilt from packages (datasets, versions, projects, files, with the vector index), switched as one unit on reindex. Separate plain tables for submissions, reviews and their audit trail, settings, user profiles and download counts, each with its own simple key.",
+          "pulls_in": "Six tables. The catalog keeps one overloaded single-table design; everything else is one table per thing."
+        }
+      ],
+      "recommendation": {
+        "option": "D",
+        "why": "The only real reason to keep records together is the reindex switch, and only catalog records are rebuilt. Keeping the catalog as one table makes the switch atomic; giving each operational record its own table makes those designs plain to read and change, which suits adopters who fork the repo.",
+        "evidence": [
+          {
+            "text": "Bulk put loads into an existing table and never removes stale items, so a clean rebuild means fresh tables and a switch.",
+            "source": "https://aws.amazon.com/blogs/database/introducing-bulk-put-items-for-amazon-dynamodb-load-data-from-amazon-s3-into-existing-tables-at-scale/",
+            "output": "loads data from Amazon S3 directly into your existing DynamoDB tables ... Canceling doesn't roll back items that were already written"
+          },
+          {
+            "text": "The handoff makes databases derived and rebuildable from S3 packages; submissions and reviews are not in packages.",
+            "source": "docs/planning-handoff.md, Data and format",
+            "output": "Source of truth: complete packages in S3. Databases, search indexes and web pages are derived and rebuildable by one reindex command."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "D",
+      "revisions": [
+        {
+          "at": "2026-11-13T12:37:14.172153-06:00",
+          "text": "Revised after your note: corrected C's costs (the grants and names don't matter, and separate tables can bulk-load in parallel), and added D, one catalog table plus one table per kind of operational record, now the recommendation.",
+          "because": "note:DCSN1"
+        }
+      ]
+    },
+    {
+      "id": "DCSN2",
+      "name": "Config to construct",
+      "question": "How should the archive config file reach the TypeScript construct?",
+      "example": "An adopter turns embeddings on in archive.yaml. The Python backend has to see it (to call Bedrock) and the construct has to see it (to create the vector index and grant Bedrock). If the two read the file differently, a typo like embedings: true deploys an archive with no vector index and a backend that tries to use it.",
+      "options": [
+        {
+          "id": "A",
+          "title": "One file, an infrastructure section in the contract, typed construct props",
+          "includes": "Add infrastructure settings (stage names, domain, sign-in providers, optional modules) to the Pydantic ArchiveConfig. The JSON Schema already generated from it also generates the construct's TypeScript props type. The default app reads archive.yaml, validates it against that schema and passes it in. The construct itself takes plain typed props, so it can be used without the file.",
+          "pulls_in": "A schema-to-TypeScript generation step beside the existing web schema, under the same drift check in CI. A JSON Schema validator in the infra package."
+        },
+        {
+          "id": "B",
+          "title": "A separate infrastructure file",
+          "includes": "archive.yaml stays catalog-only; infra.yaml holds the deploy settings and is read only by TypeScript.",
+          "pulls_in": "Two files for an adopter to edit, against the decided one file. Settings both sides need (embeddings on or off) live in one file and must be copied into the other."
+        },
+        {
+          "id": "C",
+          "title": "The construct reads the YAML path itself",
+          "includes": "ResearchArchive takes a path to archive.yaml and parses it inside, without types generated from the contract.",
+          "pulls_in": "Hand-kept TypeScript types that can drift from the Python model, and a construct that can't be used without a file on disk."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "It keeps the decided one file, puts every setting the backend and the construct share in one model, and the generated type makes a drift between Python and TypeScript a build failure rather than a bad deploy. The pattern already exists: the contract generates the web app's JSON Schema and CI fails on drift.",
+        "evidence": [
+          {
+            "text": "The contract already generates a committed JSON Schema and CI diffs it.",
+            "source": "origin/main justfile, check-schema",
+            "output": "uv run python -m archive_contract.schema \"$tmp\"\ndiff -u {{schema_file}} \"$tmp\""
+          },
+          {
+            "text": "ArchiveConfig is the one config model today and has no infrastructure fields.",
+            "source": "origin/main packages/contract/src/archive_contract/config.py",
+            "output": "publisher, profiles, required, vocabularies, themes, licenses, access"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    },
+    {
+      "id": "DCSN3",
+      "name": "Who starts a reindex",
+      "question": "Where should a reindex run: in a Lambda in the archive, or from an admin's machine?",
+      "example": "A bucket is restored from versioning after a mistake, and the catalog no longer matches S3. Someone has to read every package's manifest, write a DynamoDB JSON file, start a bulk put job, wait several minutes for it to finish, check the report and switch the API to the new table.",
+      "options": [
+        {
+          "id": "A",
+          "title": "A durable Lambda in the archive, started by an admin",
+          "includes": "A Python durable function in the construct: one step per batch of manifests writes the DynamoDB JSON to the derived bucket, a step starts the bulk put job, a wait polls it, and a final step switches the active catalog table. An admin starts it with one command (a just recipe or the AWS console).",
+          "pulls_in": "One more function in the construct. Every fork gets the same reindex path, and it can be run after a restore with no laptop setup."
+        },
+        {
+          "id": "B",
+          "title": "A CLI command on the admin's machine",
+          "includes": "A reindex command run locally with AWS credentials: it reads S3, writes the file, starts the job and polls it.",
+          "pulls_in": "The admin needs broad AWS credentials on their own machine and must keep the terminal open while the job runs; a large archive is read over their connection."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "Bulk put can't start at deploy time, so it's a Lambda or the CLI. A durable function fits the job's shape (write, start, wait minutes, check, switch), runs next to the data, and holds no long-lived credentials on anyone's machine. The handoff gives CLI users short-lived tokens only.",
+        "evidence": [
+          {
+            "text": "Bulk put is an asynchronous job started by an API call, with minutes of start-up before counters move.",
+            "source": "https://aws.amazon.com/blogs/database/introducing-bulk-put-items-for-amazon-dynamodb-load-data-from-amazon-s3-into-existing-tables-at-scale/",
+            "output": "The operation spends its first minutes provisioning before counters move."
+          },
+          {
+            "text": "CDK 2.276 supports durable functions directly.",
+            "source": "node_modules/aws-cdk-lib/aws-lambda/lib/function.d.ts:497",
+            "output": "readonly durableConfig?: DurableConfig;"
+          }
+        ]
+      },
+      "depends_on": [
+        "DCSN1"
+      ],
+      "state": "decided",
+      "choice": "A",
+      "note": "can we also have a way to trigger that lambda?  maybe from cli?"
+    },
+    {
+      "id": "DCSN4",
+      "name": "Dev and prod stages",
+      "question": "How should dev and prod be laid out?",
+      "example": "A small lab has one AWS account. They want to try a new theme in dev without touching the live archive researchers download from, and they don't want a second account to manage.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Two stacks in one account, a second account optional",
+          "includes": "The default app makes ResearchArchive-dev and ResearchArchive-prod from the config's stages, each with its own buckets, tables and user pool. A stage can name its own account and region, so a group with two accounts sets that and nothing else changes.",
+          "pulls_in": "Dev resources cost a little while they exist. Prod keeps data on delete (retain and deletion protection); dev is set to be torn down cleanly."
+        },
+        {
+          "id": "B",
+          "title": "Separate accounts required",
+          "includes": "Dev and prod must each have their own AWS account.",
+          "pulls_in": "A second account, its billing and its CI role before a small group can deploy at all."
+        },
+        {
+          "id": "C",
+          "title": "Prod only by default",
+          "includes": "One stage; a dev stage is something an adopter adds.",
+          "pulls_in": "Plan 10a's CI has nowhere to deploy before prod, and changes reach the live archive untested."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "The plan's brief lists dev and prod stages and Plan 10a deploys to both with OIDC. One account keeps the bar low for a small group, and naming an account per stage keeps the stricter setup one config line away.",
+        "evidence": [
+          {
+            "text": "Plan 4's brief and Plan 10a both assume two stages.",
+            "source": "docs/planning-handoff.md, Plan 4 and Plan 10a",
+            "output": "Dev and prod stages. ... deploy to dev and prod with OIDC."
+          }
+        ]
+      },
+      "depends_on": [
+        "DCSN2"
+      ],
+      "state": "decided",
+      "choice": "C"
+    }
+  ],
+  "calls": [
+    {
+      "id": "AGNT1",
+      "name": "Modules switched by config",
+      "question": "How are optional modules (embeddings and the vector index, WAF, write-once locking, DOIs, ORCID, university sign-in) switched on?",
+      "took": "A modules section in the archive config; the construct builds each part only when its switch is on.",
+      "instead": "Export each part as its own construct for adopters to compose in their own app code, which means editing TypeScript.",
+      "why": "The handoff settles that adopters fork and edit one config file, so composition in code is for a later library release, not this plan.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT2",
+      "name": "Python Lambda packaging",
+      "question": "How are Python Lambdas packaged, including compiled dependencies like pydantic-core?",
+      "took": "arm64 functions. A just recipe uses uv to install locked dependencies as manylinux aarch64 wheels (--only-binary) into an asset folder before synth; no Docker. One helper on the construct builds a function from archive-backend so Plans 6 and 7 package the same way.",
+      "instead": "Docker bundling with the Lambda build image: handles packages with no wheel, but needs Docker locally and in CI and is slower.",
+      "why": "pydantic-core, duckdb and the other dependencies ship manylinux aarch64 wheels, so a binary-only uv install is reproducible from uv.lock and needs nothing new on CI runners.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT3",
+      "name": "Vector index in Plan 6",
+      "question": "Which plan builds the vector index on the catalog tables?",
+      "took": "Plan 6 adds it to both catalog tables, along with the embedding model it chooses and the embeddings config setting. Plan 4 makes the catalog tables on-demand and exposes them, so Plan 6 adds the index without changing Plan 4's design. Moved at the coordinating session's review.",
+      "instead": "Plan 4 builds the index now, with the model and dimensions taken from the config, ahead of the code that uses it.",
+      "why": "Plan 6 is the index's only user and picks the model and its dimensions, which are fixed when the index is created. CDK has the index only on the low-level CfnTable, which Plan 6 can set on the exposed tables.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT4",
+      "name": "On-demand tables",
+      "question": "Which billing mode do the tables use?",
+      "took": "On-demand for both tables.",
+      "instead": "Provisioned capacity, cheaper only at steady high traffic, and not allowed with a vector index.",
+      "why": "Vector indexes require an on-demand table, and a small archive's traffic is spiky and low.",
+      "evidence": [
+        {
+          "text": "Vector indexes need on-demand capacity.",
+          "source": "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/VectorSearch.Requirements.html",
+          "output": "Vector indexes use on-demand capacity mode only, and they require a table that also uses on-demand capacity mode."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT5",
+      "name": "Users live in Cognito",
+      "question": "Where are users and their roles kept?",
+      "took": "Cognito holds each user, with groups for contributor, curator and admin. A user-profiles table keeps only what Cognito can't hold: the display name for citations, the ORCID iD and notification settings.",
+      "instead": "A full user record in DynamoDB mirrored from Cognito, which then has to be kept in sync.",
+      "why": "Roles in Cognito groups arrive in the token, so the API's authorizer checks them with no table read.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT6",
+      "name": "Download logs",
+      "question": "How are open downloads recorded when files are served straight from CloudFront?",
+      "took": "Plan 4 turns on CloudFront standard logs into the derived bucket's logs/ prefix and creates the DownloadCounts table. Rolling the logs up into counts belongs to Plan 6, whose brief holds download counts.",
+      "instead": "Build the roll-up Lambda in Plan 4 now, ahead of the API that reads the counts.",
+      "why": "The handoff decides open data is served directly from CloudFront, so its log is the only record of an open download and has to be on from the first deploy. The counting itself is Plan 6's.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT7",
+      "name": "Integrity check",
+      "question": "How does the scheduled integrity check work?",
+      "took": "Objects are written with S3 SHA-256 checksums. A weekly EventBridge Scheduler job runs a Lambda that compares each archived object's stored checksum with the package's checksums.sha256 and alerts on any mismatch or missing object.",
+      "instead": "Re-download and re-hash every object each run: catches corruption S3's own checksum would miss, but costs reads in proportion to the archive's size.",
+      "why": "S3 keeps the checksum it computed on upload, so the check reads metadata only, and the comparison with checksums.sha256 is what the package itself promises.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT8",
+      "name": "Reindex from the CLI",
+      "question": "How does an admin start a reindex from the command line?",
+      "took": "Two just recipes: reindex \u003cstage\u003e invokes the reindex durable function asynchronously with the AWS CLI and prints the execution ARN, and reindex-status \u003cstage\u003e reports the execution's state and the bulk put outcome. The function name comes from a stack output.",
+      "instead": "A cruise admin command that calls an API route with a signed-in admin's token. Plan 6 would have to add an admin route first, and the trigger moves there.",
+      "why": "The person running a reindex is the person who deploys, and already holds AWS credentials for that. A just recipe needs nothing new from the API.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT9",
+      "name": "Adding a stage",
+      "question": "How does an adopter add a dev stage when the default is prod only?",
+      "took": "The config's infrastructure section has a stages list holding prod by default. Each entry has a name and optionally an account and region; the default app makes one stack per entry, named ResearchArchive-\u003cstage\u003e. A stage named prod keeps data on delete (retain and deletion protection); any other stage is set to be torn down cleanly.",
+      "instead": "Mark which stage keeps its data with an explicit retain flag per stage, instead of keying it on the name prod.",
+      "why": "You chose prod only by default, and a list makes adding dev one entry with no code change.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT10",
+      "name": "Catalog switch",
+      "question": "How does a reindex load a fresh catalog and switch the API to it, when CDK owns the tables?",
+      "took": "CDK creates two catalog tables, A and B, with the same keys. An SSM parameter per stage names the active one, and every Lambda reads it (cached briefly). Reindex empties the inactive table, bulk-loads it, checks the report, then flips the parameter. It runs while publishing is quiet; catching up packages published during a run is follow-up PARK5.",
+      "instead": "Reindex creates a new table through the SDK on each run: always truly fresh, but the table lives outside CloudFormation, drifts from the stack, and needs its own cleanup.",
+      "why": "Bulk put needs an existing table and never removes items. Two stack-owned tables give a clean rebuild with nothing outside CloudFormation, and an empty spare table costs almost nothing on demand.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT11",
+      "name": "REST API behind CloudFront",
+      "question": "Which API Gateway type, and how does the browser reach it?",
+      "took": "A REST API, with stage throttling and an optional regional WAF attached directly to it. CloudFront routes /api/* to it, so the web app calls the API on its own origin with no CORS.",
+      "instead": "An HTTP API: cheaper per call, but WAF can't attach to it, so optional WAF would mean a CloudFront web ACL created in us-east-1, which needs a second stack.",
+      "why": "The handoff wants throttling and optional WAF in every deploy. A REST API has both natively in the stack's own region.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT12",
+      "name": "Backups for what can't be rebuilt",
+      "question": "Which tables get point-in-time recovery?",
+      "took": "Point-in-time recovery on every operational table (submissions, reviews, settings, user profiles, download counts). None on the catalog tables, which reindex rebuilds from S3.",
+      "instead": "Point-in-time recovery on the catalog too, paying to back up data that S3 already holds.",
+      "why": "Operational records exist nowhere else, so a bad write or delete there can only be undone from a table backup.",
+      "state": "standing"
+    }
+  ],
+  "principles": [],
+  "follow_ups": [
+    {
+      "id": "PARK1",
+      "name": "Reindex from cruise",
+      "text": "Let a signed-in admin start and follow a reindex from cruise through an admin API route with a short-lived token, so no AWS credentials are needed. Needs an admin route from Plan 6.",
+      "from": "DCSN3",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK2",
+      "name": "Custom domain",
+      "text": "Let the config name a domain and an existing us-east-1 ACM certificate so CloudFront and Cognito's managed login serve under the archive's own domain. Left out of Plan 4 until an adopter needs it; the CloudFront domain is already a stable URL.",
+      "from": "plan",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK3",
+      "name": "ORCID sign-in",
+      "text": "Optional ORCID sign-in as a Cognito OIDC identity provider, with the client secret in an SSM SecureString the config names. Left out of Plan 4 at the coordinating session's review: nobody has an ORCID client to test it with yet.",
+      "from": "plan",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK4",
+      "name": "University sign-in",
+      "text": "Optional university single sign-on as a Cognito SAML identity provider from a metadata URL in the config. Left out of Plan 4 at the coordinating session's review until an adopter has SAML metadata to test with.",
+      "from": "plan",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK5",
+      "name": "Reindex catch-up",
+      "text": "Before flipping the active catalog, re-put every package published after the reindex's snapshot time, so a publish during a run isn't lost from the new table. Needed once Plan 7 publishes; until then a reindex runs while publishing is quiet.",
+      "from": "plan",
+      "kind": "improvement"
+    }
+  ],
+  "spec": {
+    "hash": "de41c8857102eaeb274f947a3d56ff42e857da3dbbebe6ca0fd1a5f12d2b945e",
+    "sections": [
+      {
+        "id": "SPEC1",
+        "heading": "Goal",
+        "decisions": []
+      },
+      {
+        "id": "SPEC2",
+        "heading": "The parts",
+        "decisions": [
+          "DCSN2",
+          "AGNT1"
+        ]
+      },
+      {
+        "id": "SPEC3",
+        "heading": "Storage",
+        "decisions": [
+          "AGNT7"
+        ]
+      },
+      {
+        "id": "SPEC4",
+        "heading": "Tables",
+        "decisions": [
+          "DCSN1",
+          "AGNT3",
+          "AGNT4",
+          "AGNT5",
+          "AGNT12"
+        ]
+      },
+      {
+        "id": "SPEC5",
+        "heading": "Reindex",
+        "decisions": [
+          "DCSN1",
+          "DCSN3",
+          "AGNT8",
+          "AGNT10"
+        ]
+      },
+      {
+        "id": "SPEC6",
+        "heading": "Config and the construct's interface",
+        "decisions": [
+          "DCSN2",
+          "AGNT1"
+        ]
+      },
+      {
+        "id": "SPEC7",
+        "heading": "Python Lambdas",
+        "decisions": [
+          "AGNT2"
+        ]
+      },
+      {
+        "id": "SPEC8",
+        "heading": "Auth",
+        "decisions": [
+          "AGNT5"
+        ]
+      },
+      {
+        "id": "SPEC9",
+        "heading": "API shell and web",
+        "decisions": [
+          "AGNT6",
+          "AGNT11"
+        ]
+      },
+      {
+        "id": "SPEC10",
+        "heading": "Operations and stages",
+        "decisions": [
+          "DCSN4",
+          "AGNT9"
+        ]
+      },
+      {
+        "id": "SPEC11",
+        "heading": "Risk and cost",
+        "decisions": [
+          "DCSN4",
+          "AGNT10",
+          "AGNT12"
+        ]
+      },
+      {
+        "id": "SPEC12",
+        "heading": "Left out",
+        "decisions": [
+          "DCSN3",
+          "AGNT1",
+          "AGNT3"
+        ]
+      },
+      {
+        "id": "SPEC13",
+        "heading": "How we'll know it works",
+        "decisions": [
+          "DCSN1",
+          "DCSN2",
+          "DCSN3",
+          "DCSN4",
+          "AGNT8",
+          "AGNT10"
+        ]
+      }
+    ],
+    "approved": {
+      "hash": "de41c8857102eaeb274f947a3d56ff42e857da3dbbebe6ca0fd1a5f12d2b945e",
+      "at": "2026-11-13T15:19:14.928701-06:00",
+      "body": "# Archive infrastructure: the ResearchArchive CDK construct\n\n## Goal\n\nRunning `cdk deploy` on the default app stands up an empty, working research archive in the adopter's own AWS account: storage, the DynamoDB tables, sign-in, an API shell, web hosting with direct downloads for open data, operations defaults and the reindex path. It is one public `ResearchArchive` construct in `packages/infra`, built from internal parts and driven by the one archive config file, so a fork edits only that file. The construct exposes its tables, buckets, user pool and API so Plan 6's endpoints and Plan 7's durable function attach without editing Plan 4's code. The service choices under \"Infrastructure\" in the handoff are taken as settled.\n\n## The parts\n\nThe construct is made of seven internal parts. Each is a plain construct in `packages/infra/src/`, and only `ResearchArchive` is exported.\n\n```mermaid\nflowchart LR\n  cfg[archive.yaml] --\u003e app[default app]\n  app --\u003e RA\n  subgraph RA[ResearchArchive, one per stage]\n    S[Storage]\n    T[Tables]\n    A[Auth]\n    API[API shell]\n    W[Web]\n    O[Operations]\n    J[Jobs: reindex, integrity check]\n  end\n  P6[Plan 6 endpoints] -.attach to.-\u003e API\n  P7[Plan 7 durable function] -.uses.-\u003e S\n  P7 -.writes.-\u003e T\n```\n\n| Part | What it creates |\n| --- | --- |\n| Storage | Staging, archive and derived buckets |\n| Tables | Two catalog tables (A and B), five operational tables, the active-catalog parameter |\n| Auth | Cognito user pool with email sign-in, groups, app clients |\n| API shell | REST API, Cognito authorizer, throttling, one health route, optional regional WAF |\n| Web | CloudFront distribution over the site, open data and the API |\n| Operations | Budget alarm, alert topic, failure alarms, dashboard |\n| Jobs | Reindex durable function, weekly integrity check |\n\nTwo optional modules, WAF and write-once locking, are switched on in the config; the construct builds each one only when its switch is on. Later plans add their own modules the same way.\n\nRests on: DCSN2, AGNT1\n\n## Storage\n\n- **Staging bucket.** Uploads land here before ingest (Plan 7). Not versioned; objects expire after 30 days.\n- **Archive bucket.** Complete published packages, the source of truth. Versioning on. Two prefixes: `open/` for open data, served straight from CloudFront, and `restricted/` for restricted and by-request data, reached only through a short-lived link from the API. Objects are written with S3 SHA-256 checksums. Write-once locking (S3 Object Lock in governance mode, with a retention period from the config) is optional.\n- **Derived bucket.** Everything rebuildable: `site/` (the web app bundle, the per-dataset HTML pages and the catalog file), `reindex/` (bulk put input and reports) and `logs/` (CloudFront standard logs).\n- All buckets block public access, enforce TLS and use S3-managed encryption. CloudFront reads through origin access control.\n- **Integrity check.** A weekly EventBridge Scheduler job runs a Lambda that compares each archived object's stored SHA-256 checksum with the package's `checksums.sha256` and sends an alert for any mismatch or missing object.\n\nRests on: AGNT7\n\n## Tables\n\nAll tables are on-demand. Catalog records are rebuildable from S3; operational records exist nowhere else.\n\n**Catalog tables (A and B).** One single-table design, created twice. Keys are `PK` and `SK`, plus one index `GSI1` (`GSI1PK`, `GSI1SK`).\n\n| Item | PK | SK | GSI1 |\n| --- | --- | --- | --- |\n| Dataset (current state) | `DATASET#\u003cid\u003e` | `META` | `PROJECT#\u003cproject\u003e` / `DATASET#\u003cid\u003e` |\n| Dataset version | `DATASET#\u003cid\u003e` | `V#\u003cversion, zero-padded to 6\u003e` | |\n| File of a version | `DATASET#\u003cid\u003e` | `V#\u003cversion\u003e#FILE#\u003cpath\u003e` | |\n| Project | `PROJECT#\u003cid\u003e` | `META` | |\n\nThe dataset item carries the current version, title, access level, theme and project. Plan 6 adds the vector index to both catalog tables, with the embedding model it chooses, and any further indexes its endpoints need; both catalog tables are on-demand, as a vector index requires.\n\n**Operational tables.** One plain table per kind of record, each with point-in-time recovery.\n\n| Table | Key | Index |\n| --- | --- | --- |\n| Submissions | `submissionId` | by `status` and `createdAt` (the curator queue); by `submitter` |\n| Reviews | `submissionId`, `at#\u003ceventId\u003e` | |\n| Settings | `name` | |\n| UserProfiles | `userId` (Cognito sub) | |\n| DownloadCounts | `datasetId`, `month` | |\n\nUsers and their roles live in Cognito; UserProfiles keeps only what Cognito can't hold (display name for citations, ORCID iD, notification settings). Plan 7 decides what goes in a review event, and Plan 6 what a setting holds; Plan 4 creates the tables and their keys.\n\nRests on: DCSN1, AGNT3, AGNT4, AGNT5, AGNT12\n\n## Reindex\n\nThe catalog switch: an SSM parameter per stage, `/research-archive/\u003cstage\u003e/catalog-active`, names the active catalog table, `A` or `B`. Every Lambda reads it, cached for a minute.\n\nThe reindex is a Python durable function:\n\n1. Empty the inactive catalog table.\n2. In steps of a few hundred packages, read each published manifest from the archive bucket and write line-delimited DynamoDB JSON to `reindex/\u003crun\u003e/` in the derived bucket.\n3. Start a bulk put items operation into the inactive table, with the report to `reindex/\u003crun\u003e/report/`.\n4. Wait, polling the operation, until it ends. On `FAILED` or `CANCELLED`, stop and alert; the active table is untouched.\n5. On `COMPLETED_WITH_ERRORS`, stop and alert with the report's location, leaving the active table in place.\n6. Flip the parameter to the newly loaded table.\n\nA reindex is run while publishing is quiet: a package published during the run would be missing from the new table until the next reindex (follow-up PARK5).\n\nAn admin starts it with `just reindex \u003cstage\u003e`, which invokes the function asynchronously with their AWS credentials and prints the execution ARN, and follows it with `just reindex-status \u003cstage\u003e`. The function name comes from a stack output.\n\nRests on: DCSN1, DCSN3, AGNT8, AGNT10\n\n## Config and the construct's interface\n\nThe infrastructure settings join the one archive config as an `infrastructure` section of the Pydantic `ArchiveConfig`:\n\n```yaml\ninfrastructure:\n  stages:\n    - name: prod            # account and region optional\n  alertEmail: data@example.edu\n  monthlyBudgetUsd: 50\n  modules:\n    waf: true                             # optional\n    objectLock: { retentionDays: 3650 }   # optional\n```\n\nThe contract's generated JSON Schema also generates the construct's TypeScript props type, `ArchiveConfig`, committed beside the web schema and covered by the same drift check in CI. `ResearchArchive` takes `{ config: ArchiveConfig, stage: string }` and plain props, so it can be used without a file. The default app reads `archive.yaml`, validates it against the schema, and makes one stack per stage.\n\nThe construct exposes, as read-only properties: `stagingBucket`, `archiveBucket`, `derivedBucket`, `catalogTables` with `activeCatalogParameter`, `submissions`, `reviews`, `settings`, `userProfiles`, `downloadCounts`, `userPool`, `api` with its authorizer, `distribution`, `alertTopic`, and one method, `pythonFunction(id, props)`, that builds a Python Lambda from `archive-backend` the same way Plan 4's own functions are built, with the alert alarm wired. Plans 6 and 7 attach through these.\n\nRests on: DCSN2, AGNT1\n\n## Python Lambdas\n\nEvery Python function runs on arm64 with Python 3.13. A just recipe, `just lambda-assets`, uses uv to install `archive-backend` and its locked dependencies as manylinux aarch64 wheels, binary-only, into `packages/infra/assets/python/`, which `pythonFunction` packages. No Docker. The synth tests use the same recipe, so a dependency with no aarch64 wheel fails CI, not a deploy.\n\nRests on: AGNT2\n\n## Auth\n\n- A Cognito user pool with email sign-in and self-service sign-up. Groups: `contributor`, `curator`, `admin`. Roles reach the API in the token, so the authorizer needs no table read.\n- Two app clients, both with authorization code and PKCE and no client secret: one for the web app, one for the CLI and MCP server, which sign in through the browser and hold short-lived tokens only.\n- Cognito's managed login on a Cognito domain.\n- Open data needs no account.\n\nRests on: AGNT5\n\n## API shell and web\n\n- **API.** A REST API with stage throttling (rate and burst from the config, with defaults), a Cognito authorizer, and one route, `GET /health`, backed by a Python function from `pythonFunction`. Optional regional WAF with AWS managed rule groups, attached to the API stage.\n- **CloudFront.** One distribution. Default behaviour: the derived bucket's `site/` prefix, with unknown paths falling back to the app's `index.html`. `/data/*`: the archive bucket's `open/` prefix, at stable URLs. `/api/*`: the REST API, uncached, so the app calls the API on its own origin. Standard logs to the derived bucket's `logs/`.\n- **Download logs.** CloudFront's standard logs are the only record of an open download, so they are on from the first deploy. Plan 6 rolls them up into DownloadCounts and counts restricted downloads when the API issues the link.\n\nRests on: AGNT6, AGNT11\n\n## Operations and stages\n\n- **Operations in every deploy.** An AWS Budgets monthly budget with an email alert at 80 and 100 percent; an SNS alert topic subscribed to the config's alert email; alarms on Lambda errors, durable execution failures, API 5xx and throttles, and the integrity check; a CloudWatch dashboard with the API, Lambdas, tables and CloudFront.\n- **Stages.** One stage, `prod`, by default. Each entry in `stages` makes a stack, `ResearchArchive-\u003cstage\u003e`, with its own buckets, tables and user pool, optionally in its own account and region. The `prod` stage keeps its data on delete (retained buckets and tables, deletion protection); any other stage is set to be torn down cleanly. Every stack carries the `Repo` tag.\n\nRests on: DCSN4, AGNT9\n\n## Risk and cost\n\n- **Risk.** A mistake in a deployed `prod` stage could delete archived packages or the operational tables. Nothing is deployed yet and there are no users, so the construct is changed directly. Retained buckets and tables, deletion protection, bucket versioning and point-in-time recovery on the operational tables make a bad change recoverable. A reindex never touches the active catalog until its load has completed cleanly.\n- **Cost.** One test deploy to an AWS account you choose, and its teardown, each a step for you on the page. No new programs on your machine: uv, npm, just and the AWS CLI are already used. The test deploy's running cost is a few dollars at most while it exists.\n\nRests on: DCSN4, AGNT10, AGNT12\n\n## Left out\n\n- API endpoints, the catalog file's contents and search (Plan 6).\n- The ingest pipeline, review workflow, publish steps, by-request workflow and DOIs, including the DOI config setting (Plan 7).\n- Rolling CloudFront logs up into download counts, and counting restricted downloads (Plan 6).\n- A custom domain (follow-up PARK2); the archive runs on its CloudFront domain, which is a stable URL.\n- The deployment skill and the CI deploy workflows with OIDC (Plan 10a).\n- The vector index, the embeddings config setting and choosing the embedding model (Plan 6).\n- ORCID and university sign-in (follow-ups PARK3 and PARK4): nobody has an ORCID client or SAML metadata to test with yet, and email sign-in covers every case we have.\n- Reindex from `cruise` through an admin API route (follow-up PARK1, needs Plan 6).\n- A second-region copy (not offered, per the handoff) and a one-click template (deferred).\n- Composing the parts as separate exported constructs, for a later library release.\n\nRests on: DCSN3, AGNT1, AGNT3\n\n## How we'll know it works\n\n- `just check` passes, including vitest synth tests on the default app with the sample config: every resource in \"The parts\" is present; with both optional modules off, no WAF or Object Lock appears; with a second stage in the config, a second stack appears; the `prod` stage's buckets and tables are retained and a `dev` stage's are not.\n- The schema drift check fails when the Python `ArchiveConfig` changes and the generated TypeScript type is not regenerated.\n- On one test deploy in your AWS account: `GET /api/health` answers 200 through CloudFront and returns 429 when throttled; an email user signs up and signs in through managed login; a file put under `open/` downloads from `/data/...` on the CloudFront domain; `just reindex test` loads a two-dataset DynamoDB JSON file into the inactive catalog, `just reindex-status test` reports `COMPLETED`, and the active-catalog parameter has flipped; the integrity check run by hand reports no mismatch, then reports one after an object is overwritten.\n- The test deploy is destroyed cleanly afterwards.\n\nRests on: DCSN1, DCSN2, DCSN3, DCSN4, AGNT8, AGNT10\n"
+    }
+  },
+  "plans": [],
+  "messages": [
+    {
+      "id": 1,
+      "card": "plan",
+      "from": "user",
+      "action": "start-planning",
+      "at": "2026-11-13T12:17:25.28248-06:00",
+      "state": "answered",
+      "claim": "e17597c0524f8426"
+    },
+    {
+      "id": 2,
+      "card": "DIRN",
+      "from": "user",
+      "action": "direction",
+      "at": "2026-11-13T12:25:03.027443-06:00",
+      "state": "answered",
+      "claim": "9801c8162c6cac06"
+    },
+    {
+      "id": 3,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-13T12:35:27.766333-06:00",
+      "state": "answered",
+      "claim": "db19bb80d0e855e6"
+    },
+    {
+      "id": 4,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "note",
+      "text": "More IAM grants, more alarms, more names for every Lambda, \n\nThese are not really a big deal with CDK.   is there any other reason to not do C?",
+      "at": "2026-11-13T12:36:44.975632-06:00",
+      "state": "answered",
+      "claim": "b96db73c3bde3852"
+    },
+    {
+      "id": 5,
+      "card": "DCSN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "You're right: grants, alarms and names cost nothing real in CDK, and my other point against C was wrong too. The one-operation limit is per table, so separate tables can load in parallel. One real reason remains, and it only applies to the catalog. Reindex builds fresh tables and switches the API to them. If datasets, versions, projects and files sit in four tables, that switch has to happen across four tables at once, or the API can briefly pair new datasets with old projects. Operational records (submissions, reviews, settings, profiles, download counts) are never rebuilt, so that reason doesn't touch them, and one table per kind reads more plainly for a Python-first team than an overloaded single-table design. I added that mix as option D and now recommend it over B.",
+      "at": "2026-11-13T12:37:14.172153-06:00",
+      "answers": [
+        4
+      ]
+    },
+    {
+      "id": 6,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "choose",
+      "option": "D",
+      "at": "2026-11-13T15:02:34.228887-06:00",
+      "state": "answered",
+      "claim": "875c5b1abb5b92c9"
+    },
+    {
+      "id": 7,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-13T15:05:17.720583-06:00",
+      "state": "answered",
+      "claim": "b633f1c912a045d1"
+    },
+    {
+      "id": 8,
+      "card": "DCSN3",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "text": "can we also have a way to trigger that lambda?  maybe from cli?",
+      "at": "2026-11-13T15:07:13.400989-06:00",
+      "state": "answered",
+      "claim": "b8364cdba20706b9"
+    },
+    {
+      "id": 9,
+      "card": "DCSN3",
+      "from": "agent",
+      "action": "reply",
+      "text": "Yes. Plan 4 ships a CLI trigger: `just reindex \u003cstage\u003e` starts the function with the admin's AWS credentials (the same ones they deploy with). It prints the execution so you can follow it, and `just reindex-status \u003cstage\u003e` shows where the run stands and the bulk put outcome. The function's name comes from a stack output, so neither command needs editing in a fork. A `cruise` command that goes through the API with a signed-in admin's short-lived token would need an admin route, which is Plan 6's to build. I've recorded that as a follow-up rather than a task here (AGNT8, PARK1).",
+      "at": "2026-11-13T15:07:25.083592-06:00",
+      "answers": [
+        8
+      ]
+    },
+    {
+      "id": 10,
+      "card": "DCSN4",
+      "from": "user",
+      "action": "choose",
+      "option": "C",
+      "at": "2026-11-13T15:09:05.132613-06:00",
+      "state": "answered",
+      "claim": "3872fbd50bcfed0b"
+    },
+    {
+      "id": 11,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-13T15:10:31.833592-06:00",
+      "state": "answered",
+      "claim": "7c612f6b472eb4bd"
+    },
+    {
+      "id": 12,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session for research-in-a-box. Court asked that every planning session know this. Muster alias: personal-personal/generic-package-format-and-contract (the name is left over from Plan 2; this session now coordinates all the plans).\n\n1. Send cross-plan questions here first: anything that touches another plan's interface, ownership or order, or the overall direction. Ask over muster or with diazo_note to this alias. Questions only Court can answer still go on your own page as decision cards.\n2. Send a one-line muster message here when your understanding is confirmed, your spec is printed, each plan is printed, and the build is done. I check each spec and plan for scope before Court approves it.\n3. Record anything other plans rely on in the Decision log of docs/planning-handoff.md.\n4. Keep it small. Plans 1 and 2 are built: the repo, the uv and npm workspaces, archive_contract, the exports and the sample package. Build on them and don't rebuild. Plan only what your brief needs to work end to end now, and put everything else in follow-ups. Size checks to the risk. Question every option, config field and fallback that no real case needs yet.\n5. FEMC is the test afterwards, never the source of the design (Plan 2's PRIN1).",
+      "at": "2026-11-13T15:11:09.001364-06:00",
+      "state": "answered",
+      "claim": "5246857942777e58",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 13,
+      "card": "UNDR",
+      "from": "agent",
+      "action": "reply",
+      "text": "Thanks. The spec is written from this understanding and printed for your approval.",
+      "at": "2026-11-13T15:12:07.500175-06:00",
+      "answers": [
+        11
+      ]
+    },
+    {
+      "id": 14,
+      "card": "spec",
+      "from": "user",
+      "action": "approve-spec",
+      "at": "2026-11-13T15:19:14.928701-06:00",
+      "state": "answered",
+      "claim": "6747bc0f1d552338"
+    }
+  ],
+  "planned_history": [
+    {
+      "action": "planned",
+      "by": "agent",
+      "at": "2026-11-13T08:48:23.41193-06:00"
+    },
+    {
+      "action": "started",
+      "by": "user",
+      "at": "2026-11-13T12:17:25.28248-06:00"
+    }
+  ]
+}
