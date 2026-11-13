@@ -4,9 +4,13 @@
 
 `research-archive-in-a-box/generic-package-format-and-contract` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 wait** → **Build · 0 of 6** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 to write** → **Build · 6 of 6** → Sign off
 
-PLAN1 building · 0 of 6 done · PLAN2 waits on PLAN1 being built
+PLAN1 built · PLAN2 can be written now
+
+## Pick up next
+
+- **PARK1 Protect main on GitHub:** main has no branch protection, so auto-merge merged PR #1 at once instead of waiting for CI. Require the python and typescript checks on main so auto-merge waits.
 
 ## What was asked
 
@@ -39,6 +43,7 @@ PLAN1 building · 0 of 6 done · PLAN2 waits on PLAN1 being built
 - **AGNT9 Sample package subject.** A small stream temperature study at invented sites, licensed CC-BY-4.0. It has a logger table with a code-list table, a site shapefile set, a small raster, a methods document, a site photo, the table again as XLSX, a linked resource and ongoing coverage. Its seeded gaps are listed in its README. The user kept it.
 - **AGNT10 Change log and findings shapes.** The contract defines both models (Change and Finding), drafted in this spec. Plan 3 has no planning folder yet, so it confirms or changes them when its session starts, and this folder sends it a diazo note then. A change from Plan 3 is an edit to the contract, not a reopened decision here. The user kept it.
 - **AGNT11 Contract module layout.** One module per record under `src/archive_contract/`: `manifest.py` (package and its archive: additions), `resources.py`, `fields.py`, `rights.py`, `project.py`, `changes.py`, `findings.py`, `profile.py`, `config.py`; `profiles/core.yaml` and `profiles/ecology.yaml`; `validate.py` (structural validation); `schema.py` (JSON Schema generation, from Plan 1); `exports/` (`eml.py`, `datacite.py`, `schemaorg.py`, `readme.py`); `imports/eml.py`. The user kept it.
+- **AGNT12 Branch from local main.** The local main at 7789d37: origin/main plus one commit of planning records, which the PR then carries. The user kept it.
 - **PRIN1** FEMC is only the test afterwards. It is never the example on a card or the reason for a design choice; examples and reasons come from the standards and from any research group's data.
 
 ## Spec
@@ -63,14 +68,14 @@ PLAN1 building · 0 of 6 done · PLAN2 waits on PLAN1 being built
 
 ## Plans
 
-- [PLAN1](plans/1-contract-models-and-sample.md) The contract models, validation, schema and sample package: building · 0 of 6 done
-  - TASK1 Task 1: Resource, field and rights models: not started
-  - TASK2 Task 2: Manifest and project models: not started
-  - TASK3 Task 3: Change, Finding, Profile and ArchiveConfig: not started
-  - TASK4 Task 4: Structural validation: not started
-  - TASK5 Task 5: The real JSON Schema: not started
-  - TASK6 Task 6: The sample package: not started
-- PLAN2 Exports import and paper test: waits on PLAN1 being built
+- [PLAN1](plans/1-contract-models-and-sample.md) The contract models, validation, schema and sample package: built
+  - TASK1 Task 1: Resource, field and rights models: done. 6c1fac9 + 03cf2b6 (null extras kept, type/kind enforced) · just check exit 0
+  - TASK2 Task 2: Manifest and project models: done. a6d3803 + 03cf2b6 (coverage needs end or ongoing) · just check exit 0
+  - TASK3 Task 3: Change, Finding, Profile and ArchiveConfig: done. 6d94716 · contract tests exit 0 · just check exit 0 · uv lock --check exit 0
+  - TASK4 Task 4: Structural validation: done. 37b3cf9 + 03cf2b6 (symlinks refused, checksums all but _build, hash allowlist) · 158 tests pass
+  - TASK5 Task 5: The real JSON Schema: done. 0a38fa1 · just schema exit 0 · just check (with drift check) exit 0
+  - TASK6 Task 6: The sample package: done. 1064ecf · merged in PR #1 as c7ba8fc · CI on main pending
+- PLAN2 Exports import and paper test: can be written now
 
 ## Files
 

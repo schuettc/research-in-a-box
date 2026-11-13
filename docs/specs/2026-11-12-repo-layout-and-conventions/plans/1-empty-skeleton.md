@@ -1,7 +1,7 @@
 ---
 diazo: research-archive-in-a-box/repo-layout-and-conventions
 file: PLAN1
-status: waiting
+status: done
 approved: 2026-11-13T00:11:59-06:00
 hash: 38b1d89c9594cfeae1d2b21349379b6333922f4fd857267ea5743365a1b07ea0
 rests_on: [AGNT1, AGNT10, AGNT2, AGNT3, AGNT4, AGNT5, AGNT6, AGNT7, AGNT9, DCSN1, DCSN2, DCSN3]

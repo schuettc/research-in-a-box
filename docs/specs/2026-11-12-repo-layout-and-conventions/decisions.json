@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "Repo layout and conventions (Plan 1)",
   "expect": 3,
-  "agent_at": "2026-11-13T14:47:16.402432Z",
+  "agent_at": "2026-11-13T14:52:58.474244Z",
   "start": {
     "opening": {
       "text": "let's review this and start our diazo planning sessions\n\n(Brief for this session, from docs/planning-handoff.md, Plan 1 starter prompt:) Read `docs/planning-handoff.md`. Plan the repo layout and conventions for the research archive in a box (Plan 1). The stack is decided: Python for the contract, local tool and backend, TypeScript CDK, and a React with Vite web app. Work through the open questions with me one at a time, with options and trade-offs for each. Do not design features."
@@ -444,7 +444,26 @@
       "struck": false
     }
   ],
-  "follow_ups": [],
+  "follow_ups": [
+    {
+      "id": "PARK2",
+      "name": "Bump TypeScript to 7",
+      "text": "TypeScript is pinned to ~6.0 because typescript-eslint 8.72 supports only TypeScript below 6.1; bump it once typescript-eslint supports 7.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK3",
+      "name": "minimatch audit advisory",
+      "text": "npm audit reports a moderate minimatch advisory via eslint 10, typescript-eslint and aws-cdk-lib; the only offered fix downgrades eslint. Revisit when upstream releases a fix.",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK4",
+      "name": "Rename the local folder",
+      "text": "The local folder is still research-archive-in-a-box (call AGNT10); rename it to research-in-a-box once no planning session holds a folder under it.",
+      "kind": "idea"
+    }
+  ],
   "spec": {
     "hash": "6c9f6e5cbb7dad3dd6da9b382e45db9ff749a8e8de733badb8966dc6fd0d872b",
     "sections": [
@@ -632,17 +651,9 @@
             "DCSN2"
           ],
           "state": "keep",
-          "build": "building",
-          "build_at": "2026-11-13T08:46:35.577693-06:00",
-          "waits": [
-            {
-              "link": "https://github.com/schuettc/research-in-a-box/actions/runs/43445991147",
-              "text": "research-in-a-box CI run 43445991147 on 712dcca, queued",
-              "who": "agent",
-              "check_by": "2026-11-13T08:52:30-06:00",
-              "since": "2026-11-13T08:47:16.402432-06:00"
-            }
-          ]
+          "build": "done",
+          "result": "Pushed 712dcca to public schuettc/research-in-a-box · CI run 43445991147 success (python, typescript) · uv tool install from GitHub exit 0 · cruise --version prints cruise 0.1.0",
+          "build_at": "2026-11-13T08:51:13.162556-06:00"
         }
       ],
       "approved": {
@@ -652,6 +663,27 @@
       }
     }
   ],
+  "wrap_up": {
+    "file": "wrap-up.md",
+    "hash": "ea6594e39ade1d70f9bad10e48bfd644faad5fd5c5435278b60a1383547f68bd",
+    "printed_at": "2026-11-13T08:52:58.474244-06:00",
+    "due_at": "2026-11-13T08:52:46.085308-06:00",
+    "plans_at_print": [
+      "PLAN1"
+    ]
+  },
+  "signoff": {
+    "due_at": "2026-11-13T08:51:13.162556-06:00",
+    "built": "The empty, passing skeleton of research-in-a-box, public at https://github.com/schuettc/research-in-a-box: the uv workspace (archive-contract, cruise, archive-backend), the npm workspace (ResearchArchive construct, Vite web app), the schema drift check, just check, and the CI and release workflows. First CI run 43445991147 passed both jobs.",
+    "try": [
+      "Open https://github.com/schuettc/research-in-a-box and look at the layout and README.",
+      "Open the Actions tab: the CI run on 712dcca has green python and typescript jobs.",
+      "Install the tool: uv tool install \"git+https://github.com/schuettc/research-in-a-box#subdirectory=packages/tool\", then run cruise --version (it prints cruise 0.1.0).",
+      "In the local folder, run just check: it exits 0."
+    ],
+    "posted_at": "2026-11-13T08:51:25.537428-06:00",
+    "signed_at": "2026-11-13T08:52:46.085308-06:00"
+  },
   "messages": [
     {
       "id": 1,
@@ -838,6 +870,15 @@
       "at": "2026-11-13T08:46:22.232365-06:00",
       "state": "answered",
       "claim": "77399e531fda478d"
+    },
+    {
+      "id": 19,
+      "card": "SIGNOFF",
+      "from": "user",
+      "action": "sign-off",
+      "at": "2026-11-13T08:52:46.085308-06:00",
+      "state": "answered",
+      "claim": "e7a011dad0913d83"
     }
   ]
 }
