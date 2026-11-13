@@ -141,3 +141,19 @@ test("the web client's callback is on the distribution's domain", () => {
     UserPoolId: Match.anyValue(),
   });
 });
+
+test("CloudFront is denied the archive bucket's restricted/ prefix", () => {
+  const { archive: a, stack, template } = archive();
+  const policies = template.findResources("AWS::S3::BucketPolicy");
+  const archivePolicy = Object.values(policies).find(
+    (p) => (p as Json).Properties.Bucket.Ref === bucketId(stack, a.archiveBucket),
+  ) as Json;
+  const statements = archivePolicy.Properties.PolicyDocument.Statement as Json[];
+  const deny = statements.find(
+    (s) => s.Effect === "Deny" && s.Principal?.Service === "cloudfront.amazonaws.com",
+  );
+
+  expect(deny).toBeDefined();
+  expect(deny?.Action).toBe("s3:GetObject");
+  expect(JSON.stringify(deny?.Resource)).toContain("/restricted/*");
+});
