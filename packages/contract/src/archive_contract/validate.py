@@ -2,7 +2,8 @@
 
 Structure only: the manifest parses, every reference points at something that exists, every
 listed file has its size and hash recorded and they match, and `checksums.sha256` matches the
-files. Quality is the audit's business, not this module's.
+files. A vector resource's `archive:attributes` must name the columns of its `.dbf`, read
+from the header alone. Quality is the audit's business, not this module's.
 
 Symlinks are refused wherever they appear and never followed, so nothing outside the package
 is read or hashed.
@@ -11,6 +12,7 @@ is read or hashed.
 import hashlib
 import json
 import os
+import struct
 from pathlib import Path, PurePosixPath
 
 from pydantic import ValidationError
@@ -207,6 +209,86 @@ def _check_files(root: Path, manifest: Manifest) -> list[Finding]:
     return findings
 
 
+def _dbf_columns(file: Path) -> list[str] | None:
+    """The column names in a dBASE file's header, or None when it is not one.
+
+    The header is 32 bytes, its total length at bytes 8-9, then one 32-byte descriptor per
+    column (the name null-padded in the first 11 bytes) and a 0x0D terminator.
+    """
+    with file.open("rb") as stream:
+        head = stream.read(32)
+        if len(head) < 32:
+            return None
+        (header_length,) = struct.unpack_from("<H", head, 8)
+        descriptors = stream.read(max(header_length - 32, 0))
+    if header_length < 33 or len(descriptors) < header_length - 32:
+        return None
+    columns: list[str] = []
+    for offset in range(0, len(descriptors), 32):
+        if descriptors[offset] == 0x0D:
+            return columns
+        descriptor = descriptors[offset : offset + 32]
+        if len(descriptor) < 32:
+            return None
+        name = descriptor[:11].split(b"\x00", 1)[0]
+        if not name:
+            return None
+        columns.append(name.decode("latin-1"))
+    return None
+
+
+def _check_attributes(root: Path, manifest: Manifest) -> list[Finding]:
+    """A vector's `archive:attributes` against its `.dbf` member, matched by source name.
+
+    A vector with no `.dbf` member (GeoJSON, GeoPackage) is not checked. A `.dbf` that is
+    unsafe, a symlink or absent is reported by the file checks and not read here.
+    """
+    findings: list[Finding] = []
+    for resource in manifest.resources:
+        if resource.attributes is None:
+            continue
+        dbf = next((p for p, _, _ in _listed_files(resource) if p.lower().endswith(".dbf")), None)
+        if dbf is None or not _safe(dbf) or _symlink_in(root, dbf) is not None:
+            continue
+        if not (root / dbf).is_file():
+            continue
+        columns = _dbf_columns(root / dbf)
+        if columns is None:
+            findings.append(
+                _error(
+                    "attributes-mismatch",
+                    f"{dbf} is not a dBASE file, so archive:attributes can't be checked",
+                    resource=resource.name,
+                    path=dbf,
+                )
+            )
+            continue
+        described = {(f.source_name or f.name): f.name for f in resource.attributes.fields}
+        for column, name in described.items():
+            if column not in columns:
+                findings.append(
+                    _error(
+                        "attributes-mismatch",
+                        f"archive:attributes describes {column!r}, which {dbf} lacks",
+                        resource=resource.name,
+                        field=name,
+                        path=dbf,
+                    )
+                )
+        for column in columns:
+            if column not in described:
+                findings.append(
+                    _error(
+                        "attributes-mismatch",
+                        f"{dbf} has a column {column!r} that archive:attributes leaves out",
+                        resource=resource.name,
+                        field=column,
+                        path=dbf,
+                    )
+                )
+    return findings
+
+
 def _check_references(manifest: Manifest) -> list[Finding]:
     findings: list[Finding] = []
     by_name = {r.name: r for r in manifest.resources}
@@ -340,7 +422,12 @@ def validate_package(path: Path) -> list[Finding]:
                 "manifest-invalid", f"{MANIFEST} does not fit the contract: {exc}", path=MANIFEST
             )
         ]
-    findings = _check_references(manifest) + _check_files(path, manifest) + _check_checksums(path)
+    findings = (
+        _check_references(manifest)
+        + _check_files(path, manifest)
+        + _check_attributes(path, manifest)
+        + _check_checksums(path)
+    )
     return _once_per_symlink(findings)
 
 
