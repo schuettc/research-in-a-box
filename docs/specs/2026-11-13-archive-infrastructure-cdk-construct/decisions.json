@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "Archive infrastructure (Plan 4)",
   "expect": 4,
-  "agent_at": "2026-11-13T21:22:15.375184Z",
+  "agent_at": "2026-11-13T21:57:36.798332Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 1, repo layout, folder d65ecf18be29, and the manifest shape from Plan 2, folder 8da653f233f9.)\n\nBrief: Plan 4 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the archive infrastructure as a TypeScript CDK construct (Plan 4). The service choices are decided and listed under \"Infrastructure\". Do not reopen them. Plan the resources, the DynamoDB design and the construct's interface, and take the open questions with me one at a time."
@@ -645,7 +645,10 @@
             "DCSN2",
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "1bec0bd; test_config.py exit 0 (11 passed); just check-python check-schema exit 0",
+          "build_at": "2026-11-13T15:46:10.9376-06:00"
         },
         {
           "id": "TASK2",
@@ -656,7 +659,10 @@
             "DCSN2",
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "6cbe86d; infra tests and typecheck exit 0; drift check fails (exit 1) on an unregenerated field, passes once regenerated",
+          "build_at": "2026-11-13T15:46:10.9376-06:00"
         },
         {
           "id": "TASK3",
@@ -666,7 +672,10 @@
           "serves": [
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "ab49b4b; infra tests exit 0",
+          "build_at": "2026-11-13T15:46:10.9376-06:00"
         },
         {
           "id": "TASK4",
@@ -677,7 +686,10 @@
             "DCSN1",
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "99e5b52; just check exit 0; review approved, no findings; research-in-a-box#10 CI green, merged as 213f95c",
+          "build_at": "2026-11-13T15:54:49.808919-06:00"
         }
       ],
       "approved": {
@@ -692,7 +704,47 @@
       "covers": "Python Lambda packaging and pythonFunction, Cognito, the API shell with its health route and throttling, CloudFront for the site, open data and the API, optional WAF, the operations defaults and the integrity check",
       "waits_on": [
         "PLAN1"
-      ]
+      ],
+      "hash": "6097d0b91ec4afe9fe5d39b475dd919f03b7164632dc00934426a2385f052621",
+      "tasks": [
+        {
+          "id": "TASK5",
+          "heading": "Task 1: Lambda packaging, pythonFunction and operations",
+          "does": "Adds just lambda-assets (binary-only arm64 wheels with uv, no Docker), pythonFunction for arm64 Python 3.13 Lambdas with an errors alarm, and the operations part: alert topic, monthly budget at 80 and 100 percent, dashboard.",
+          "pulls_in": "boto3 in archive-backend, boto3-stubs for mypy, uv in CI's typescript job.",
+          "serves": [],
+          "state": "keep"
+        },
+        {
+          "id": "TASK6",
+          "heading": "Task 2: The health and whoami handlers, and the integrity check code",
+          "does": "Adds the Python handlers for /api/health and /api/whoami, and the integrity check: compares each archived object's stored SHA-256 with its package's checksums.sha256 and alerts on mismatches, missing objects and missing checksums.",
+          "pulls_in": "Unit tests with a small in-memory S3 fake, no moto.",
+          "serves": [],
+          "state": "keep"
+        },
+        {
+          "id": "TASK7",
+          "heading": "Task 3: Auth, the API shell and the integrity schedule",
+          "does": "Adds the Cognito user pool (email sign-in, three groups, managed login, web and CLI clients), the REST API with a public health route and a signed-in whoami route, fixed throttling, optional regional WAF, and the weekly integrity schedule with no retries.",
+          "pulls_in": "A whoami route, since CDK refuses an authorizer attached to no method.",
+          "serves": [],
+          "state": "keep"
+        },
+        {
+          "id": "TASK8",
+          "heading": "Task 4: CloudFront",
+          "does": "Adds one distribution: site/ with an index fallback, /data/* to open/ at stable URLs, /api/* to the API uncached, standard logs to the derived bucket; records the package layout, API path and app clients in the decision log.",
+          "pulls_in": "The derived bucket accepts the log ACL, which CloudFront's standard logs need.",
+          "serves": [],
+          "state": "keep"
+        }
+      ],
+      "approved": {
+        "hash": "6097d0b91ec4afe9fe5d39b475dd919f03b7164632dc00934426a2385f052621",
+        "at": "2026-11-13T16:00:56.021094-06:00",
+        "body": "# PLAN2: Auth, API, web and operations\n\n## Spec\n\n`docs/specs/2026-11-13-archive-infrastructure-cdk-construct/spec.md`, sections \"Python Lambdas\", \"Auth\", \"API shell and web\", \"Operations and stages\" (the operations half) and \"Storage\" (the integrity check). PLAN1 is built and merged (research-in-a-box#10). Build on what it made: `ResearchArchive` in `packages/infra/src/research-archive.ts` with `Storage` and `Tables`, the generated `ArchiveConfig` type, and `archive.yaml`. The implementer reads the spec beside this plan.\n\n## The change\n\nThe construct gets everything else the spec's parts list except the reindex:\n\n- **Packaging:** a just recipe packages Python Lambdas without Docker, and `pythonFunction` builds functions from them.\n- **Operations:** an alert topic, a budget, failure alarms and a dashboard.\n- **Auth:** a Cognito user pool with managed login and two app clients.\n- **API:** a REST API with a public health route and one signed-in route, fixed throttling, and optional regional WAF.\n- **Web:** one CloudFront distribution over the site, open data and the API, with standard logs.\n- **Integrity check:** a weekly job. Its Python code lives in `archive-backend` with unit tests.\n\nEverything is proven by synth and unit tests; nothing deploys.\n\n**Risk:** local code and CI only; nothing reaches AWS in this plan, and a mistake is undone by reverting the PR. Two rules are pinned by tests so PLAN3's deploy inherits them: the prod user pool is retained with deletion protection, and the integrity check never retries on its own.\n\n**Cost:** no steps for you. New dependencies:\n\n- `boto3` (runtime) in `archive-backend`.\n- `boto3-stubs[s3,sns]` in the root dev group, for mypy strict.\n- CI's typescript job installs uv to build the Lambda assets.\n\nNo new programs on your machine.\n\n## Left out\n\n- The reindex function, `just reindex` and `just reindex-status`, and the test deploy (PLAN3).\n- API endpoints beyond `/api/health` and `/api/whoami` (Plan 6).\n- The dataset-page rewrite. The site function sends every extensionless path to the app's `index.html`; Plan 7 changes it when it writes per-dataset pages.\n- Deploying the web bundle to `site/` (Plans 8 and 10a).\n- An alarm on API throttling. A REST API has no separate throttle metric, so 4xx (which includes 429) is shown on the dashboard, and only 5xx alarms.\n- Integrity checking at large scale. The check lists and heads every archived object weekly, which suits a small archive; S3 Inventory with checksums is a follow-up for when an archive outgrows a 15-minute run.\n\n## Where\n\n- Worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-archive-in-a-box/plan4/auth-api-web-and-operations`, branch `plan4/auth-api-web-and-operations` from `origin/main`. Confirm with `git -C \u003cwt\u003e branch --show-current` before editing.\n- Python: `packages/backend/pyproject.toml`, `packages/backend/src/archive_backend/` (`health.py`, `whoami.py`, `integrity.py`), `packages/backend/tests/`, root `pyproject.toml` (dev group).\n- TypeScript: `packages/infra/src/` (`python-function.ts`, `operations.ts`, `auth.ts`, `api.ts`, `web.ts`, `integrity.ts`, `research-archive.ts`), `packages/infra/test/`.\n- `justfile`, `.gitignore`, `.github/workflows/ci.yml`, `docs/planning-handoff.md` (decision log).\n- Global constraints: Python \u003e=3.12 for the workspace, Lambdas on Python 3.13 arm64; ruff, mypy strict; TypeScript strict, ESM; `just check` must exit 0; nothing published; every stack keeps the `Repo` tag; prod retains data and other stages tear down cleanly (PLAN1's `isProd`).\n\n### Task 1: Lambda packaging, pythonFunction and operations\n\n**Does:** Adds `just lambda-assets` and `pythonFunction`, which builds an arm64 Python 3.13 Lambda from the packaged `archive-backend` with an error alarm. Adds the operations part: alert topic, monthly budget and dashboard.\n**Files:** `justfile`, `.gitignore`, `.github/workflows/ci.yml`, `packages/backend/pyproject.toml`, `pyproject.toml`, `uv.lock`, `packages/infra/src/python-function.ts`, `packages/infra/src/operations.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/test/operations.test.ts`\n**Checks:** `just lambda-assets` exits 0 and `packages/infra/assets/python/pydantic_core/` holds a `*aarch64-linux-gnu.so`; `npm test -w packages/infra` exits 0.\n**Serves:** none (rests on calls AGNT2, AGNT9)\n\n- `justfile` `lambda-assets`:\n  1. Remove `packages/infra/assets/python`.\n  2. `uv export --package archive-backend --no-dev --no-hashes --frozen --no-emit-workspace -o \u003ctmp\u003e/requirements.txt`.\n  3. `uv pip install --python-platform aarch64-manylinux2014 --python-version 3.13 --only-binary :all: --target packages/infra/assets/python -r \u003ctmp\u003e/requirements.txt`. This exact command was run against the current lock and produced `_pydantic_core.cpython-313-aarch64-linux-gnu.so`.\n  4. `uv pip install --no-deps --python-version 3.13 --target packages/infra/assets/python packages/contract packages/backend`.\n\n  `check-ts` depends on `lambda-assets`. Add `packages/infra/assets/` to `.gitignore`. CI's typescript job adds `astral-sh/setup-uv` (same pin as the python job) before `just check-ts`.\n- `archive-backend` gains the dependency `boto3`, and the root dev group gains `boto3-stubs[s3,sns]`. Run `uv lock`.\n- `operations.ts`: `class Operations extends Construct`, props `{ alertEmail: string; monthlyBudgetUsd: number }`:\n  - `readonly alertTopic: sns.Topic`, with an email subscription to `alertEmail`.\n  - A `budgets.CfnBudget`: monthly, `COST`, limit `monthlyBudgetUsd` USD. Notifications on `ACTUAL` at 80 and 100 percent (`GREATER_THAN`, `PERCENTAGE`), each emailing `alertEmail`.\n  - `readonly dashboard: cloudwatch.Dashboard`, named `ResearchArchive-\u003cstage\u003e`.\n  - `addFunction(fn: lambda.Function): void`: adds an alarm on `fn.metricErrors()` (sum ≥ 1 over 5 minutes, one period, missing data not breaching) with an SNS action on the alert topic, and adds an errors-and-duration graph for the function to the dashboard.\n- `python-function.ts`: `export interface PythonFunctionProps { readonly handler: string; readonly environment?: Record\u003cstring, string\u003e; readonly timeout?: Duration; readonly memorySize?: number }`. `handler` is a dotted path in `archive_backend`, such as `archive_backend.health.handler`.\n- `ResearchArchive`:\n  - Creates `Operations` from `config.infrastructure` (which the default app always supplies; throw `ResearchArchive needs config.infrastructure` if it is missing) and exposes `alertTopic`.\n  - `pythonFunction(id: string, props: PythonFunctionProps): lambda.Function` makes a function in the archive's scope: `Runtime.PYTHON_3_13`, `Architecture.ARM_64`, `Code.fromAsset(\u003cpackages/infra/assets/python\u003e)`, timeout default 30 seconds, memory default 512, and a log group with one-month retention, removed with the stack unless prod. It calls `operations.addFunction`.\n  - Synth throws `run just lambda-assets first` when the asset folder is missing.\n\nTests in `operations.test.ts`:\n\n- `the alert topic emails the configured address`.\n- `the budget is monthly, at the configured limit, and alerts at 80 and 100 percent`.\n- `pythonFunction makes an arm64 Python 3.13 function with an errors alarm on the alert topic`.\n- `there is one dashboard per stage`.\n\nCommit: `Package Python Lambdas and add operations defaults`\n\n### Task 2: The health and whoami handlers, and the integrity check code\n\n**Does:** Adds the Python handlers for `/api/health` and `/api/whoami` and the integrity check's logic, each with unit tests and no AWS.\n**Files:** `packages/backend/src/archive_backend/health.py`, `whoami.py`, `integrity.py`, `packages/backend/tests/test_health.py`, `test_whoami.py`, `test_integrity.py`\n**Checks:** `uv run pytest packages/backend` exits 0; `just check-python` exits 0.\n**Serves:** none (rests on calls AGNT5, AGNT7)\n\n- `health.handler(event: dict[str, Any], context: object) -\u003e dict[str, Any]`: returns `{\"statusCode\": 200, \"headers\": {\"content-type\": \"application/json\"}, \"body\": \"{\\\"status\\\": \\\"ok\\\"}\"}`.\n- `whoami.handler(event, context)`: reads `event[\"requestContext\"][\"authorizer\"][\"claims\"]` and returns 200 with a JSON body `{\"sub\": ..., \"email\": ..., \"groups\": [...]}`. `groups` comes from `cognito:groups` (absent means `[]`).\n- `integrity.py`. Archived package layout (recorded in the decision log in Task 4): each published version sits at `\u003copen|restricted\u003e/\u003cdatasetId\u003e/\u003cversion\u003e/`, with `checksums.sha256` at its root in `sha256sum` format (`\u003chex\u003e  \u003crelative path\u003e`, as `examples/sample-package/checksums.sha256` shows). Each object is written in one PUT with a full-object SHA-256 checksum.\n  - `@dataclass(frozen=True) class Problem: key: str; kind: Literal[\"mismatch\", \"missing\", \"no-checksum\"]`.\n  - `check_archive(s3: S3Client, bucket: str) -\u003e list[Problem]`:\n    1. Find every `checksums.sha256` under `open/` and `restricted/` with the `list_objects_v2` paginator.\n    2. For each line, `head_object(..., ChecksumMode=\"ENABLED\")` on the version folder plus the relative path.\n    3. A 404 is `missing`. An absent `ChecksumSHA256`, or a composite one (it contains `-`), is `no-checksum`. A base64-decoded value that differs from the line's hex is `mismatch`.\n  - `handler(event, context)`: runs `check_archive` on `ARCHIVE_BUCKET`. When there are problems, it publishes one message to `ALERT_TOPIC_ARN`: subject `Archive integrity check: \u003cn\u003e problems`, body the first 50 as `\u003ckind\u003e \u003ckey\u003e` lines. It returns `{\"checked\": \u003cobjects\u003e, \"problems\": \u003cn\u003e}` and never raises for problems found. A raise would make Lambda's async invoke retry the whole scan.\n  - Type the client as `mypy_boto3_s3.S3Client` and create it in the handler.\n- Tests use a small in-memory fake implementing `get_paginator(\"list_objects_v2\")`, `get_object` and `head_object`, not moto:\n  - `test_matching_objects_have_no_problems`.\n  - `test_changed_object_is_a_mismatch`.\n  - `test_listed_file_that_is_gone_is_missing`.\n  - `test_object_without_a_full_sha256_is_no_checksum` (absent, and composite `abc-2`).\n  - `test_handler_alerts_only_when_there_are_problems` (fake SNS records publishes).\n  - `test_health_answers_ok`.\n  - `test_whoami_returns_sub_email_and_groups`.\n\nCommit: `Add the health, whoami and integrity check handlers`\n\n### Task 3: Auth, the API shell and the integrity schedule\n\n**Does:** Adds the Cognito user pool with groups and managed login, and the REST API (`/api/health` public, `/api/whoami` behind the Cognito authorizer, fixed throttling, optional regional WAF). Schedules the integrity check weekly.\n**Files:** `packages/infra/src/auth.ts`, `packages/infra/src/api.ts`, `packages/infra/src/integrity.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/test/auth.test.ts`, `packages/infra/test/api.test.ts`\n**Checks:** `npm test -w packages/infra` exits 0.\n**Serves:** none (rests on calls AGNT5, AGNT7, AGNT11)\n\n- `auth.ts`: `class Auth extends Construct`, props `{ stage: string; isProd: boolean }`:\n  - `readonly userPool`: self sign-up, sign-in with email, email auto-verified, account recovery by email. Prod: `RETAIN` and `deletionProtection: true`; other stages: `DESTROY`.\n  - Groups `contributor`, `curator`, `admin` (`CfnUserPoolGroup`).\n  - A Cognito domain with prefix `archive-\u003cstage\u003e-\u003caccount\u003e` and `managedLoginVersion: NEWER_MANAGED_LOGIN`.\n  - `addAppClients(siteDomain: string): { web: UserPoolClient; cli: UserPoolClient }`: both use authorization code with PKCE, no client secret, and scopes `openid email profile`.\n    - `web`: callback `https://\u003csiteDomain\u003e/auth/callback`, logout `https://\u003csiteDomain\u003e/`.\n    - `cli`: callback `http://localhost:8765/callback`.\n    - Each gets a `CfnManagedLoginBranding` with `useCognitoProvidedValues: true`, since managed login shows no page for a client without one.\n- `api.ts`: `class Api extends Construct`, props `{ userPool; waf: boolean; health: lambda.Function; whoami: lambda.Function }`:\n  - `readonly restApi: apigateway.RestApi`, with a regional endpoint and deploy options `throttlingRateLimit: 50`, `throttlingBurstLimit: 100`, metrics on.\n  - `readonly authorizer: apigateway.CognitoUserPoolsAuthorizer`.\n  - Resources `api/health` (`GET`, no auth) and `api/whoami` (`GET`, Cognito authorizer). The whoami route exists because CDK refuses an authorizer attached to no method, and it lets PLAN3 prove a signed-in call end to end.\n  - When `waf`: a `CfnWebACL` (scope `REGIONAL`, default allow) with `AWSManagedRulesCommonRuleSet`, `AWSManagedRulesKnownBadInputsRuleSet` and `AWSManagedRulesAmazonIpReputationList`, associated with the API's deployment stage.\n- `integrity.ts`: `class IntegrityCheck extends Construct`:\n  - Makes the function with `pythonFunction` (`archive_backend.integrity.handler`, timeout 15 minutes, environment `ARCHIVE_BUCKET` and `ALERT_TOPIC_ARN`) and grants it read on the archive bucket and publish on the topic.\n  - Schedules it with `scheduler.Schedule`, `ScheduleExpression.rate(Duration.days(7))`, target `LambdaInvoke` with `retryAttempts: 0`.\n  - Sets the function's async invoke config to `retryAttempts: 0`.\n- `ResearchArchive` exposes `userPool`, `userPoolClients`, `api` (the `RestApi`) and `authorizer`. It wires the WAF switch from `config.infrastructure.modules.waf`.\n\nTests:\n\n- `the user pool signs in with email and has contributor, curator and admin groups`.\n- `managed login is the newer version, and each client has branding`.\n- `both app clients use code with PKCE and no secret, with the site and localhost callbacks`.\n- `the prod user pool is retained with deletion protection; a dev stage's is not`.\n- `health is public and whoami uses the Cognito authorizer`.\n- `the stage throttles at 50 per second with a burst of 100`.\n- `WAF appears only when modules.waf is true, associated with the API stage`.\n- `the integrity check runs weekly with no retries`.\n\nCommit: `Add Cognito, the API shell and the weekly integrity check`\n\n### Task 4: CloudFront\n\n**Does:** Adds one distribution: the default behaviour is the derived bucket's `site/` with an index fallback; `/data/*` is the archive bucket's `open/` at stable URLs; `/api/*` is the REST API, uncached. It writes standard logs to the derived bucket's `logs/`, wires the web app client's callbacks to its domain and records the cross-plan facts.\n**Files:** `packages/infra/src/web.ts`, `packages/infra/src/storage.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/test/web.test.ts`, `docs/planning-handoff.md`\n**Checks:** `npm test -w packages/infra` exits 0; `just check` exits 0; `npx cdk synth -q` in `packages/infra` exits 0.\n**Serves:** none (rests on calls AGNT6, AGNT11)\n\n- `storage.ts`: the derived bucket gets `objectOwnership: BUCKET_OWNER_PREFERRED`. CloudFront's standard logs are delivered with an ACL, which a bucket that enforces the owner refuses. Public access stays fully blocked.\n- `web.ts`: `class Web extends Construct`, props `{ derivedBucket; archiveBucket; restApi }`, with `readonly distribution: cloudfront.Distribution`:\n  - Default behaviour: `S3BucketOrigin.withOriginAccessControl(derivedBucket, { originPath: \"/site\" })`, redirect to HTTPS, cache optimized. A viewer-request CloudFront Function rewrites a URI whose last segment has no `.` to `/index.html`, and one ending in `/` to `\u003curi\u003eindex.html`. `defaultRootObject: \"index.html\"`.\n  - `/data/*`: `S3BucketOrigin.withOriginAccessControl(archiveBucket, { originPath: \"/open\" })`, with a viewer-request function stripping the leading `/data`. A request for `/data/\u003cdatasetId\u003e/\u003cversion\u003e/\u003cpath\u003e` reads `open/\u003cdatasetId\u003e/\u003cversion\u003e/\u003cpath\u003e`. Cache optimized, GET and HEAD only.\n  - `/api/*`: `RestApiOrigin(restApi)`, all methods, `CACHING_DISABLED`, `ALL_VIEWER_EXCEPT_HOST_HEADER` origin request policy.\n  - No distribution-wide error responses, so a missing data file or an API 404 stays a 404.\n  - Logging on, to `derivedBucket` with prefix `logs/`.\n- `ResearchArchive` exposes `distribution` and calls `auth.addAppClients(distribution.distributionDomainName)` after creating it.\n- Decision log lines (today's date), added to `docs/planning-handoff.md`:\n  - Plans 4 and 7: an archived version lives at `\u003copen|restricted\u003e/\u003cdatasetId\u003e/\u003cversion\u003e/` with `checksums.sha256` at its root. Every object is written in one PUT with a full-object SHA-256 checksum, which the weekly integrity check compares. Open files are served at `/data/\u003cdatasetId\u003e/\u003cversion\u003e/\u003cpath\u003e` on the CloudFront domain. A metadata edit that rewrites `datapackage.json` or `README.md` in place must rewrite `checksums.sha256` too, or the weekly check alerts. Changing a dataset's access level moves it between `open/` and `restricted/`, so its `/data` URL changes; Plan 7 owns both.\n  - Plans 4, 6 and 9: the API lives under `/api/*` on the CloudFront domain. Two Cognito app clients use code with PKCE and no secret: `web` (callback `/auth/callback`) and `cli` (callback `http://localhost:8765/callback`, which Plan 6 may change when it designs the CLI and MCP sign-in). Roles are the Cognito groups `contributor`, `curator` and `admin`.\n  - Plans 4 and 7: the site's CloudFront Function sends extensionless paths to `/index.html`; Plan 7 changes it when it writes per-dataset pages.\n\nTests:\n\n- `the default behaviour serves site/ from the derived bucket through origin access control`.\n- `/data/* serves open/ from the archive bucket and strips /data`.\n- `/api/* goes to the REST API uncached with all methods`.\n- `the distribution has no error responses`.\n- `standard logs go to the derived bucket under logs/, and the derived bucket accepts the log ACL`.\n- `the web client's callback is on the distribution's domain`.\n\nCommit: `Add CloudFront for the site, open data and the API`\n\nThe implementer stops after Task 4's commit. The Plan 4 planning session (which dispatched the implementer) pushes the branch, opens the PR and merges it once CI passes on it.\n"
+      }
     },
     {
       "id": "PLAN3",
@@ -854,6 +906,15 @@
       "at": "2026-11-13T15:39:26.189965-06:00",
       "state": "answered",
       "claim": "8a776ba39cb5223a"
+    },
+    {
+      "id": 16,
+      "card": "PLAN2",
+      "from": "user",
+      "action": "approve-plan",
+      "at": "2026-11-13T16:00:56.021094-06:00",
+      "state": "answered",
+      "claim": "155933ba8433e9ad"
     }
   ],
   "planned_history": [

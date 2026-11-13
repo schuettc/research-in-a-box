@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/archive-infrastructure-cdk-construct` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 2 wait** → **Build · 0 of 4** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 wait** → **Build · 4 of 8** → Sign off
 
-PLAN1 building · 0 of 4 done · PLAN2 waits on PLAN1 being built · PLAN3 waits on PLAN2 being built
+PLAN1 built · PLAN2 building · 0 of 4 done · PLAN3 waits on PLAN2 being built
 
 ## Pick up next
 
@@ -63,12 +63,16 @@ PLAN1 building · 0 of 4 done · PLAN2 waits on PLAN1 being built · PLAN3 waits
 
 ## Plans
 
-- [PLAN1](plans/1-config-storage-and-tables.md) Config, storage and tables: building · 0 of 4 done
-  - TASK1 Task 1: The infrastructure section of the archive config: not started
-  - TASK2 Task 2: Generated config type and the default app: not started
-  - TASK3 Task 3: Storage: not started
-  - TASK4 Task 4: Tables and the active-catalog parameter: not started
-- PLAN2 Auth api web and operations: waits on PLAN1 being built
+- [PLAN1](plans/1-config-storage-and-tables.md) Config, storage and tables: built
+  - TASK1 Task 1: The infrastructure section of the archive config: done. 1bec0bd; test_config.py exit 0 (11 passed); just check-python check-schema exit 0
+  - TASK2 Task 2: Generated config type and the default app: done. 6cbe86d; infra tests and typecheck exit 0; drift check fails (exit 1) on an unregenerated field, passes once regenerated
+  - TASK3 Task 3: Storage: done. ab49b4b; infra tests exit 0
+  - TASK4 Task 4: Tables and the active-catalog parameter: done. 99e5b52; just check exit 0; review approved, no findings; research-in-a-box#10 CI green, merged as 213f95c
+- [PLAN2](plans/2-auth-api-web-and-operations.md) Auth, API, web and operations: building · 0 of 4 done
+  - TASK5 Task 1: Lambda packaging, pythonFunction and operations: not started
+  - TASK6 Task 2: The health and whoami handlers, and the integrity check code: not started
+  - TASK7 Task 3: Auth, the API shell and the integrity schedule: not started
+  - TASK8 Task 4: CloudFront: not started
 - PLAN3 Reindex and test deploy: waits on PLAN2 being built
 
 ## Files
