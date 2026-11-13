@@ -54,6 +54,23 @@ test("a stage with an account and region sets the stack's environment", () => {
   expect(Stack.of(dev).environment).toBe("aws://unknown-account/unknown-region");
 });
 
+test("ARCHIVE_CONFIG points the default app at another config file", () => {
+  const path = configFile(`publisher: P\n${INFRASTRUCTURE}  stages:\n    - name: test\n`);
+  const previous = process.env.ARCHIVE_CONFIG;
+  process.env.ARCHIVE_CONFIG = path;
+  try {
+    const assembly = createApp().synth();
+
+    expect(assembly.stacks.map((s) => s.stackName)).toEqual(["ResearchArchive-test"]);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ARCHIVE_CONFIG;
+    } else {
+      process.env.ARCHIVE_CONFIG = previous;
+    }
+  }
+});
+
 test("a config with no infrastructure section is refused with a clear message", () => {
   expect(() => createApp(configFile("publisher: P\n"))).toThrow(
     "archive.yaml needs an infrastructure section",

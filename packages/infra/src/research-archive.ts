@@ -14,6 +14,7 @@ import type { ArchiveConfig } from "./generated/archive-config";
 import { IntegrityCheck } from "./integrity";
 import { Operations } from "./operations";
 import { makePythonFunction, type PythonFunctionProps } from "./python-function";
+import { Reindex } from "./reindex";
 import { Storage } from "./storage";
 import { Tables } from "./tables";
 import { Web } from "./web";
@@ -44,6 +45,8 @@ export class ResearchArchive extends Construct {
   readonly api: apigateway.RestApi;
   readonly authorizer: apigateway.CognitoUserPoolsAuthorizer;
   readonly distribution: cloudfront.Distribution;
+  /** The reindex's `live` alias: durable functions are invoked only through a version or alias. */
+  readonly reindexFunction: lambda.Alias;
   private readonly operations: Operations;
 
   constructor(scope: Construct, id: string, props: ResearchArchiveProps) {
@@ -114,6 +117,8 @@ export class ResearchArchive extends Construct {
       archiveBucket: this.archiveBucket,
       alertTopic: this.alertTopic,
     });
+
+    this.reindexFunction = new Reindex(this, "Reindex", { archive: this }).alias;
   }
 
   /** A Python Lambda from archive-backend, built the way the archive's own are, with its alarm. */

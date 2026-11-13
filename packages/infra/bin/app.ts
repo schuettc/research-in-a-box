@@ -9,7 +9,8 @@ export function stackName(stage: string): string {
   return `ResearchArchive-${stage}`;
 }
 
-export function createApp(configPath: string = ARCHIVE_YAML): App {
+/** The config file: `ARCHIVE_CONFIG` when set, so a test stage needs no edit to archive.yaml. */
+export function createApp(configPath: string = process.env.ARCHIVE_CONFIG ?? ARCHIVE_YAML): App {
   const config = loadArchiveConfig(configPath);
   const app = new App();
   for (const stage of stagesOf(config)) {

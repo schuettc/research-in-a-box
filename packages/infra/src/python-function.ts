@@ -14,6 +14,8 @@ export interface PythonFunctionProps {
   readonly environment?: Record<string, string>;
   readonly timeout?: Duration;
   readonly memorySize?: number;
+  /** Makes the function durable; invoke it only through a version or alias. */
+  readonly durableConfig?: lambda.DurableConfig;
 }
 
 /** An arm64 Python 3.13 Lambda from the packaged archive-backend, with a one-month log group. */
@@ -37,6 +39,7 @@ export function makePythonFunction(
     environment: props.environment,
     timeout: props.timeout ?? Duration.seconds(30),
     memorySize: props.memorySize ?? 512,
+    durableConfig: props.durableConfig,
     logGroup,
   });
 }
