@@ -4,7 +4,17 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/", "**/cdk.out/", "**/node_modules/", "docs/", "practice-data/", ".venv/"] },
+  {
+    ignores: [
+      "**/dist/",
+      "**/cdk.out/",
+      "packages/infra/assets/",
+      "**/node_modules/",
+      "docs/",
+      "practice-data/",
+      ".venv/",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

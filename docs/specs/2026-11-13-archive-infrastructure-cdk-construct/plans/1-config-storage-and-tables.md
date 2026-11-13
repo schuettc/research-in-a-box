@@ -1,7 +1,7 @@
 ---
 diazo: research-archive-in-a-box/archive-infrastructure-cdk-construct
 file: PLAN1
-status: approved
+status: done
 approved: 2026-11-13T15:39:26-06:00
 hash: e3ea944d0007b976571def108ed82035055a9449669c44ee48a1a49cc4d3f2ff
 rests_on: [AGNT1, AGNT10, AGNT12, AGNT4, AGNT5, AGNT7, AGNT9, DCSN1, DCSN2, DCSN4]

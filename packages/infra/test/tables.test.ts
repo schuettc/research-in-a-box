@@ -1,11 +1,12 @@
-import { App, Stack } from "aws-cdk-lib";
+import { Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import type { CfnTable, Table } from "aws-cdk-lib/aws-dynamodb";
 import { expect, test } from "vitest";
 import { ResearchArchive } from "../src/research-archive";
+import { testApp } from "./test-app";
 
 function archive(stage = "prod"): { archive: ResearchArchive; template: Template } {
-  const stack = new Stack(new App(), "S");
+  const stack = new Stack(testApp(), "S");
   const built = new ResearchArchive(stack, "Archive", {
     config: {
       publisher: "P",
