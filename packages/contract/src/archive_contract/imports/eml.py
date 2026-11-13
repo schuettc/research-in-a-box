@@ -44,125 +44,53 @@ STANDARD: dict[str, frozenset[str]] = {
     ),
     "dataset": frozenset(
         {
-            "alternateIdentifier",
-            "shortName",
-            "title",
-            "creator",
-            "metadataProvider",
-            "associatedParty",
-            "pubDate",
-            "language",
-            "series",
-            "abstract",
-            "keywordSet",
-            "additionalInfo",
-            "intellectualRights",
-            "licensed",
-            "distribution",
-            "coverage",
-            "annotation",
-            "purpose",
-            "introduction",
-            "gettingStarted",
-            "acknowledgements",
-            "maintenance",
-            "contact",
-            "publisher",
-            "pubPlace",
-            "methods",
-            "project",
-            "dataTable",
-            "spatialRaster",
-            "spatialVector",
-            "storedProcedure",
-            "view",
-            "otherEntity",
-            "referencePublication",
-            "usageCitation",
-            "literatureCited",
-            "references",
+            "alternateIdentifier", "shortName", "title", "creator", "metadataProvider",
+            "associatedParty", "pubDate", "language", "series", "abstract", "keywordSet",
+            "additionalInfo", "intellectualRights", "licensed", "distribution", "coverage",
+            "annotation", "purpose", "introduction", "gettingStarted", "acknowledgements",
+            "maintenance", "contact", "publisher", "pubPlace", "methods", "project", "dataTable",
+            "spatialRaster", "spatialVector", "storedProcedure", "view", "otherEntity",
+            "referencePublication", "usageCitation", "literatureCited", "references",
+        }
+    ),
+    "party": frozenset(
+        {
+            "individualName", "organizationName", "positionName", "address", "phone",
+            "electronicMailAddress", "onlineUrl", "userId", "role", "references",
         }
     ),
     "project": frozenset(
         {
-            "title",
-            "personnel",
-            "abstract",
-            "funding",
-            "award",
-            "studyAreaDescription",
-            "designDescription",
-            "relatedProject",
-            "references",
+            "title", "personnel", "abstract", "funding", "award", "studyAreaDescription",
+            "designDescription", "relatedProject", "references",
         }
     ),
     "entity": frozenset(
         {
-            "alternateIdentifier",
-            "entityName",
-            "entityDescription",
-            "physical",
-            "coverage",
-            "methods",
-            "additionalInfo",
-            "annotation",
-            "attributeList",
-            "constraint",
-            "caseSensitive",
-            "numberOfRecords",
-            "entityType",
-            "references",
+            "alternateIdentifier", "entityName", "entityDescription", "physical", "coverage",
+            "methods", "additionalInfo", "annotation", "attributeList", "constraint",
+            "caseSensitive", "numberOfRecords", "entityType", "references",
             # spatialRaster and spatialVector
-            "spatialReference",
-            "georeferenceInfo",
-            "horizontalAccuracy",
-            "verticalAccuracy",
-            "cellSizeXDirection",
-            "cellSizeYDirection",
-            "numberOfBands",
-            "rasterOrigin",
-            "rows",
-            "columns",
-            "verticals",
-            "cellGeometry",
-            "toneGradation",
-            "scaleFactor",
-            "offset",
-            "imageDescription",
-            "geometry",
-            "geometricObjectCount",
-            "topologyLevel",
+            "spatialReference", "georeferenceInfo", "horizontalAccuracy", "verticalAccuracy",
+            "cellSizeXDirection", "cellSizeYDirection", "numberOfBands", "rasterOrigin", "rows",
+            "columns", "verticals", "cellGeometry", "toneGradation", "scaleFactor", "offset",
+            "imageDescription", "geometry", "geometricObjectCount", "topologyLevel",
         }
     ),
     "physical": frozenset(
         {
-            "objectName",
-            "size",
-            "authentication",
-            "compressionMethod",
-            "encodingMethod",
-            "characterEncoding",
-            "dataFormat",
-            "distribution",
-            "references",
+            "objectName", "size", "authentication", "compressionMethod", "encodingMethod",
+            "characterEncoding", "dataFormat", "distribution", "references",
         }
     ),
     "attribute": frozenset(
         {
-            "attributeName",
-            "attributeLabel",
-            "attributeDefinition",
-            "storageType",
-            "measurementScale",
-            "missingValueCode",
-            "accuracy",
-            "coverage",
-            "methods",
-            "annotation",
-            "references",
+            "attributeName", "attributeLabel", "attributeDefinition", "storageType",
+            "measurementScale", "missingValueCode", "accuracy", "coverage", "methods",
+            "annotation", "references",
         }
     ),
-}
+}  # fmt: skip
 
 READ: dict[str, frozenset[str]] = {
     "eml": frozenset({"dataset"}),
@@ -173,6 +101,10 @@ READ: dict[str, frozenset[str]] = {
             "maintenance", "contact", "methods", "project", "dataTable", "spatialRaster",
             "spatialVector", "otherEntity",
         }
+    ),
+    "party": frozenset(
+        {"individualName", "organizationName", "positionName", "electronicMailAddress"}
+        | {"onlineUrl", "role"}
     ),
     "project": frozenset({"title", "personnel", "abstract", "award"}),
     "entity": frozenset(
@@ -432,9 +364,12 @@ def _project(dataset: ET.Element, raw: dict[str, Any], skips: _Skips) -> Project
         return None
     people = []
     for personnel in _kids(element, "personnel"):
+        skips.check(personnel, "party", "dataset/project/personnel")
         roles = [r for r in (_text(x) for x in _kids(personnel, "role")) if r]
         party = _party(personnel, roles)
-        if party.get("title"):
+        if not party.get("title"):
+            skips.add("dataset/project/personnel: no name, so no person")
+        else:
             people.append(
                 Person(
                     name=party["title"],
@@ -602,6 +537,8 @@ def _resource(
     entity_name = _kid_text(entity, "entityName")
     if not entity_name:
         skips.add(f"{path}: no entityName, so no resource")
+        _physical(entity, path, skips)  # walked only to list what they hold and skip
+        _attributes(entity, "", path, skips)
         return
     name, n = slug(entity_name), 1
     while name in taken:
@@ -724,15 +661,22 @@ def from_eml(xml: str) -> EmlImport:
     if len(_kids(dataset, "title")) > 1:
         skips.add("dataset/title: only the first title is read")
 
-    contributors = [_party(c, ["creator"]) for c in _kids(dataset, "creator")]
-    for party in _kids(dataset, "associatedParty"):
-        role = _kid_text(party, "role") or "contributor"
-        contributors.append(_party(party, [role]))
-    for party in _kids(dataset, "metadataProvider"):
-        contributors.append(_party(party, ["metadata-provider"]))
+    def party(element: ET.Element, tag: str, roles: list[str]) -> dict[str, Any]:
+        skips.check(element, "party", f"dataset/{tag}")
+        out = _party(element, roles)
+        if not out.get("title"):
+            skips.add(f"dataset/{tag}: no name, so no contributor")
+        return out
+
+    contributors = [party(c, "creator", ["creator"]) for c in _kids(dataset, "creator")]
+    for element in _kids(dataset, "associatedParty"):
+        role = _kid_text(element, "role") or "contributor"
+        contributors.append(party(element, "associatedParty", [role]))
+    for element in _kids(dataset, "metadataProvider"):
+        contributors.append(party(element, "metadataProvider", ["metadata-provider"]))
     named = {c.get("title") for c in contributors}
-    for party in _kids(dataset, "contact"):
-        contact = _party(party, ["contact"])
+    for element in _kids(dataset, "contact"):
+        contact = party(element, "contact", ["contact"])
         if contact.get("title") not in named:
             contributors.append(contact)
             named.add(contact.get("title"))

@@ -134,3 +134,34 @@ def test_sample_round_trips_through_eml() -> None:
     assert logger is not None and logger.table_schema is not None
     [key] = logger.table_schema.foreign_keys or []
     assert key.field_names() == ["condition"] and key.reference.resource == "condition-codes"
+
+
+def test_skipped_lists_what_sits_inside_unread_parts() -> None:
+    xml = """<eml:eml xmlns:eml="eml://ecoinformatics.org/eml-2.1.1" packageId="x.1.1" system="x">
+      <eml:dataset>
+        <eml:title>Invented</eml:title>
+        <eml:project>
+          <eml:title>Invented program</eml:title>
+          <eml:personnel><eml:leadPerson><eml:surName>Nobody</eml:surName></eml:leadPerson></eml:personnel>
+        </eml:project>
+        <eml:dataTable>
+          <eml:title>No entity name</eml:title>
+          <eml:physical><eml:objectName>t.csv</eml:objectName><eml:distibution/></eml:physical>
+          <eml:attributeList>
+            <eml:attribute><eml:attributeName>a</eml:attributeName><eml:measurementType/></eml:attribute>
+          </eml:attributeList>
+        </eml:dataTable>
+      </eml:dataset>
+    </eml:eml>"""
+    result = from_eml(xml)
+
+    assert result.manifest.title == "Invented"
+    assert result.manifest.resources == []
+    assert "dataset/dataTable: no entityName, so no resource" in result.skipped
+    assert "dataset/dataTable/physical/distibution: not standard EML" in result.skipped
+    assert (
+        "dataset/dataTable/attributeList/attribute/measurementType: not standard EML"
+        in result.skipped
+    )
+    assert "dataset/project/personnel/leadPerson: not standard EML" in result.skipped
+    assert "dataset/project/personnel: no name, so no person" in result.skipped
