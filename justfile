@@ -1,4 +1,6 @@
 schema_file := "packages/web/src/schema/archive-contract.schema.json"
+config_type_file := "packages/infra/src/generated/archive-config.ts"
+config_type_generator := "packages/infra/scripts/generate-config-type.ts"
 
 # Run every check in both languages, plus the schema drift check
 check: check-python check-ts check-schema
@@ -18,18 +20,21 @@ check-ts:
     npm test --workspaces
     npm run build -w packages/web
 
-# Fail when the committed JSON Schema differs from the contract
+# Fail when the committed JSON Schema or the construct's config type differs from the contract
 check-schema:
     #!/usr/bin/env bash
     set -euo pipefail
-    tmp="$(mktemp)"
-    trap 'rm -f "$tmp"' EXIT
-    uv run python -m archive_contract.schema "$tmp"
-    diff -u {{schema_file}} "$tmp"
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    uv run python -m archive_contract.schema "$tmp/schema.json"
+    diff -u {{schema_file}} "$tmp/schema.json"
+    npx tsx {{config_type_generator}} "$tmp/schema.json" "$tmp/archive-config.ts"
+    diff -u {{config_type_file}} "$tmp/archive-config.ts"
 
-# Rewrite the committed JSON Schema from the contract
+# Rewrite the committed JSON Schema and the construct's config type from the contract
 schema:
     uv run python -m archive_contract.schema {{schema_file}}
+    npx tsx {{config_type_generator}} {{schema_file}} {{config_type_file}}
 
 # Format Python and TypeScript in place
 fmt:
