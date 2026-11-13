@@ -4,7 +4,9 @@
 
 `research-archive-in-a-box/archive-infrastructure-cdk-construct` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 2 wait** → **Build · 0 of 4** → Sign off
+
+PLAN1 building · 0 of 4 done · PLAN2 waits on PLAN1 being built · PLAN3 waits on PLAN2 being built
 
 ## Pick up next
 
@@ -61,7 +63,13 @@
 
 ## Plans
 
-None yet.
+- [PLAN1](plans/1-config-storage-and-tables.md) Config, storage and tables: building · 0 of 4 done
+  - TASK1 Task 1: The infrastructure section of the archive config: not started
+  - TASK2 Task 2: Generated config type and the default app: not started
+  - TASK3 Task 3: Storage: not started
+  - TASK4 Task 4: Tables and the active-catalog parameter: not started
+- PLAN2 Auth api web and operations: waits on PLAN1 being built
+- PLAN3 Reindex and test deploy: waits on PLAN2 being built
 
 ## Files
 
@@ -71,6 +79,7 @@ None yet.
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |
 

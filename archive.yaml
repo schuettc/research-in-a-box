@@ -1,0 +1,8 @@
+# The archive config: the one file a fork edits.
+publisher: Invented Research Cooperative
+profiles: [core, ecology]
+infrastructure:
+  alertEmail: archive-admin@example.org
+  monthlyBudgetUsd: 50
+  stages:
+    - name: prod

@@ -66,6 +66,17 @@
           "title": "Access",
           "type": "array"
         },
+        "infrastructure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Infrastructure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "licenses": {
           "items": {
             "type": "string"
@@ -709,6 +720,38 @@
       "title": "Funding",
       "type": "object"
     },
+    "Infrastructure": {
+      "additionalProperties": false,
+      "description": "Where and how the archive is deployed.",
+      "properties": {
+        "alertEmail": {
+          "title": "Alertemail",
+          "type": "string"
+        },
+        "modules": {
+          "$ref": "#/$defs/Modules"
+        },
+        "monthlyBudgetUsd": {
+          "default": 50,
+          "exclusiveMinimum": 0,
+          "title": "Monthlybudgetusd",
+          "type": "integer"
+        },
+        "stages": {
+          "items": {
+            "$ref": "#/$defs/Stage"
+          },
+          "minItems": 1,
+          "title": "Stages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "alertEmail"
+      ],
+      "title": "Infrastructure",
+      "type": "object"
+    },
     "LegacyIdentifier": {
       "additionalProperties": true,
       "description": "An identifier the data had elsewhere, such as an EML package id.",
@@ -865,6 +908,46 @@
         "fields"
       ],
       "title": "MetadataEdit",
+      "type": "object"
+    },
+    "Modules": {
+      "additionalProperties": false,
+      "description": "The optional parts, each built only when switched on.",
+      "properties": {
+        "objectLock": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectLock"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "waf": {
+          "default": false,
+          "title": "Waf",
+          "type": "boolean"
+        }
+      },
+      "title": "Modules",
+      "type": "object"
+    },
+    "ObjectLock": {
+      "additionalProperties": false,
+      "description": "Write-once locking of the archive bucket, in governance mode.",
+      "properties": {
+        "retentionDays": {
+          "exclusiveMinimum": 0,
+          "title": "Retentiondays",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "retentionDays"
+      ],
+      "title": "ObjectLock",
       "type": "object"
     },
     "Person": {
@@ -1406,6 +1489,47 @@
         "bbox"
       ],
       "title": "SpatialCoverage",
+      "type": "object"
+    },
+    "Stage": {
+      "additionalProperties": false,
+      "description": "One deployment of the archive, its own stack, optionally in its own account and region.",
+      "properties": {
+        "account": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Account"
+        },
+        "name": {
+          "pattern": "^[a-z][a-z0-9-]{0,19}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Stage",
       "type": "object"
     },
     "TableSchema": {
