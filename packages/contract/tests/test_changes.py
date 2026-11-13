@@ -60,3 +60,20 @@ def test_reading_skips_blank_lines(tmp_path: Path) -> None:
     path.write_text(path.read_text(encoding="utf-8") + "\n\n", encoding="utf-8")
 
     assert len(read_changes(path)) == 1
+
+
+def test_explicit_null_before_is_kept_and_unset_stays_absent(tmp_path: Path) -> None:
+    raw = rename() | {"kind": "fix-value", "before": None, "after": 12.5}
+    del raw["evidence"]
+    unset = rename()
+    del unset["before"], unset["after"]
+
+    dumped = Change.model_validate(raw).dump()
+    path = tmp_path / "changes.jsonl"
+    write_changes(path, [Change.model_validate(raw)])
+
+    assert "before" in dumped and dumped["before"] is None
+    assert '"before": null' in path.read_text(encoding="utf-8")
+    assert read_changes(path)[0].dump()["before"] is None
+    assert "before" not in Change.model_validate(unset).dump()
+    assert "after" not in Change.model_validate(unset).dump()

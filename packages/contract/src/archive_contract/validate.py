@@ -3,10 +3,14 @@
 Structure only: the manifest parses, every reference points at something that exists, every
 listed file has its size and hash recorded and they match, and `checksums.sha256` matches the
 files. Quality is the audit's business, not this module's.
+
+Symlinks are refused wherever they appear and never followed, so nothing outside the package
+is read or hashed.
 """
 
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 
 from pydantic import ValidationError
@@ -17,6 +21,9 @@ from archive_contract.resources import Resource
 
 MANIFEST = "datapackage.json"
 CHECKSUMS = "checksums.sha256"
+BUILD = "_build"
+HASH_ALGORITHMS = frozenset({"md5", "sha1", "sha256", "sha512"})
+"""The hash algorithms Frictionless allows in a resource's `hash`."""
 
 
 def _error(
@@ -41,8 +48,52 @@ def _error(
 
 
 def is_package_content(relative: PurePosixPath) -> bool:
-    """Hidden files and `_`-prefixed folders (build scripts, caches) are not package content."""
-    return not any(part.startswith((".", "_")) for part in relative.parts)
+    """Everything is package content except the top-level `_build/` folder."""
+    return not (len(relative.parts) > 1 and relative.parts[0] == BUILD)
+
+
+def package_files(root: Path) -> tuple[list[str], list[str]]:
+    """The package's files and its symlinks, as sorted relative paths.
+
+    Symlinks, to files or folders, are listed and never followed; `_build/` is not walked.
+    """
+    files: list[str] = []
+    links: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        here = Path(dirpath)
+        for name in list(dirnames):
+            relative = (here / name).relative_to(root).as_posix()
+            if (here / name).is_symlink():
+                links.append(relative)
+                dirnames.remove(name)
+            elif relative == BUILD:
+                dirnames.remove(name)
+        for name in filenames:
+            relative = (here / name).relative_to(root).as_posix()
+            if (here / name).is_symlink():
+                links.append(relative)
+            elif (here / name).is_file() and is_package_content(PurePosixPath(relative)):
+                files.append(relative)
+    return sorted(files), sorted(links)
+
+
+def _symlink_in(root: Path, path: str) -> str | None:
+    """The first part of `path` that is a symlink, or None when there is none."""
+    parts = PurePosixPath(path).parts
+    for i in range(1, len(parts) + 1):
+        prefix = PurePosixPath(*parts[:i]).as_posix()
+        if (root / prefix).is_symlink():
+            return prefix
+    return None
+
+
+def _symlink(path: str, *, resource: str | None = None) -> Finding:
+    return _error(
+        "symlink",
+        f"{path} is a symlink, which a package may not hold",
+        resource=resource,
+        path=path,
+    )
 
 
 def _safe(path: str) -> bool:
@@ -85,6 +136,9 @@ def _check_file(
     name = resource.name
     if not _safe(path):
         return [_error("path-unsafe", f"{path} is outside the package", resource=name, path=path)]
+    link = _symlink_in(root, path)
+    if link is not None:
+        return [_symlink(link, resource=name)]
     file = root / path
     if not file.is_file():
         return [_error("file-missing", f"{path} is listed but absent", resource=name, path=path)]
@@ -110,11 +164,11 @@ def _check_file(
             )
         )
     algorithm, expected = _split_hash(recorded)
-    if algorithm not in hashlib.algorithms_available:
+    if algorithm not in HASH_ALGORITHMS:
         findings.append(
             _error(
-                "hash-mismatch",
-                f"{path} has a hash in an unknown algorithm {algorithm!r}",
+                "hash-algorithm",
+                f"{path} has a hash in {algorithm!r}, not one of md5, sha1, sha256 or sha512",
                 resource=name,
                 path=path,
                 values=[recorded],
@@ -218,6 +272,8 @@ def _check_references(manifest: Manifest) -> list[Finding]:
 
 def _check_checksums(root: Path) -> list[Finding]:
     checksums = root / CHECKSUMS
+    if checksums.is_symlink():
+        return [_symlink(CHECKSUMS)]
     if not checksums.is_file():
         return [_error("checksums-missing", f"{CHECKSUMS} is absent", path=CHECKSUMS)]
     findings: list[Finding] = []
@@ -240,13 +296,12 @@ def _check_checksums(root: Path) -> list[Finding]:
         if path != CHECKSUMS:
             listed[path] = digest.lower()
 
-    present = sorted(
-        p.relative_to(root).as_posix()
-        for p in root.rglob("*")
-        if p.is_file() and is_package_content(PurePosixPath(p.relative_to(root).as_posix()))
-    )
+    present, links = package_files(root)
+    findings.extend(_symlink(link) for link in links)
     present_set = set(present)
     for path, digest in listed.items():
+        if _safe(path) and _symlink_in(root, path) is not None:
+            continue  # refused as a symlink above, and never hashed
         if not _safe(path) or path not in present_set:
             findings.append(
                 _error("checksums-orphan", f"{CHECKSUMS} lists {path}, which is absent", path=path)
@@ -271,6 +326,8 @@ def _check_checksums(root: Path) -> list[Finding]:
 def validate_package(path: Path) -> list[Finding]:
     """Check a package folder's structure. An empty list means structurally valid."""
     manifest_path = path / MANIFEST
+    if manifest_path.is_symlink():
+        return [_symlink(MANIFEST)]
     if not manifest_path.is_file():
         return [_error("manifest-missing", f"{MANIFEST} is absent", path=MANIFEST)]
     try:
@@ -283,4 +340,18 @@ def validate_package(path: Path) -> list[Finding]:
                 "manifest-invalid", f"{MANIFEST} does not fit the contract: {exc}", path=MANIFEST
             )
         ]
-    return _check_references(manifest) + _check_files(path, manifest) + _check_checksums(path)
+    findings = _check_references(manifest) + _check_files(path, manifest) + _check_checksums(path)
+    return _once_per_symlink(findings)
+
+
+def _once_per_symlink(findings: list[Finding]) -> list[Finding]:
+    """A symlink both listed by a resource and found on disk is reported once."""
+    seen: set[str] = set()
+    kept: list[Finding] = []
+    for finding in findings:
+        if finding.rule_id == "structure.symlink" and finding.target is not None:
+            if finding.target.path in seen:
+                continue
+            seen.add(finding.target.path or "")
+        kept.append(finding)
+    return kept

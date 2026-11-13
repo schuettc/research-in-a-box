@@ -135,3 +135,38 @@ def test_extra_properties_are_kept() -> None:
     raw = {"name": "notes", "path": "docs/notes.txt", "x-custom": {"a": 1}}
 
     assert Resource.model_validate(raw).dump()["x-custom"] == {"a": 1}
+
+
+def test_unknown_extra_and_archive_nulls_survive_dump() -> None:
+    raw = {"name": "notes", "path": "docs/notes.txt", "vendor:note": None, "archive:x": None}
+
+    dumped = Resource.model_validate(raw).dump()
+
+    assert "vendor:note" in dumped and dumped["vendor:note"] is None
+    assert "archive:x" in dumped and dumped["archive:x"] is None
+
+
+def test_table_kind_without_type_is_written_with_type_table() -> None:
+    raw = {"name": "logger", "path": "data/logger.csv", "archive:kind": "table"}
+
+    assert Resource.model_validate(raw).dump()["type"] == "table"
+
+
+def test_type_table_without_kind_reads_as_a_table() -> None:
+    raw = {"name": "logger", "path": "data/logger.csv", "type": "table"}
+
+    assert Resource.model_validate(raw).kind == "table"
+
+
+@pytest.mark.parametrize("kind", ["vector", "raster", "document", "media", "file"])
+def test_type_table_on_another_kind_is_refused(kind: str) -> None:
+    with pytest.raises(ValidationError):
+        Resource.model_validate(
+            {"name": "x", "path": "data/x.bin", "type": "table", "archive:kind": kind}
+        )
+
+
+def test_another_kind_is_written_without_type() -> None:
+    raw = {"name": "photo", "path": "docs/photo.png", "archive:kind": "media"}
+
+    assert "type" not in Resource.model_validate(raw).dump()

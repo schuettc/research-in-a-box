@@ -58,6 +58,8 @@ class TemporalCoverage(ArchiveModel):
     def _end_or_ongoing(self) -> Self:
         if self.ongoing and self.end is not None:
             raise ValueError("temporal coverage has an end date or is ongoing, not both")
+        if not self.ongoing and self.end is None:
+            raise ValueError("temporal coverage needs an end date or ongoing true")
         if self.end is not None and self.end < self.start:
             raise ValueError("temporal coverage ends before it starts")
         return self

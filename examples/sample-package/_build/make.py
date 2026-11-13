@@ -18,7 +18,7 @@ import shutil
 import struct
 import zipfile
 import zlib
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 import openpyxl
@@ -26,7 +26,7 @@ import shapefile
 
 from archive_contract.changes import Change, write_changes
 from archive_contract.manifest import Manifest
-from archive_contract.validate import CHECKSUMS, MANIFEST, is_package_content
+from archive_contract.validate import CHECKSUMS, MANIFEST, package_files
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXED_DATE = (2024, 6, 1)
@@ -381,6 +381,7 @@ def resources(site_members: list[str]) -> list[dict[str, Any]]:
         {
             "name": "logger-xlsx",
             "path": "data/logger.xlsx",
+            "type": "table",
             "title": "Logger readings (Excel)",
             "description": "The logger table as an Excel workbook.",
             "format": "xlsx",
@@ -484,11 +485,7 @@ def rename() -> Change:
 
 
 def write_checksums() -> None:
-    paths = sorted(
-        p.relative_to(ROOT).as_posix()
-        for p in ROOT.rglob("*")
-        if p.is_file() and is_package_content(PurePosixPath(p.relative_to(ROOT).as_posix()))
-    )
+    paths, _ = package_files(ROOT)
     lines = [
         f"{hashlib.sha256((ROOT / p).read_bytes()).hexdigest()}  {p}\n"
         for p in paths

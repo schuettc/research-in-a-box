@@ -4,7 +4,7 @@ import json
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import Field as PydanticField
 
@@ -23,7 +23,13 @@ class Actor(ArchiveModel):
 
 
 class Change(ArchiveModel):
-    """One cleaning step: what changed, who made and accepted it, why, and the evidence."""
+    """One cleaning step: what changed, who made and accepted it, why, and the evidence.
+
+    `before` and `after` keep an explicit null (a value filled in from nothing has
+    `"before": null`); when never set they are left out.
+    """
+
+    _explicit_nulls: ClassVar[frozenset[str]] = frozenset({"before", "after"})
 
     id: str
     when: datetime

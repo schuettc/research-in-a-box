@@ -221,6 +221,7 @@
     {
       "name": "logger-xlsx",
       "path": "data/logger.xlsx",
+      "type": "table",
       "title": "Logger readings (Excel)",
       "description": "The logger table as an Excel workbook.",
       "format": "xlsx",

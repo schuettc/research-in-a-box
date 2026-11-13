@@ -238,3 +238,8 @@ def test_recommended_fields_parse() -> None:
     assert manifest.related_identifiers[0].relation_type == "IsSupplementTo"
     assert manifest.funding is not None and manifest.funding[0].award_number == "X-1"
     assert manifest.methods == "Loggers read every hour."
+
+
+def test_coverage_with_a_start_alone_is_refused() -> None:
+    with pytest.raises(ValidationError):
+        Manifest.model_validate({"archive:temporalCoverage": {"start": "2024-06-01"}})

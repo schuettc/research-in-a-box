@@ -185,10 +185,101 @@ def test_checksums_line_for_a_missing_file(tmp_path: Path) -> None:
     assert rule_ids(validate_package(root)) == ["structure.checksums-orphan"]
 
 
-def test_hidden_and_underscore_files_are_not_package_content(tmp_path: Path) -> None:
+def test_only_the_top_level_build_folder_is_exempt_from_checksums(tmp_path: Path) -> None:
     root = edited(tmp_path, lambda m: None)
-    (root / ".DS_Store").write_text("x", encoding="utf-8")
     (root / "_build").mkdir()
     (root / "_build" / "make.py").write_text("print()", encoding="utf-8")
 
     assert validate_package(root) == []
+
+
+@pytest.mark.parametrize("extra", [".DS_Store", "data/_readings.csv", "docs/_build/x.txt"])
+def test_hidden_and_underscore_files_need_a_checksums_line(tmp_path: Path, extra: str) -> None:
+    root = edited(tmp_path, lambda m: None)
+    (root / extra).parent.mkdir(parents=True, exist_ok=True)
+    (root / extra).write_text("x", encoding="utf-8")
+
+    findings = validate_package(root)
+
+    assert rule_ids(findings) == ["structure.checksums-unlisted"]
+    assert findings[0].target is not None and findings[0].target.path == extra
+
+
+def outside_copy(tmp_path: Path, relative: str) -> Path:
+    """A copy of a fixture file or folder outside the package, for a symlink to point at."""
+    source = FIXTURES / "valid" / relative
+    target = tmp_path / "outside" / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if source.is_dir():
+        shutil.copytree(source, target)
+    else:
+        shutil.copy(source, target)
+    return target
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "datapackage.json",
+        "checksums.sha256",
+        "docs/methods.md",
+        "data/sites",
+        "data/sites/sites.dbf",
+    ],
+)
+def test_symlink_is_refused_and_not_followed(tmp_path: Path, relative: str) -> None:
+    root = edited(tmp_path, lambda m: None)
+    target = outside_copy(tmp_path, relative)
+    link = root / relative
+    if link.is_dir():
+        shutil.rmtree(link)
+    else:
+        link.unlink()
+    link.symlink_to(target)
+
+    findings = validate_package(root)
+
+    assert rule_ids(findings) == ["structure.symlink"]
+    assert findings[0].target is not None and findings[0].target.path == relative
+
+
+def test_unlisted_symlink_is_refused(tmp_path: Path) -> None:
+    root = edited(tmp_path, lambda m: None)
+    (root / "docs" / "elsewhere").symlink_to(outside_copy(tmp_path, "docs/methods.md"))
+
+    assert rule_ids(validate_package(root)) == ["structure.symlink"]
+
+
+def _hash_of(path: Path, algorithm: str) -> str:
+    return hashlib.new(algorithm, path.read_bytes()).hexdigest()
+
+
+@pytest.mark.parametrize(
+    "recorded",
+    [
+        lambda p: f"md5:{_hash_of(p, 'md5')}",
+        lambda p: _hash_of(p, "md5"),
+        lambda p: f"sha1:{_hash_of(p, 'sha1')}",
+        lambda p: f"SHA256:{_hash_of(p, 'sha256')}",
+        lambda p: f"sha512:{_hash_of(p, 'sha512')}",
+    ],
+)
+def test_the_four_frictionless_hash_algorithms_are_accepted(
+    tmp_path: Path, recorded: Callable[[Path], str]
+) -> None:
+    methods = FIXTURES / "valid" / "docs" / "methods.md"
+
+    def edit(m: dict[str, Any]) -> None:
+        m["resources"][3]["hash"] = recorded(methods)
+
+    assert validate_package(edited(tmp_path, edit)) == []
+
+
+@pytest.mark.parametrize("algorithm", ["shake_128", "shake_256", "sha224", "blake2b", "nope"])
+def test_other_hash_algorithms_are_a_finding_not_an_exception(
+    tmp_path: Path, algorithm: str
+) -> None:
+    def edit(m: dict[str, Any]) -> None:
+        m["resources"][3]["hash"] = f"{algorithm}:abcdef"
+
+    assert rule_ids(validate_package(edited(tmp_path, edit))) == ["structure.hash-algorithm"]

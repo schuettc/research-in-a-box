@@ -89,7 +89,7 @@
     },
     "Change": {
       "additionalProperties": true,
-      "description": "One cleaning step: what changed, who made and accepted it, why, and the evidence.",
+      "description": "One cleaning step: what changed, who made and accepted it, why, and the evidence.\n\n`before` and `after` keep an explicit null (a value filled in from nothing has\n`\"before\": null`); when never set they are left out.",
       "properties": {
         "acceptedBy": {
           "anyOf": [
@@ -929,7 +929,7 @@
     },
     "Resource": {
       "additionalProperties": true,
-      "description": "A Frictionless resource with the archive's additions.\n\n- `archive:kind` says what the resource is; with none it reads as `file`.\n- `archive:files` lists every member file of a multi-file resource (a shapefile set),\n  with `path` naming the main file.\n- `archive:alternateOf` names the primary when this is the same data in another format;\n  only the primary carries the schema.\n- A `linked` resource is held elsewhere: `path` is its URL and it has no hash or size.",
+      "description": "A Frictionless resource with the archive's additions.\n\n- `archive:kind` says what the resource is; with none it reads as `table` when `type` is\n  `table`, and as `file` otherwise. Frictionless's `type` is `table` for a table (written\n  when absent) and is refused on any other kind.\n- `archive:files` lists every member file of a multi-file resource (a shapefile set),\n  with `path` naming the main file.\n- `archive:alternateOf` names the primary when this is the same data in another format;\n  only the primary carries the schema.\n- A `linked` resource is held elsewhere: `path` is its URL and it has no hash or size.",
       "properties": {
         "archive:alternateOf": {
           "anyOf": [
