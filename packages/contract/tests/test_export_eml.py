@@ -6,9 +6,10 @@ from xml.etree import ElementTree as ET
 import pytest
 from lxml import etree
 
-from archive_contract.exports.eml import UNDOCUMENTED_CODES, to_eml
+from archive_contract.exports.eml import UNDOCUMENTED_CODES, shp_geometry, to_eml
 from archive_contract.manifest import Manifest, TemporalCoverage
 from archive_contract.project import Person, Project
+from archive_contract.resources import Resource
 from archive_contract.rights import RightsStatus
 
 SAMPLE = Path(__file__).parents[3] / "examples" / "sample-package"
@@ -178,3 +179,47 @@ def test_project_keywords_and_an_unknown_end_validate() -> None:
         "1991-01-01"
     )
     assert root.findtext("dataset/maintenance/maintenanceUpdateFrequency") == "unknown"
+
+
+def _sites_reading(shp: str) -> Resource:
+    resource = sample().resource("sites")
+    assert resource is not None and resource.files is not None
+    member = resource.files[0].model_copy(update={"path": shp})
+    return resource.model_copy(update={"files": [member], "path": shp})
+
+
+def _outside_shp(tmp_path: Path) -> Path:
+    outside = tmp_path / "outside" / "sites"
+    outside.mkdir(parents=True)
+    shp = outside / "sites.shp"
+    shp.write_bytes((SAMPLE / "data" / "sites" / "sites.shp").read_bytes())
+    return shp
+
+
+def test_an_absolute_shp_path_is_not_read(tmp_path: Path) -> None:
+    shp = _outside_shp(tmp_path)
+    root = tmp_path / "package"
+    root.mkdir()
+
+    assert shp_geometry(root, _sites_reading(str(shp))) == "MultiGeometry"
+
+
+def test_a_shp_path_out_of_the_package_is_not_read(tmp_path: Path) -> None:
+    _outside_shp(tmp_path)
+    root = tmp_path / "package"
+    root.mkdir()
+
+    assert shp_geometry(root, _sites_reading("../outside/sites/sites.shp")) == "MultiGeometry"
+
+
+def test_a_shp_under_a_symlinked_folder_is_not_read(tmp_path: Path) -> None:
+    shp = _outside_shp(tmp_path)
+    root = tmp_path / "package"
+    root.mkdir()
+    (root / "data").symlink_to(shp.parent.parent, target_is_directory=True)
+
+    assert shp_geometry(root, _sites_reading("data/sites/sites.shp")) == "MultiGeometry"
+
+
+def test_a_shp_inside_the_package_is_read() -> None:
+    assert shp_geometry(SAMPLE, _sites_reading("data/sites/sites.shp")) == "Point"

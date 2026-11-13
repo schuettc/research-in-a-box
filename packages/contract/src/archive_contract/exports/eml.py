@@ -19,7 +19,8 @@ How the manifest maps where EML has no direct equivalent:
   a `studyAreaDescription` descriptor named `PROJECT_KEYWORDS`.
 - A vector resource with `archive:attributes` is a `spatialVector` with that attribute list;
   its required `geometry` is read from the `.shp` header (`shp_geometry`) when the package
-  folder is given, and is `MultiGeometry` otherwise. A vector without it is an `otherEntity`,
+  folder is given and the `.shp` lies inside it with no symlink on the way, and is
+  `MultiGeometry` otherwise. A vector without it is an `otherEntity`,
   since EML requires a spatialVector's attribute list.
 """
 
@@ -35,6 +36,7 @@ from archive_contract.fields import AncillaryOf, Field, MeasurementScale, TableS
 from archive_contract.manifest import Contributor, Manifest
 from archive_contract.project import Project
 from archive_contract.resources import MemberFile, Resource
+from archive_contract.validate import readable_member
 
 EML_NAMESPACE = "https://eml.ecoinformatics.org/eml-2.2.0"
 SYSTEM = "research-in-a-box"
@@ -290,10 +292,10 @@ def shp_geometry(root: Path | None, resource: Resource) -> str:
     if not members and isinstance(resource.path, str):
         members = [resource.path]
     shp = next((p for p in members if p.lower().endswith(".shp")), None)
-    if root is None or shp is None:
+    if root is None or shp is None or not readable_member(root, shp):
         return UNKNOWN_GEOMETRY
     file = root / shp
-    if file.is_symlink() or not file.is_file():
+    if not file.is_file():
         return UNKNOWN_GEOMETRY
     with file.open("rb") as stream:
         header = stream.read(36)

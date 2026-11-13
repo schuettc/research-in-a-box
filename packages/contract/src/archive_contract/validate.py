@@ -103,6 +103,11 @@ def _safe(path: str) -> bool:
     return not pure.is_absolute() and ".." not in pure.parts and "\\" not in path
 
 
+def readable_member(root: Path, path: str) -> bool:
+    """Whether `path` stays inside the package at `root` with no symlink on the way."""
+    return _safe(path) and _symlink_in(root, path) is None
+
+
 def _digest(path: Path, algorithm: str) -> str:
     h = hashlib.new(algorithm)
     with path.open("rb") as stream:
@@ -248,7 +253,7 @@ def _check_attributes(root: Path, manifest: Manifest) -> list[Finding]:
         if resource.attributes is None:
             continue
         dbf = next((p for p, _, _ in _listed_files(resource) if p.lower().endswith(".dbf")), None)
-        if dbf is None or not _safe(dbf) or _symlink_in(root, dbf) is not None:
+        if dbf is None or not readable_member(root, dbf):
             continue
         if not (root / dbf).is_file():
             continue
