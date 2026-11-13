@@ -1,11 +1,16 @@
+import type * as apigateway from "aws-cdk-lib/aws-apigateway";
+import type * as cognito from "aws-cdk-lib/aws-cognito";
 import type * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import type * as lambda from "aws-cdk-lib/aws-lambda";
 import type * as s3 from "aws-cdk-lib/aws-s3";
 import type * as sns from "aws-cdk-lib/aws-sns";
 import type * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
+import { Api } from "./api";
+import { Auth } from "./auth";
 import { stagesOf } from "./config";
 import type { ArchiveConfig } from "./generated/archive-config";
+import { IntegrityCheck } from "./integrity";
 import { Operations } from "./operations";
 import { makePythonFunction, type PythonFunctionProps } from "./python-function";
 import { Storage } from "./storage";
@@ -29,6 +34,9 @@ export class ResearchArchive extends Construct {
   readonly userProfiles: dynamodb.Table;
   readonly downloadCounts: dynamodb.Table;
   readonly alertTopic: sns.Topic;
+  readonly userPool: cognito.UserPool;
+  readonly api: apigateway.RestApi;
+  readonly authorizer: apigateway.CognitoUserPoolsAuthorizer;
   private readonly operations: Operations;
 
   constructor(scope: Construct, id: string, props: ResearchArchiveProps) {
@@ -63,6 +71,25 @@ export class ResearchArchive extends Construct {
     this.settings = tables.settings;
     this.userProfiles = tables.userProfiles;
     this.downloadCounts = tables.downloadCounts;
+
+    const auth = new Auth(this, "Auth", { stage: props.stage, isProd: this.isProd });
+    this.userPool = auth.userPool;
+
+    const api = new Api(this, "Api", {
+      userPool: this.userPool,
+      waf: infrastructure.modules?.waf ?? false,
+      health: this.pythonFunction("HealthFunction", { handler: "archive_backend.health.handler" }),
+      whoami: this.pythonFunction("WhoamiFunction", { handler: "archive_backend.whoami.handler" }),
+    });
+    this.api = api.restApi;
+    this.operations.addApi(this.api);
+    this.authorizer = api.authorizer;
+
+    new IntegrityCheck(this, "IntegrityCheck", {
+      archive: this,
+      archiveBucket: this.archiveBucket,
+      alertTopic: this.alertTopic,
+    });
   }
 
   /** A Python Lambda from archive-backend, built the way the archive's own are, with its alarm. */

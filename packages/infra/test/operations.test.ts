@@ -1,12 +1,13 @@
-import { App, Stack } from "aws-cdk-lib";
+import { Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import type { CfnFunction } from "aws-cdk-lib/aws-lambda";
 import type { CfnTopic } from "aws-cdk-lib/aws-sns";
 import { expect, test } from "vitest";
 import { ResearchArchive } from "../src/research-archive";
+import { testApp } from "./test-app";
 
 function archive(stage = "prod"): { archive: ResearchArchive; stack: Stack } {
-  const stack = new Stack(new App(), "S");
+  const stack = new Stack(testApp(), "S");
   const built = new ResearchArchive(stack, "Archive", {
     config: {
       publisher: "P",

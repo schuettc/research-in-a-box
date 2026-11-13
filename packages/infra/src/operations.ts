@@ -1,4 +1,5 @@
 import { Duration } from "aws-cdk-lib";
+import type * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as budgets from "aws-cdk-lib/aws-budgets";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as actions from "aws-cdk-lib/aws-cloudwatch-actions";
@@ -46,6 +47,29 @@ export class Operations extends Construct {
     this.dashboard = new cloudwatch.Dashboard(this, "Dashboard", {
       dashboardName: `ResearchArchive-${props.stage}`,
     });
+  }
+
+  /**
+   * Alarm on API 5xx, and graph 4xx beside it. A REST API has no separate throttle metric, so
+   * throttling (429) shows in the 4xx graph and does not alarm.
+   */
+  addApi(api: apigateway.RestApi): void {
+    const period = Duration.minutes(5);
+    const serverErrors = api.metricServerError({ statistic: "Sum", period });
+    const alarm = serverErrors.createAlarm(api, "ServerErrorsAlarm", {
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    alarm.addAlarmAction(this.alarmAction);
+    this.dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "API",
+        left: [api.metricClientError({ statistic: "Sum", period }), serverErrors],
+        right: [api.metricCount({ statistic: "Sum", period })],
+      }),
+    );
   }
 
   /** Alarm on any error from the function, and graph its errors and duration. */
