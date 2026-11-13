@@ -151,7 +151,7 @@ class Rule:
 
 
 class Registry:
-    """The rules, in the order they were registered."""
+    """The rules, by question and then in the order they were registered."""
 
     def __init__(self) -> None:
         self._rules: dict[str, Rule] = {}
@@ -177,7 +177,8 @@ class Registry:
         return self._rules[rule_id]
 
     def __iter__(self) -> Iterator[Rule]:
-        return iter(self._rules.values())
+        """The rules by question (find, understand, trust), each in registration order."""
+        return iter(sorted(self._rules.values(), key=lambda r: QUESTIONS.index(r.question)))
 
     def select(self, profiles: Sequence[Profile]) -> list[Rule]:
         """The core rules, and the extra rules the profiles switch on by id."""
@@ -185,7 +186,7 @@ class Registry:
         unknown = sorted(switched - set(self._rules))
         if unknown:
             raise ValueError(f"profile names unknown rule(s) {unknown}")
-        return [r for r in self._rules.values() if r.core or r.id in switched]
+        return [r for r in self if r.core or r.id in switched]
 
 
 REGISTRY = Registry()
