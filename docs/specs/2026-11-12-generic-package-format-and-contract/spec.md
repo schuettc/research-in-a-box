@@ -1,7 +1,8 @@
 ---
 diazo: research-archive-in-a-box/generic-package-format-and-contract
 file: spec
-status: printed
+status: approved
+approved: 2026-11-13T00:16:25-06:00
 hash: 9f91f0ead574b154211e012ddc9c055f592f5382998f730a3818cdd6c87aadd1
 rests_on: [AGNT1, AGNT11, AGNT8, DCSN1, AGNT2, AGNT3, DCSN6, DCSN2, DCSN3, AGNT5, DCSN4, DCSN5, AGNT4, AGNT6, AGNT10, AGNT7, AGNT9]
 record: README.md

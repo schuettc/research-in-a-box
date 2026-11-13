@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "Package format and contract (Plan 2)",
   "expect": 6,
-  "agent_at": "2026-11-13T06:12:48.675723Z",
+  "agent_at": "2026-11-13T06:17:19.742161Z",
   "start": {
     "opening": {
       "text": "i think we got started incorrectly here.\n\nthe goal here is to build a research in abox.  we'll use the FEMC data as an example, but we want to build this generically.  once we have the correct format, we can work on a process to migrate FEMC data\n\n[...]\n\nyes, let's do that.  we can delete that plan 2 and restart fresh\n\n(Brief: Plan 2 in docs/planning-handoff.md, revised 2026-11-12 to be generic first. Read the handoff, including the Decision log, before continuing.)"
@@ -818,9 +818,95 @@
           "AGNT9"
         ]
       }
-    ]
+    ],
+    "approved": {
+      "hash": "9f91f0ead574b154211e012ddc9c055f592f5382998f730a3818cdd6c87aadd1",
+      "at": "2026-11-13T00:16:25.483708-06:00",
+      "body": "# The package format and the archive_contract package\n\n## Goal\n\nA written package format and a Python contract package, `archive-contract` (import `archive_contract`) at `packages/contract`, that the local tool, the backend, the web app's schema and the agent layer all build on. The format is designed from Frictionless Data Package v2, EML, DataCite and schema.org and from what any research group's data looks like. A committed, invented sample package exercises all of it, and FEMC's six practice datasets are written down in it afterwards as a test.\n\n## The package folder\n\nA package is a plain folder that is also a valid Frictionless v2 Data Package:\n\n```\nmy-dataset/\n  datapackage.json   the manifest\n  data/              tidy tables (CSV now, Parquet later)\n  data/codes/        code-list tables\n  original/          untouched source files\n  docs/              methods, protocols, field sheets\n  changes.jsonl      every cleaning step, with evidence\n  checksums.sha256   one line per file in the package\n  README.md          generated from the manifest, never edited\n```\n\nRules that hold everywhere:\n\n- Standard Frictionless properties are left out when unknown, never set to null.\n- Our additions sit under the `archive:` prefix and may be null.\n- A resource's `format` (and `mediatype`) is the only place a file type appears. Columns are described by logical type, so adding Parquet later changes no field definitions.\n\nRests on: AGNT1, AGNT11\n\n## The manifest's fields\n\nCore fields, required before a package can be published: a `title`; a `description` of at least 50 characters; at least one creator (a contributor with the creator role); rights (next section); and at least one described resource. This is the union of what DataCite, Google Dataset Search and Frictionless require.\n\nThe archive fills in publisher, publication year, identifier and resource type at publish, from its config.\n\nRecommended fields, following DataCite's and Google's recommended lists: keywords, other contributors, temporal coverage (an end date or `ongoing`), spatial coverage (a bounding box), related identifiers, funding and methods. A profile can promote any of them to required.\n\nTwo separate verdicts are recorded in the manifest and never merged: `archive:validation` (structurally valid or not, by which contract version, when) and `archive:quality` (the counts of findings by severity from the last audit). Valid structure says nothing about quality, and the reverse.\n\n`archive:legacyIdentifiers` holds any identifiers the data had elsewhere, as a list of `{scheme, value}`, such as `{scheme: \"eml-package-id\", value: \"knb-lter-xyz.12.3\"}`.\n\nRests on: AGNT8\n\n## Rights\n\nA package states its rights in one of two ways: one or more licenses in Frictionless `licenses` (an SPDX id or a license URL), or `archive:rightsStatus` with a statement. The statuses are:\n\n- `public-domain`\n- `third-party`, with where the terms are set\n- `all-rights-reserved`, with the statement\n- `undetermined`\n\nThe local tool packages and audits data with `undetermined`, and the audit reports it. Publishing (Plan 7) refuses a package until it has a license or a stated status other than `undetermined`.\n\nRests on: DCSN1\n\n## Resources and their kinds\n\nEvery resource has `archive:kind`, one of `table`, `vector`, `raster`, `document`, `media`, `file` or `linked`. A resource with no kind is read as `file`. Frictionless's own `type` stays `table` for tables and is left out otherwise.\n\n- **Several files that only work together** (a shapefile set, a raster with its world file) are one resource. `path` names the main file (the `.shp`), and `archive:files` lists every member file with its size and hash. Checksums, previews and the web app's file list read the member list.\n- **The same data in several formats** (a table as CSV and XLSX): the copy is its own resource with `archive:alternateOf` naming the primary. Only the primary carries the schema.\n- **Data held elsewhere**: `archive:kind: linked`, `path` is the remote URL, and there is no hash or size. Compatibility tests run the frictionless library with remote fetching off.\n\nRests on: AGNT1, AGNT2, AGNT3, DCSN6\n\n## Columns\n\nA table's columns use Frictionless Table Schema, with three additions.\n\n- **Names.** Source column names are kept. Frictionless `title` holds a readable label, `description` the definition. The local tool may propose a rename; when the person accepts, the new name goes into the tidy table, the old one into `archive:sourceName` on the field, and the rename into `changes.jsonl`.\n- **Code lists.** Each code list is a CSV table under `data/codes/` with `code`, `label` and `description` columns. A column that uses one points at it with a Frictionless foreign key, so one list serves many columns and Frictionless validation checks every code. A column that holds codes with no list is marked `archive:codeList: \"undocumented\"`.\n- **Sensitivity.** `archive:sensitivity` on a field is one of `personal`, `sensitive-location` or `confidential`. No flag means not sensitive.\n\nRests on: DCSN2, DCSN3, AGNT5\n\n## Versions and identifiers\n\nA package has one stable `id` across all its versions, and a `version` of `1`, `2`, `3` and so on. Changing, adding or removing a file makes the next version. A metadata edit updates the current version in place, and each edit is appended to `archive:metadataHistory` (when, who, which fields). When DOIs are on, each version gets its own DOI.\n\nRests on: DCSN4\n\n## Projects\n\nA project (a monitoring program, a grant, a long-term study) is its own small record, `project.json`, with an `id`, `title`, `abstract`, `people` and `links`. A package names its project with `archive:project: \u003cid\u003e`, or leaves it out. A package never copies the project's text and never sits inside a project folder.\n\nWhen a package is exported, the project's current title goes into its README, its DataCite record as a related identifier of type IsPartOf, and its EML project element.\n\nRests on: DCSN5\n\n## Access levels\n\nEach package has one `archive:access` level: `open`, `restricted`, `by-request` or `description-only`. Unpublished is a state of the package in the archive, not an access level.\n\nRests on: AGNT4\n\n## Profiles and the archive config\n\nA profile is a YAML file in the contract (`profiles/core.yaml`, `profiles/ecology.yaml`), read into a `Profile` model. It lists the recommended fields it promotes to required, its vocabularies and the ids of the rules it switches on. The rules themselves are code in Plan 3. The core profile holds only the core fields above.\n\nThe archive config file, read into an `ArchiveConfig` model, is the one file an adopter edits. It picks the profiles and sets required fields, vocabularies, themes, licenses and the access levels offered, plus the publisher name the archive fills in at publish. How it maps to the CDK construct is Plan 4's.\n\nRests on: AGNT6\n\n## The change log and findings\n\nBoth formats are models in the contract, drafted here and confirmed by Plan 3 when it starts.\n\n- **`Change`**, one line of `changes.jsonl`: an id, when, who made it (person, tool or agent) and who accepted it, its kind (such as `rename`, `retype`, `recode`, `fix-value`), its target (resource and field), before and after, the reason, and the evidence (row numbers or values).\n- **`Finding`**: the rule id, a severity (`error`, `warning` or `note`), a message, the target, the evidence, and an optional suggested fix.\n\nRests on: AGNT10, DCSN2\n\n## Exports and import\n\nGenerated from the manifest, never edited by hand:\n\n- EML 2.2.0, with code lists as enumerated domains and the project as the project element.\n- A DataCite record and schema.org Dataset JSON-LD.\n- `README.md`.\n\nImport reads standard EML 2.1.1 and 2.2.0 into a manifest. Tolerating one archive's non-standard EML is Plan 5's.\n\nRests on: AGNT7, DCSN3, DCSN5\n\n## The contract package\n\n`packages/contract/src/archive_contract/`:\n\n| Module | Holds |\n| --- | --- |\n| `manifest.py` | the package model and its `archive:` additions |\n| `resources.py`, `fields.py` | resources, member files, columns |\n| `rights.py`, `project.py` | rights statuses, the project record |\n| `changes.py`, `findings.py` | `Change` and `Finding` |\n| `profile.py`, `config.py`, `profiles/*.yaml` | profiles and the archive config |\n| `validate.py` | structural validation |\n| `schema.py` | JSON Schema generation (from Plan 1) |\n| `exports/` | `eml.py`, `datacite.py`, `schemaorg.py`, `readme.py` |\n| `imports/eml.py` | EML import |\n\nThe JSON Schema generated from the models replaces the skeleton's empty one under `packages/web/`, and Plan 1's drift check keeps it current. The frictionless library is a test-only dependency.\n\nRests on: AGNT11\n\n## The sample package\n\n`examples/sample-package/`: a small stream temperature study at invented sites, licensed CC-BY-4.0. It has a logger table with a code-list table, a site shapefile set, a small raster, a methods document, a site photo, the logger table again as XLSX, a linked resource and ongoing coverage. Known gaps are seeded in and listed in its README, so Plan 3's rules have predictable findings.\n\nRests on: AGNT9, DCSN3, DCSN6\n\n## Risk and cost\n\nRisk: low. The work adds code, docs and one example folder to a repo with no users yet. A mistake is undone by editing the contract; nothing is published or deployed, and no data from `practice-data/` is committed.\n\nCost: no steps for you beyond reviewing. No new programs: the frictionless library is a test-only Python dependency, and PyYAML reads the profiles.\n\nRests on: AGNT11\n\n## Left out\n\n- The quality rules and the commands that run them (Plan 3).\n- Tolerating FEMC's EML quirks, and converting FEMC's data (Plan 5).\n- Storage, tables and the API (Plans 4 and 6), and the publish check that enforces rights (Plan 7).\n- Parquet: only the room for it.\n- Per-resource access levels: one level per package for now.\n\nRests on: DCSN1, AGNT4\n\n## How we'll know it works\n\n- The sample package passes the frictionless library's validation and our own structural validation.\n- Its EML export imports back to the same manifest fields; its DataCite and schema.org exports validate against their schemas.\n- Each of FEMC's six practice datasets is written down in the format on paper, with anything it can't express listed.\n- `just check` passes with the generated JSON Schema committed.\n\nRests on: AGNT7, AGNT9\n"
+    }
   },
-  "plans": [],
+  "plans": [
+    {
+      "id": "PLAN1",
+      "topic": "contract-models-and-sample",
+      "covers": "The Pydantic models, structural validation, the generated JSON Schema and the committed sample package",
+      "hash": "daafc8ef92d405db2ee99ac79d9d0d8440ee0e89b034693abf5895a761c2e465",
+      "tasks": [
+        {
+          "id": "TASK1",
+          "heading": "Task 1: Resource, field and rights models",
+          "does": "fields.py, resources.py and rights.py with the archive: additions, the linked rule and the rights statuses, one test per rule",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN1",
+            "DCSN2",
+            "DCSN3",
+            "DCSN6"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK2",
+          "heading": "Task 2: Manifest and project models",
+          "does": "manifest.py (core and recommended fields, versions, project link, access, history, verdicts, coverage) and project.py, with missing_core_fields",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN4",
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK3",
+          "heading": "Task 3: Change, Finding, Profile and ArchiveConfig",
+          "does": "The drafted Change and Finding models, core and ecology profiles as YAML read into Profile, and ArchiveConfig",
+          "pulls_in": "PyYAML",
+          "serves": [
+            "DCSN2"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK4",
+          "heading": "Task 4: Structural validation",
+          "does": "validate_package returns error Findings for broken references, missing member files, wrong hashes and stale checksums",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN3",
+            "DCSN6"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK5",
+          "heading": "Task 5: The real JSON Schema",
+          "does": "The schema generator points at the manifest model and emits the other records under $defs; the committed schema is regenerated",
+          "pulls_in": "Nothing new",
+          "serves": [],
+          "state": "keep"
+        },
+        {
+          "id": "TASK6",
+          "heading": "Task 6: The sample package",
+          "does": "A reproducible build of the invented stream temperature package covering every resource kind with seeded gaps, validated by our validator and the frictionless library",
+          "pulls_in": "frictionless, pyshp and openpyxl as dev dependencies",
+          "serves": [
+            "DCSN3",
+            "DCSN6"
+          ],
+          "state": "keep"
+        }
+      ]
+    },
+    {
+      "id": "PLAN2",
+      "topic": "exports-import-and-paper-test",
+      "covers": "EML, DataCite, schema.org and README exports, EML import, and FEMC's six datasets written in the format on paper",
+      "waits_on": [
+        "PLAN1"
+      ]
+    }
+  ],
   "messages": [
     {
       "id": 1,
@@ -1050,6 +1136,15 @@
       "at": "2026-11-13T00:11:41.512203-06:00",
       "state": "answered",
       "claim": "e735f1a9eac9743d"
+    },
+    {
+      "id": 23,
+      "card": "spec",
+      "from": "user",
+      "action": "approve-spec",
+      "at": "2026-11-13T00:16:25.483708-06:00",
+      "state": "answered",
+      "claim": "7d8a11e7b27ed2fa"
     }
   ]
 }

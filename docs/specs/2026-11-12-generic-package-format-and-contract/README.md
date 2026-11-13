@@ -4,7 +4,9 @@
 
 `research-archive-in-a-box/generic-package-format-and-contract` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → **Spec · approve** → Plans → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · approve PLAN1** → Build → Sign off
+
+PLAN1 waiting for your approval · PLAN2 waits on PLAN1 being built
 
 ## What was asked
 
@@ -61,7 +63,14 @@
 
 ## Plans
 
-None yet.
+- [PLAN1](plans/1-contract-models-and-sample.md) The contract models, validation, schema and sample package: waiting for your approval
+  - TASK1 Task 1: Resource, field and rights models: not started
+  - TASK2 Task 2: Manifest and project models: not started
+  - TASK3 Task 3: Change, Finding, Profile and ArchiveConfig: not started
+  - TASK4 Task 4: Structural validation: not started
+  - TASK5 Task 5: The real JSON Schema: not started
+  - TASK6 Task 6: The sample package: not started
+- PLAN2 Exports import and paper test: waits on PLAN1 being built
 
 ## Files
 
@@ -71,6 +80,7 @@ None yet.
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 
 ## Ids
