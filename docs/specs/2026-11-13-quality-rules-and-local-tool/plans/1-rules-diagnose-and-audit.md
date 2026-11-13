@@ -1,7 +1,8 @@
 ---
 diazo: research-archive-in-a-box/quality-rules-and-local-tool
 file: PLAN1
-status: printed
+status: approved
+approved: 2026-11-13T15:19:29-06:00
 hash: bbb773b99849ed95fe270dfb6cdc9fc7f92cde32befda46de4040925a57e616d
 rests_on: [AGNT1, AGNT2, AGNT3, AGNT4, AGNT7, DCSN1, DCSN2]
 record: README.md

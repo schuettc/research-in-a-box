@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/quality-rules-and-local-tool` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · approve PLAN1** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 0 of 4** → Sign off
 
-PLAN1 waiting for your approval
+PLAN1 building · 0 of 4 done
 
 ## Pick up next
 
@@ -53,7 +53,7 @@ PLAN1 waiting for your approval
 
 ## Plans
 
-- [PLAN1](plans/1-rules-diagnose-and-audit.md) The rules, cruise diagnose and cruise audit: waiting for your approval
+- [PLAN1](plans/1-rules-diagnose-and-audit.md) The rules, cruise diagnose and cruise audit: building · 0 of 4 done
   - TASK1 Task 1: Contract edits: not started
   - TASK2 Task 2: Rules engine, package and column rules, cruise diagnose: not started
   - TASK3 Task 3: The messy test package and the value rules: not started

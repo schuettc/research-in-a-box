@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from archive_contract.findings import Finding
+from archive_contract.findings import Evidence, Finding
 
 
 def test_finding_reads_its_parts() -> None:
@@ -37,3 +37,15 @@ def test_suggested_fix_is_optional_and_left_out_when_unset() -> None:
     dumped = Finding(rule_id="r", severity="note", message="m").dump()
 
     assert dumped == {"ruleId": "r", "severity": "note", "message": "m"}
+
+
+def test_evidence_counts_the_rows_that_show_the_problem() -> None:
+    evidence = Evidence.model_validate({"rows": [3, 9], "values": [-1, -1], "count": 18104})
+
+    assert evidence.count == 18104
+    assert Evidence(rows=[1]).dump() == {"rows": [1]}
+
+
+def test_evidence_count_is_never_negative() -> None:
+    with pytest.raises(ValidationError):
+        Evidence.model_validate({"count": -1})

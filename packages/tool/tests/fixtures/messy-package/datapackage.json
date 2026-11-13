@@ -1,0 +1,221 @@
+{
+  "$schema": "https://datapackage.org/profiles/2.0/datapackage.json",
+  "id": "snorkel-survey-messy",
+  "name": "snorkel-survey-messy",
+  "version": "1",
+  "title": "Snorkel survey at three invented sites",
+  "description": "Fish counts, depth and canopy cover from snorkel passes at three invented sites on two streams. A test package with value problems planted for the audit; every site and count is invented.",
+  "keywords": ["fish", "snorkel survey", "streams"],
+  "contributors": [
+    {
+      "title": "Cora Fictional",
+      "roles": ["creator"]
+    }
+  ],
+  "resources": [
+    {
+      "name": "observations",
+      "path": "data/observations.csv",
+      "type": "table",
+      "title": "Snorkel observations",
+      "description": "One row per site visit: where, when, depth, fish and canopy.",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "encoding": "utf-8",
+      "bytes": 2406,
+      "hash": "sha256:9ab685ef5fbc0cc8a99cd27dd80deef0e6f838403376d996deeb06c06b162f92",
+      "schema": {
+        "fields": [
+          {
+            "name": "obs_id",
+            "type": "integer",
+            "description": "The observation's number, unique to each visit.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "date",
+            "type": "date",
+            "description": "The day the site was visited.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "dateTime",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "entered",
+            "type": "string",
+            "description": "The day the field sheet was typed in, as written by the clerk.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "site",
+            "type": "string",
+            "description": "Site code, from the site code list.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "latitude",
+            "type": "number",
+            "description": "Where the sample was taken: degrees north, WGS 84.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": "degrees_north",
+            "archive:measurementScale": "interval",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "longitude",
+            "type": "number",
+            "description": "Where the sample was taken: degrees east, WGS 84.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": "degrees_east",
+            "archive:measurementScale": "interval",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "depth_m",
+            "type": "number",
+            "description": "Water depth at the sample point.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": "m",
+            "archive:measurementScale": "ratio",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "fish_count",
+            "type": "integer",
+            "description": "Fish counted in a ten-minute snorkel pass.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": "fish",
+            "archive:measurementScale": "ratio",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "canopy_cover",
+            "type": "number",
+            "description": "Share of the sky hidden by tree canopy above the point.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "ratio",
+            "archive:ancillaryOf": null
+          }
+        ],
+        "primaryKey": ["obs_id"],
+        "foreignKeys": [
+          {
+            "fields": ["site"],
+            "reference": {
+              "resource": "site-codes",
+              "fields": ["code"]
+            }
+          }
+        ]
+      },
+      "archive:kind": "table",
+      "archive:files": null,
+      "archive:alternateOf": null,
+      "archive:attributes": null
+    },
+    {
+      "name": "site-codes",
+      "path": "data/site-codes.csv",
+      "type": "table",
+      "title": "Site codes",
+      "description": "The codes used in the observations table's site column.",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "encoding": "utf-8",
+      "bytes": 234,
+      "hash": "sha256:1da1a3952e33e0371995ce8a3bd3d3b44e338eaf102da8faa5222567615ae662",
+      "schema": {
+        "fields": [
+          {
+            "name": "code",
+            "type": "string",
+            "description": "The code.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "description": "The stream and spot.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "description": "How to find the spot.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
+          }
+        ],
+        "primaryKey": ["code"]
+      },
+      "archive:kind": "table",
+      "archive:files": null,
+      "archive:alternateOf": null,
+      "archive:attributes": null
+    }
+  ],
+  "archive:project": null,
+  "archive:access": "open",
+  "archive:rightsStatus": null,
+  "archive:temporalCoverage": {
+    "start": "2018-01-01",
+    "end": "2022-12-31",
+    "ongoing": false
+  },
+  "archive:spatialCoverage": {
+    "bbox": [-150.5, 60.5, -149.5, 61.5],
+    "description": "Three invented sites along two streams."
+  },
+  "archive:relatedIdentifiers": null,
+  "archive:funding": null,
+  "archive:methods": null,
+  "archive:citation": null,
+  "archive:purpose": null,
+  "archive:legacyIdentifiers": null,
+  "archive:metadataHistory": null,
+  "archive:validation": null,
+  "archive:quality": null
+}
