@@ -1,0 +1,1 @@
+{"id": "c1", "when": "2024-06-02T09:00:00Z", "madeBy": {"kind": "tool", "name": "cruise"}, "acceptedBy": {"kind": "person", "name": "Ada Invented"}, "kind": "rename", "target": {"resource": "logger", "field": "water_temp_c"}, "before": "WTemp", "after": "water_temp_c", "reason": "Spell out what the column holds and its unit.", "evidence": {"values": ["WTemp"]}}

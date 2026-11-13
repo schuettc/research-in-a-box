@@ -1,0 +1,302 @@
+{
+  "$schema": "https://datapackage.org/profiles/2.0/datapackage.json",
+  "id": "stream-temperature-sample",
+  "name": "stream-temperature-sample",
+  "version": "1",
+  "title": "Stream temperature at three invented sites",
+  "description": "Hourly water temperature from loggers at three invented stream sites, with each logger's condition, the site locations, a depth grid and the methods. A sample package for the research archive; every site and reading is invented.",
+  "keywords": ["stream temperature", "water quality", "loggers"],
+  "contributors": [
+    {
+      "title": "Ada Invented",
+      "organization": "Example Lab",
+      "roles": ["creator"]
+    },
+    {
+      "title": "Ben Placeholder",
+      "roles": ["data-curator"]
+    }
+  ],
+  "licenses": [
+    {
+      "name": "CC-BY-4.0",
+      "path": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Creative Commons Attribution 4.0 International"
+    }
+  ],
+  "resources": [
+    {
+      "name": "logger",
+      "path": "data/logger.csv",
+      "type": "table",
+      "title": "Logger readings",
+      "description": "Hourly water temperature at three sites on 1 June 2024.",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "encoding": "utf-8",
+      "bytes": 3083,
+      "hash": "sha256:31913fc3551def14981d5d3b2849c82da6ac8c747528214f66df2be3fc8e9a60",
+      "schema": {
+        "fields": [
+          {
+            "name": "timestamp",
+            "type": "datetime",
+            "title": "Reading time",
+            "description": "Local standard time of the reading, on the hour.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null
+          },
+          {
+            "name": "site",
+            "type": "string",
+            "title": "Site",
+            "description": "Site code; the sites resource holds each site's location.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null
+          },
+          {
+            "name": "water_temp_c",
+            "type": "number",
+            "title": "Water temperature (C)",
+            "description": "Water temperature in degrees Celsius.",
+            "archive:sourceName": "WTemp",
+            "archive:codeList": null,
+            "archive:sensitivity": null
+          },
+          {
+            "name": "condition",
+            "type": "string",
+            "title": "Logger condition",
+            "description": "The logger's condition at the reading, from the code list.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null
+          },
+          {
+            "name": "qc_flag",
+            "type": "string",
+            "title": "QC flag",
+            "description": "Quality flag set by the logger's software.",
+            "archive:sourceName": null,
+            "archive:codeList": "undocumented",
+            "archive:sensitivity": null
+          },
+          {
+            "name": "logger_model",
+            "type": "string",
+            "title": "Logger model",
+            "description": "Model of the temperature logger.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null
+          },
+          {
+            "name": "battery_v",
+            "type": "number",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null
+          },
+          {
+            "name": "depth_cm",
+            "type": "integer",
+            "description": "depth_cm",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null
+          }
+        ],
+        "foreignKeys": [
+          {
+            "fields": ["condition"],
+            "reference": {
+              "resource": "condition-codes",
+              "fields": ["code"]
+            }
+          }
+        ]
+      },
+      "archive:kind": "table",
+      "archive:files": null,
+      "archive:alternateOf": null
+    },
+    {
+      "name": "condition-codes",
+      "path": "data/codes/condition-codes.csv",
+      "type": "table",
+      "title": "Logger condition codes",
+      "description": "The codes used in the logger table's condition column.",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "encoding": "utf-8",
+      "bytes": 258,
+      "hash": "sha256:5090fbe990506579be90db3540964597a21599df842da3b2fe2ee010fb155ea8",
+      "schema": {
+        "fields": [
+          {
+            "name": "code",
+            "type": "string",
+            "description": "The code.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null
+          },
+          {
+            "name": "label",
+            "type": "string",
+            "description": "A short label.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "description": "What the code means.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null
+          }
+        ],
+        "primaryKey": ["code"]
+      },
+      "archive:kind": "table",
+      "archive:files": null,
+      "archive:alternateOf": null
+    },
+    {
+      "name": "sites",
+      "path": "data/sites/sites.shp",
+      "title": "Sites",
+      "description": "The three logger sites as points, in WGS 84.",
+      "format": "shp",
+      "archive:kind": "vector",
+      "archive:files": [
+        {
+          "path": "data/sites/sites.shp",
+          "bytes": 184,
+          "hash": "sha256:47a42acc65fe6c7b397a4a61a3a9453548eee8bcf11530fdcf6825f0e283ae63"
+        },
+        {
+          "path": "data/sites/sites.shx",
+          "bytes": 124,
+          "hash": "sha256:c9f3264b418a4a357f611982a3c88b7841b4716cf5298cbfaf5b529a6ee4ad34"
+        },
+        {
+          "path": "data/sites/sites.dbf",
+          "bytes": 244,
+          "hash": "sha256:3b3459e6af8751e043a07efe9121dcbfb3f3a939d64add52df9c56cd6e4c5d07"
+        },
+        {
+          "path": "data/sites/sites.prj",
+          "bytes": 145,
+          "hash": "sha256:a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4"
+        }
+      ],
+      "archive:alternateOf": null
+    },
+    {
+      "name": "depth",
+      "path": "data/depth.asc",
+      "title": "Stream depth",
+      "description": "Stream depth in centimetres on a coarse grid, as an ESRI ASCII grid.",
+      "format": "asc",
+      "archive:kind": "raster",
+      "archive:files": [
+        {
+          "path": "data/depth.asc",
+          "bytes": 124,
+          "hash": "sha256:80cc0372fab3a6ebe5cafe558e89ce3cc69ba6d6245669cb33173edcc92e98db"
+        },
+        {
+          "path": "data/depth.prj",
+          "bytes": 145,
+          "hash": "sha256:a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4"
+        }
+      ],
+      "archive:alternateOf": null
+    },
+    {
+      "name": "logger-xlsx",
+      "path": "data/logger.xlsx",
+      "title": "Logger readings (Excel)",
+      "description": "The logger table as an Excel workbook.",
+      "format": "xlsx",
+      "mediatype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 39969,
+      "hash": "sha256:4fe3d694906f291c1abbd05ef786814558a11fb14d95636f26d1b5d83e6c17b7",
+      "archive:kind": "table",
+      "archive:files": null,
+      "archive:alternateOf": "logger"
+    },
+    {
+      "name": "logger-original",
+      "path": "original/logger-raw.csv",
+      "title": "Logger export, untouched",
+      "description": "The logger software's export before cleaning.",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "bytes": 3051,
+      "hash": "sha256:fb35f740aedc3bb2f6e97bd91290a5408043ba13cb70a6afbe23c63035949675",
+      "archive:kind": "file",
+      "archive:files": null,
+      "archive:alternateOf": null
+    },
+    {
+      "name": "methods",
+      "path": "docs/methods.md",
+      "title": "Methods",
+      "description": "How the loggers were placed, read and checked.",
+      "format": "md",
+      "mediatype": "text/markdown",
+      "bytes": 472,
+      "hash": "sha256:0e8a8f588bd82374cebcbdb21c930cda7434bae5c85d95b8766230e1b9a9f37a",
+      "archive:kind": "document",
+      "archive:files": null,
+      "archive:alternateOf": null
+    },
+    {
+      "name": "site-photo",
+      "path": "docs/site-photo.png",
+      "title": "Site photo",
+      "description": "A stand-in picture of site S1.",
+      "format": "png",
+      "mediatype": "image/png",
+      "bytes": 656,
+      "hash": "sha256:d991b5bf883551c2bf3f76be94688f1048bb166ad4ea9beba99c1c33b7788da8",
+      "archive:kind": "media",
+      "archive:files": null,
+      "archive:alternateOf": null
+    },
+    {
+      "name": "discharge",
+      "path": "https://example.org/stream-temperature/discharge.csv",
+      "title": "Discharge",
+      "description": "Stream discharge at the same sites, held by a partner program.",
+      "format": "csv",
+      "archive:kind": "linked",
+      "archive:files": null,
+      "archive:alternateOf": null
+    }
+  ],
+  "archive:project": null,
+  "archive:access": "open",
+  "archive:rightsStatus": null,
+  "archive:temporalCoverage": {
+    "start": "2024-06-01",
+    "ongoing": true
+  },
+  "archive:spatialCoverage": {
+    "bbox": [-72.74, 44.23, -72.66, 44.32],
+    "description": "Three invented sites along two streams."
+  },
+  "archive:relatedIdentifiers": null,
+  "archive:funding": null,
+  "archive:methods": "Hourly loggers with field checks at each visit; see docs/methods.md.",
+  "archive:legacyIdentifiers": null,
+  "archive:metadataHistory": null,
+  "archive:validation": null,
+  "archive:quality": null
+}
