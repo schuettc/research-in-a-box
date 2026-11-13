@@ -4,11 +4,9 @@
 
 `research-archive-in-a-box/repo-layout-and-conventions` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 0 of 6** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 5 of 6 · watching** → Sign off
 
-PLAN1 building · 0 of 6 done
-
-Running: Task 1: Initialise the repo and root files (PLAN1)
+PLAN1 building · 5 of 6 done
 
 ## What was asked
 
@@ -50,18 +48,17 @@ Running: Task 1: Initialise the repo and root files (PLAN1)
 
 ## Plans
 
-- [PLAN1](plans/1-empty-skeleton.md) An empty, passing skeleton of research-in-a-box: building · 0 of 6 done
-  - TASK1 Task 1: Initialise the repo and root files: building
-  - TASK2 Task 2: Python workspace with three empty packages: not started
-  - TASK3 Task 3: TypeScript workspace with the empty construct and web app: not started
-  - TASK4 Task 4: Schema generator and drift check: not started
-  - TASK5 Task 5: justfile, CI and release workflows: not started
-  - TASK6 Task 6: Publish to GitHub and confirm CI and the install: waiting on STEP1
+- [PLAN1](plans/1-empty-skeleton.md) An empty, passing skeleton of research-in-a-box: building · 5 of 6 done
+  - TASK1 Task 1: Initialise the repo and root files: done. 8eb5734 · on main, practice-data ignored (exit 0)
+  - TASK2 Task 2: Python workspace with three empty packages: done. 8e6cd50 · uv sync, ruff, mypy, pytest exit 0 · cruise --version prints cruise 0.1.0
+  - TASK3 Task 3: TypeScript workspace with the empty construct and web app: done. 41e471b · npm ci, prettier, eslint, typecheck, tests, web build exit 0 · TypeScript pinned ~6.0 for typescript-eslint
+  - TASK4 Task 4: Schema generator and drift check: done. f02ac36 · schema regenerate-and-diff exit 0 · contract tests exit 0
+  - TASK5 Task 5: justfile, CI and release workflows: done. bbfa8bf · just check exit 0 (rechecked) · six breakages each exit 1, reverted
+  - TASK6 Task 6: Publish to GitHub and confirm CI and the install: waiting on [research-in-a-box CI run 43445991147 on 712dcca, queued](https://github.com/schuettc/research-in-a-box/actions/runs/43445991147)
 
 ## Steps
 
-- STEP1 Go to create the public GitHub repo schuettc/research-in-a-box and push the skeleton: needs the user
-  Answers: Go: The agent creates the public repo and pushes main · No go: Something shouldn't be public yet (hands it back)
+- STEP1 Go to create the public GitHub repo schuettc/research-in-a-box and push the skeleton: done: Go (2026-11-13 08:46, on the page)
 
 ## Files
 

@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/generic-package-format-and-contract` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · approve PLAN1** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 wait** → **Build · 0 of 6** → Sign off
 
-PLAN1 waiting for your approval · PLAN2 waits on PLAN1 being built
+PLAN1 building · 0 of 6 done · PLAN2 waits on PLAN1 being built
 
 ## What was asked
 
@@ -63,7 +63,7 @@ PLAN1 waiting for your approval · PLAN2 waits on PLAN1 being built
 
 ## Plans
 
-- [PLAN1](plans/1-contract-models-and-sample.md) The contract models, validation, schema and sample package: waiting for your approval
+- [PLAN1](plans/1-contract-models-and-sample.md) The contract models, validation, schema and sample package: building · 0 of 6 done
   - TASK1 Task 1: Resource, field and rights models: not started
   - TASK2 Task 2: Manifest and project models: not started
   - TASK3 Task 3: Change, Finding, Profile and ArchiveConfig: not started
