@@ -8,7 +8,8 @@ converter.
 
 The conventions the EML export writes (see `archive_contract.exports.eml`) are read back, so a
 package exported to EML imports to the same title, creators, description, keywords, rights,
-coverage, fields and code lists.
+coverage, purpose, fields (with their units, scales and related columns), code lists, vector
+attribute tables and project keywords.
 """
 
 import re
@@ -21,8 +22,10 @@ from xml.parsers import expat
 
 from archive_contract.exports.eml import (
     DATE_FORMATS,
+    END_UNKNOWN,
     NO_DEFINITION,
     ONGOING,
+    PROJECT_KEYWORDS,
     TABLE_SCHEMA_TYPES,
     UNDOCUMENTED_CODES,
     UNKNOWN_UNIT,
@@ -101,15 +104,15 @@ READ: dict[str, frozenset[str]] = {
         {
             "alternateIdentifier", "title", "creator", "metadataProvider", "associatedParty",
             "pubDate", "abstract", "keywordSet", "intellectualRights", "licensed", "coverage",
-            "maintenance", "contact", "methods", "project", "dataTable", "spatialRaster",
-            "spatialVector", "otherEntity",
+            "purpose", "maintenance", "contact", "methods", "project", "dataTable",
+            "spatialRaster", "spatialVector", "otherEntity",
         }
     ),
     "party": frozenset(
         {"individualName", "organizationName", "positionName", "electronicMailAddress"}
         | {"onlineUrl", "role"}
     ),
-    "project": frozenset({"title", "personnel", "abstract", "award"}),
+    "project": frozenset({"title", "personnel", "abstract", "award", "studyAreaDescription"}),
     "entity": frozenset(
         {"entityName", "entityDescription", "physical", "attributeList", "entityType"}
     ),
@@ -161,6 +164,14 @@ STORAGE_TYPES: dict[str, FieldType] = {
 KINDS: frozenset[str] = frozenset(get_args(ResourceKind))
 FIELD_TYPES: frozenset[str] = frozenset(get_args(FieldType))
 ONGOING_FREQUENCY = "continually"
+END_UNKNOWN_FREQUENCY = "unknown"
+SCALES = ("nominal", "ordinal", "interval", "ratio", "dateTime")
+RELATED = re.compile(
+    r"(?P<text>.*?)\s*Related column: (?P<field>\S+) "
+    r"\((?P<role>uncertainty|detection-limit|quality-flag)\)\.",
+    re.DOTALL,
+)
+"""The note `related_note` ends an ancillary column's attributeDefinition with."""
 
 
 @dataclass
@@ -307,11 +318,11 @@ def _coverage(dataset: ET.Element, raw: dict[str, Any], skips: _Skips) -> None:
             if day := _date(_kid_text(single, "calendarDate")):
                 singles.append(day)
     maintenance = _kid(dataset, "maintenance")
-    ongoing = (
-        _kid_text(maintenance, "description") == ONGOING
-        and _kid_text(maintenance, "maintenanceUpdateFrequency") == ONGOING_FREQUENCY
-    )
-    if maintenance is not None and not ongoing:
+    note = _kid_text(maintenance, "description")
+    frequency = _kid_text(maintenance, "maintenanceUpdateFrequency")
+    ongoing = note == ONGOING and frequency == ONGOING_FREQUENCY
+    end_unknown = note == END_UNKNOWN and frequency == END_UNKNOWN_FREQUENCY
+    if maintenance is not None and not (ongoing or end_unknown):
         skips.add("dataset/maintenance: not read")
     if starts:
         raw["archive:temporalCoverage"] = {
@@ -320,6 +331,8 @@ def _coverage(dataset: ET.Element, raw: dict[str, Any], skips: _Skips) -> None:
         }
     elif singles and ongoing:
         raw["archive:temporalCoverage"] = {"start": min(singles).isoformat(), "ongoing": True}
+    elif singles and end_unknown:
+        raw["archive:temporalCoverage"] = {"start": min(singles).isoformat(), "end": "unknown"}
     elif singles:
         raw["archive:temporalCoverage"] = {
             "start": min(singles).isoformat(),
@@ -400,8 +413,22 @@ def _project(dataset: ET.Element, raw: dict[str, Any], skips: _Skips) -> Project
             funding.append({k: v for k, v in entry.items() if v})
     if funding:
         raw["archive:funding"] = funding
+    keywords: list[str] = []
+    for study_area in _kids(element, "studyAreaDescription"):
+        for child in study_area:
+            name = child.get("name") if _local(child.tag) == "descriptor" else None
+            if name == PROJECT_KEYWORDS:
+                values = (_text(v) for v in _kids(child, "descriptorValue"))
+                keywords += [v for v in values if v]
+            else:
+                label = f"descriptor[{name}]" if name else _local(child.tag)
+                skips.add(f"dataset/project/studyAreaDescription/{label}: not read")
     project = Project(
-        id=slug(title), title=title, abstract=_kid_text(element, "abstract"), people=people
+        id=slug(title),
+        title=title,
+        abstract=_kid_text(element, "abstract"),
+        people=people,
+        keywords=keywords or None,
     )
     raw["archive:project"] = project.id
     return project
@@ -468,14 +495,13 @@ def _attributes(
         if definition and definition != NO_DEFINITION:
             out["description"] = definition
         scale = _kid(attribute, "measurementScale")
-        here = f"{path}/attributeList/attribute[{name}]"
-        for level in ("interval", "ordinal"):
-            if _kid(scale, level) is not None:
-                skips.add(f"{here}/measurementScale/{level}: not representable (scale)")
-        for level in ("ratio", "interval"):
-            unit = _kid(_kid(scale, level), "unit")
-            if unit is not None and _kid_text(unit, "customUnit") != UNKNOWN_UNIT:
-                skips.add(f"{here}/unit: not representable (units)")
+        level = next((s for s in SCALES if _kid(scale, s) is not None), None)
+        if level is not None:
+            out["archive:measurementScale"] = level
+        unit = _kid(_kid(scale, level), "unit") if level in ("interval", "ratio") else None
+        unit_text = _kid_text(unit, "customUnit") or _kid_text(unit, "standardUnit")
+        if unit_text and unit_text != UNKNOWN_UNIT:
+            out["archive:unit"] = unit_text
         kind, fmt = _field_type(attribute, scale)
         if kind:
             out["type"] = kind
@@ -499,7 +525,23 @@ def _attributes(
             if value and value not in missing:
                 missing.append(value)
         fields.append(out)
+    _related_columns(fields)
     return fields, codes, missing
+
+
+def _related_columns(fields: list[dict[str, Any]]) -> None:
+    """Read back the export's related-column note, when it names another column here."""
+    names = {f["name"] for f in fields}
+    for out in fields:
+        match = RELATED.fullmatch(out.get("description") or "")
+        if match is None or match["field"] == out["name"] or match["field"] not in names:
+            continue
+        out["archive:ancillaryOf"] = {"field": match["field"], "role": match["role"]}
+        text = match["text"].strip()
+        if text and text != NO_DEFINITION:
+            out["description"] = text
+        else:
+            del out["description"]
 
 
 def _physical(entity: ET.Element, path: str, skips: _Skips) -> list[dict[str, Any]]:
@@ -544,7 +586,7 @@ def _resource(
     tag: str,
     taken: set[str],
     raw_resources: list[dict[str, Any]],
-    pending: list[tuple[dict[str, Any], dict[str, list[CodeRow]]]],
+    pending: list[tuple[dict[str, Any], dict[str, Any], dict[str, list[CodeRow]]]],
     skips: _Skips,
 ) -> None:
     """Add the entity as a resource. A table's code lists go to `pending`, resolved once every
@@ -585,15 +627,12 @@ def _resource(
     if tag == "dataTable":
         resource["type"] = "table"
         resource["archive:kind"] = "table"
-        fields, codes, missing = _attributes(entity, name, path, skips)
-        schema: dict[str, Any] = {"fields": fields}
-        if codes:
-            pending.append((resource, codes))
-        if missing:
-            schema["missingValues"] = missing
-        resource["schema"] = schema
+        resource["schema"] = _schema(entity, name, path, resource, pending, skips)
     elif tag == "spatialVector":
         resource["archive:kind"] = "vector"
+        if _kid(entity, "attributeList") is not None:
+            schema = _schema(entity, name, path, resource, pending, skips)
+            resource["archive:attributes"] = schema
     elif tag == "spatialRaster":
         resource["archive:kind"] = "raster"
     else:
@@ -602,6 +641,24 @@ def _resource(
             entity_type if entity_type in KINDS - {"table", "linked"} else "file"
         )
     raw_resources.append(resource)
+
+
+def _schema(
+    entity: ET.Element,
+    name: str,
+    path: str,
+    resource: dict[str, Any],
+    pending: list[tuple[dict[str, Any], dict[str, Any], dict[str, list[CodeRow]]]],
+    skips: _Skips,
+) -> dict[str, Any]:
+    """A Table Schema from the entity's attribute list; its code lists go to `pending`."""
+    fields, codes, missing = _attributes(entity, name, path, skips)
+    schema: dict[str, Any] = {"fields": fields}
+    if codes:
+        pending.append((resource, schema, codes))
+    if missing:
+        schema["missingValues"] = missing
+    return schema
 
 
 CODE_COLUMNS = ["code", "label", "description"]
@@ -745,6 +802,8 @@ def from_eml(xml: str) -> EmlImport:
     steps = [_kid_text(step, "description") for step in _kids(methods, "methodStep")]
     if text := "\n\n".join(s for s in steps if s):
         raw["archive:methods"] = text
+    if purpose := _kid_text(dataset, "purpose"):
+        raw["archive:purpose"] = purpose
     if methods is not None:
         for child in methods:
             if _local(child.tag) != "methodStep":
@@ -752,21 +811,21 @@ def from_eml(xml: str) -> EmlImport:
     project = _project(dataset, raw, skips)
 
     resources: list[dict[str, Any]] = []
-    pending: list[tuple[dict[str, Any], dict[str, list[CodeRow]]]] = []
+    pending: list[tuple[dict[str, Any], dict[str, Any], dict[str, list[CodeRow]]]] = []
     taken: set[str] = set()
     for child in dataset:
         tag = _local(child.tag)
         if tag in ("dataTable", "otherEntity", "spatialVector", "spatialRaster"):
             _resource(child, tag, taken, resources, pending, skips)
     code_lists: dict[str, list[CodeRow]] = {}
-    for table, codes in pending:
+    for table, schema, codes in pending:
         keys = []
         for column, rows in codes.items():
             code_name = _code_list_name(table["name"], column, rows, code_lists, taken, resources)
             code_lists[code_name] = rows
             reference = {"resource": code_name, "fields": ["code"]}
             keys.append({"fields": [column], "reference": reference})
-        table["schema"]["foreignKeys"] = keys
+        schema["foreignKeys"] = keys
     raw["resources"] = resources
 
     manifest = Manifest.model_validate(raw)

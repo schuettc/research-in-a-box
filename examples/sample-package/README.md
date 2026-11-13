@@ -6,7 +6,11 @@ This README is generated from `datapackage.json`. Edit the manifest, not this fi
 
 ## Citation
 
-Ada Invented. Stream temperature at three invented sites. Version 1. `stream-temperature-sample`.
+Invented, A. (2024). Stream temperature at three invented sites. Version 1. Example Lab.
+
+## Purpose
+
+To show how a research archive package holds tables, code lists, spatial data and documents, with gaps left in for the audit to find.
 
 ## Creators
 
@@ -31,16 +35,17 @@ Kind: table. File: `data/logger.csv`.
 
 Hourly water temperature at three sites on 1 June 2024.
 
-| Column         | Title                 | Type     | Description                                                | Codes             |
-| -------------- | --------------------- | -------- | ---------------------------------------------------------- | ----------------- |
-| `timestamp`    | Reading time          | datetime | Local standard time of the reading, on the hour.           |                   |
-| `site`         | Site                  | string   | Site code; the sites resource holds each site's location.  |                   |
-| `water_temp_c` | Water temperature (C) | number   | Water temperature in degrees Celsius.                      |                   |
-| `condition`    | Logger condition      | string   | The logger's condition at the reading, from the code list. | `condition-codes` |
-| `qc_flag`      | QC flag               | string   | Quality flag set by the logger's software.                 | undocumented      |
-| `logger_model` | Logger model          | string   | Model of the temperature logger.                           |                   |
-| `battery_v`    |                       | number   |                                                            |                   |
-| `depth_cm`     |                       | integer  | depth_cm                                                   |                   |
+| Column             | Title                             | Type     | Description                                                                                          | Codes             | Unit | Scale    | Related                       |
+| ------------------ | --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------- | ----------------- | ---- | -------- | ----------------------------- |
+| `timestamp`        | Reading time                      | datetime | Local standard time of the reading, on the hour.                                                     |                   |      | dateTime |                               |
+| `site`             | Site                              | string   | Site code; the sites resource holds each site's location.                                            |                   |      | nominal  |                               |
+| `water_temp_c`     | Water temperature (C)             | number   | Water temperature in degrees Celsius.                                                                |                   | degC | interval |                               |
+| `water_temp_unc_c` | Water temperature uncertainty (C) | number   | The logger's stated accuracy at the reading, wider when it drifted or was buried; added in cleaning. |                   | degC | ratio    | uncertainty of `water_temp_c` |
+| `condition`        | Logger condition                  | string   | The logger's condition at the reading, from the code list.                                           | `condition-codes` |      | nominal  |                               |
+| `qc_flag`          | QC flag                           | string   | Quality flag set by the logger's software.                                                           | undocumented      |      | nominal  |                               |
+| `logger_model`     | Logger model                      | string   | Model of the temperature logger.                                                                     |                   |      | nominal  |                               |
+| `battery_v`        |                                   | number   |                                                                                                      |                   | V    | ratio    |                               |
+| `depth_cm`         |                                   | integer  | depth_cm                                                                                             |                   | cm   | ratio    |                               |
 
 ### `condition-codes`: Logger condition codes
 
@@ -48,11 +53,11 @@ Kind: table. File: `data/codes/condition-codes.csv`.
 
 The codes used in the logger table's condition column.
 
-| Column        | Title | Type   | Description          | Codes |
-| ------------- | ----- | ------ | -------------------- | ----- |
-| `code`        |       | string | The code.            |       |
-| `label`       |       | string | A short label.       |       |
-| `description` |       | string | What the code means. |       |
+| Column        | Title | Type   | Description          | Codes | Scale   |
+| ------------- | ----- | ------ | -------------------- | ----- | ------- |
+| `code`        |       | string | The code.            |       | nominal |
+| `label`       |       | string | A short label.       |       | nominal |
+| `description` |       | string | What the code means. |       | nominal |
 
 ### `sites`: Sites
 
@@ -61,6 +66,13 @@ Kind: vector. File: `data/sites/sites.shp`.
 The three logger sites as points, in WGS 84.
 
 With `data/sites/sites.shx`, `data/sites/sites.dbf`, `data/sites/sites.prj`.
+
+Attribute table:
+
+| Column | Title     | Type   | Description                                      | Codes | Scale   |
+| ------ | --------- | ------ | ------------------------------------------------ | ----- | ------- |
+| `site` | Site      | string | Site code, as in the logger table's site column. |       | nominal |
+| `name` | Site name | string | The stream and spot the logger sits at.          |       | nominal |
 
 ### `depth`: Stream depth
 

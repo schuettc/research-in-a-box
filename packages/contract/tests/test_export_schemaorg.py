@@ -81,3 +81,22 @@ def test_license_creator_keywords_version_identifier_and_project() -> None:
         "name": "Invented stream monitoring",
         "url": "https://example.org/s",
     }
+
+
+def test_preferred_citation_is_credit_text() -> None:
+    manifest = sample()
+
+    assert manifest.citation
+    assert to_schemaorg(manifest)["creditText"] == manifest.citation
+
+
+def test_unknown_end_is_an_open_interval() -> None:
+    manifest = sample().model_copy(
+        update={
+            "temporal_coverage": TemporalCoverage.model_validate(
+                {"start": "1991-01-01", "end": "unknown"}
+            )
+        }
+    )
+
+    assert to_schemaorg(manifest)["temporalCoverage"] == "1991-01-01/.."

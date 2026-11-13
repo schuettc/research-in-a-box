@@ -105,3 +105,23 @@ def test_sample_seeds_the_gaps_its_gap_list_names() -> None:
     for gap in [no_description, repeats_name, undocumented, constant]:
         assert len(gap) == 1
         assert f"`{gap[0]}`" in gaps
+
+
+def test_sample_uses_the_paper_test_fields() -> None:
+    m = manifest()
+    logger = m.resource("logger")
+    sites = m.resource("sites")
+    assert logger is not None and logger.table_schema is not None
+    assert sites is not None and sites.attributes is not None
+
+    assert m.citation and m.purpose
+    assert all(f.measurement_scale for f in logger.table_schema.fields)
+    numeric = [f for f in logger.table_schema.fields if f.type in ("number", "integer")]
+    assert numeric and all(f.unit for f in numeric)
+    [ancillary] = [f for f in logger.table_schema.fields if f.ancillary_of]
+    assert ancillary.ancillary_of is not None
+    assert (ancillary.ancillary_of.field, ancillary.ancillary_of.role) == (
+        "water_temp_c",
+        "uncertainty",
+    )
+    assert sites.attributes.field_names() == ["site", "name"]

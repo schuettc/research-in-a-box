@@ -337,33 +337,49 @@ them changes the contract here; each is for the user to decide.
    2015), `camels-hump-census` (begins 1965; the project says censuses continue) and
    `data-rescue-inventory` (begins 2019-03-11, nothing more) give only a start. Writing them
    down means asserting `ongoing` or inventing an end.
+
+   Closed by `end: "unknown"` on temporal coverage.
 2. **Units of measure.** A column has a logical type and no unit. `fia-tree-level` says
    `ACTUALHT` is to "the nearest foot" only in prose; `improve-fine-aerosol`'s concentrations
    and uncertainties have no units anywhere. The EML export has to write the custom unit
    `unknown` because EML requires one.
+
+   Closed by `archive:unit` on a field.
 3. **How columns relate to each other.** `improve-fine-aerosol` has, per analyte, a value, its
    uncertainty, its detection limit and its flag (`AL_val`, `AL_unc`, `AL_mdl`, `AL_flag`).
    The format can say a column uses a code list, not that one column is the uncertainty or the
    flag of another.
+
+   Closed by `archive:ancillaryOf: {field, role}` on a field.
 4. **Measurement scale.** The format has logical types only, so it can't say a coded integer is
    ordinal rather than nominal (`fia-tree-level`'s `DAMSEV1`, "Damage Severity", is
    `ordinal`), or a number interval rather than ratio (`BHAGE`, `Area_ha` in
    `aerial-detection-survey`).
+
+   Closed by `archive:measurementScale` on a field.
 5. **A table that is part of another resource.** `aerial-detection-survey`'s CSV is the
    shapefile's attribute table without the geometry. `archive:alternateOf` means the same data
    in another format, which this isn't; the format has no way to say "the attribute table of
    `aerial-survey`".
+
+   Closed by `archive:attributes` on a vector resource.
 6. **The source's preferred citation.** Five records carry FEMC's preferred citation (such as
    "Lackey, J., and S. Wilmot. 2001. Ozone Bioindicators. ..."). The README generates a
    citation from the manifest; there is no field to keep the citation the source asked for.
+
+   Closed by `archive:citation` on the package.
 7. **Project keywords.** Four projects (`ozone-bioindicators`, `fia-tree-level`,
    `improve-fine-aerosol`, `aerial-detection-survey`) carry keywords. The project record has
    `id`, `title`, `abstract`, `people` and `links`, and no keywords; the format would only allow
    copying them onto each package, which the spec avoids for project text.
+
+   Closed by `keywords` on the project record.
 8. **A purpose separate from the description.** Every `dataTable` but two empty ones has a
    `purpose` (`aerial-detection-survey`: "Monitoring forest condition in the states of ...").
    The format has `description` and `archive:methods` only; a purpose has to be folded into
    the description.
+
+   Closed by `archive:purpose` on the package.
 
 ## Found on the way, not format gaps
 

@@ -8,7 +8,8 @@ from archive_contract.exports._common import person_name
 from archive_contract.exports.eml import read_code_list, to_eml
 from archive_contract.fields import Field
 from archive_contract.imports.eml import from_eml
-from archive_contract.manifest import Manifest
+from archive_contract.manifest import Manifest, TemporalCoverage
+from archive_contract.project import Project
 
 SAMPLE = Path(__file__).parents[3] / "examples" / "sample-package"
 FIXTURES = Path(__file__).parent / "fixtures" / "eml"
@@ -120,13 +121,34 @@ def test_sample_round_trips_through_eml() -> None:
     assert back.temporal_coverage == original.temporal_coverage
     assert back.spatial_coverage == original.spatial_coverage
 
+    assert back.purpose == original.purpose
+
     def compare(f: Field) -> tuple[object, ...]:
-        return (f.name, f.type, f.title, f.description, f.code_list, f.format)
+        return (
+            f.name,
+            f.type,
+            f.title,
+            f.description,
+            f.code_list,
+            f.format,
+            f.unit,
+            f.measurement_scale,
+            f.ancillary_of,
+        )
 
     for table in ["logger", "condition-codes"]:
         assert [compare(f) for f in fields(back, table).values()] == [
             compare(f) for f in fields(original, table).values()
         ]
+    sites, sites_back = original.resource("sites"), back.resource("sites")
+    assert sites is not None and sites.attributes is not None
+    assert sites_back is not None and sites_back.attributes is not None
+    assert sites_back.kind == "vector"
+    assert [compare(f) for f in sites_back.attributes.fields] == [
+        compare(f) for f in sites.attributes.fields
+    ]
+    assert any(f.unit for f in fields(original, "logger").values())
+    assert any(f.ancillary_of for f in fields(original, "logger").values())
 
     codes = original.resource("condition-codes")
     assert codes is not None
@@ -275,13 +297,11 @@ def test_ordinary_maintenance_leaves_a_single_date_and_is_skipped() -> None:
     assert any(s.startswith("dataset/maintenance") for s in result.skipped)
 
 
-def test_units_are_listed_as_skipped() -> None:
+def test_units_are_read() -> None:
     result = from_eml(fixture("invented-2.1.1.xml"))
 
-    assert (
-        "dataset/dataTable/attributeList/attribute[depth]/unit: not representable (units)"
-        in result.skipped
-    )
+    assert fields(result.manifest, "snow")["depth"].unit == "centimeter"
+    assert not any("/unit" in s for s in result.skipped)
 
 
 def test_the_exports_unknown_unit_is_not_listed_as_lost() -> None:
@@ -290,7 +310,7 @@ def test_the_exports_unknown_unit_is_not_listed_as_lost() -> None:
     assert not any("/unit:" in s for s in result.skipped)
 
 
-def test_interval_and_ordinal_scales_are_listed_as_skipped() -> None:
+def test_measurement_scales_are_read() -> None:
     xml = """<eml:eml xmlns:eml="https://eml.ecoinformatics.org/eml-2.2.0">
       <dataset><title>Invented</title>
         <dataTable><entityName>plots</entityName><attributeList>
@@ -303,8 +323,61 @@ def test_interval_and_ordinal_scales_are_listed_as_skipped() -> None:
             </nonNumericDomain></ordinal></measurementScale></attribute>
         </attributeList></dataTable>
       </dataset></eml:eml>"""
-    skipped = from_eml(xml).skipped
+    result = from_eml(xml)
+    plots = fields(result.manifest, "plots")
 
-    path = "dataset/dataTable/attributeList/attribute"
-    assert f"{path}[temp]/measurementScale/interval: not representable (scale)" in skipped
-    assert f"{path}[rank]/measurementScale/ordinal: not representable (scale)" in skipped
+    assert plots["temp"].measurement_scale == "interval"
+    assert plots["temp"].unit is None
+    assert plots["rank"].measurement_scale == "ordinal"
+    assert not any("measurementScale" in s for s in result.skipped)
+
+
+def test_purpose_project_keywords_and_unknown_end_round_trip() -> None:
+    manifest = sample().model_copy(
+        update={
+            "project": "streams",
+            "temporal_coverage": TemporalCoverage.model_validate(
+                {"start": "1991-01-01", "end": "unknown"}
+            ),
+        }
+    )
+    project = Project(id="streams", title="Streams", keywords=["temperature", "LTER"])
+    result = from_eml(to_eml(manifest, project, root=SAMPLE))
+
+    assert result.manifest.purpose == manifest.purpose
+    assert result.manifest.temporal_coverage == manifest.temporal_coverage
+    assert result.project is not None and result.project.keywords == ["temperature", "LTER"]
+    assert not any(
+        s.startswith(("dataset/purpose", "dataset/maintenance", "dataset/project/study"))
+        for s in result.skipped
+    )
+
+
+def test_other_study_area_descriptors_are_skipped() -> None:
+    xml = """<eml:eml xmlns:eml="https://eml.ecoinformatics.org/eml-2.2.0">
+      <dataset><title>Invented</title>
+        <project><title>P</title><personnel><surName>X</surName><role>pi</role></personnel>
+          <studyAreaDescription><descriptor name="climate" citableClassificationSystem="false">
+            <descriptorValue>Cold</descriptorValue></descriptor></studyAreaDescription>
+        </project>
+      </dataset></eml:eml>"""
+    result = from_eml(xml)
+
+    assert result.project is not None and result.project.keywords is None
+    assert "dataset/project/studyAreaDescription/descriptor[climate]: not read" in result.skipped
+
+
+def test_a_definition_naming_a_missing_column_keeps_its_text() -> None:
+    xml = """<eml:eml xmlns:eml="https://eml.ecoinformatics.org/eml-2.2.0">
+      <dataset><title>Invented</title>
+        <dataTable><entityName>plots</entityName><attributeList>
+          <attribute><attributeName>sd</attributeName>
+            <attributeDefinition>Spread. Related column: gone (uncertainty).</attributeDefinition>
+            <measurementScale><nominal><nonNumericDomain><textDomain><definition>x</definition>
+            </textDomain></nonNumericDomain></nominal></measurementScale></attribute>
+        </attributeList></dataTable>
+      </dataset></eml:eml>"""
+    sd = fields(from_eml(xml).manifest, "plots")["sd"]
+
+    assert sd.ancillary_of is None
+    assert sd.description == "Spread. Related column: gone (uncertainty)."

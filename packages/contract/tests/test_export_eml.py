@@ -7,7 +7,7 @@ import pytest
 from lxml import etree
 
 from archive_contract.exports.eml import UNDOCUMENTED_CODES, to_eml
-from archive_contract.manifest import Manifest
+from archive_contract.manifest import Manifest, TemporalCoverage
 from archive_contract.project import Person, Project
 from archive_contract.rights import RightsStatus
 
@@ -96,11 +96,85 @@ def test_every_other_local_resource_is_an_other_entity() -> None:
     root = ET.fromstring(to_eml(sample(), root=SAMPLE))
 
     tables = [t.findtext("entityName") for t in root.iter("dataTable")]
+    vectors = [v.findtext("entityName") for v in root.iter("spatialVector")]
     others = [o.findtext("entityName") for o in root.iter("otherEntity")]
     assert tables == ["logger", "condition-codes"]
-    assert others == ["sites", "depth", "logger-xlsx", "logger-original", "methods", "site-photo"]
+    assert vectors == ["sites"]
+    assert others == ["depth", "logger-xlsx", "logger-original", "methods", "site-photo"]
 
 
 def test_a_code_list_column_needs_the_package_folder() -> None:
     with pytest.raises(ValueError, match="condition-codes"):
         to_eml(sample())
+
+
+def test_a_unit_replaces_unknown() -> None:
+    attr = attribute(to_eml(sample(), root=SAMPLE), "logger", "water_temp_c")
+
+    assert attr.findtext("measurementScale/interval/unit/customUnit") == "degC"
+
+
+def test_the_fields_measurement_scale_is_used() -> None:
+    manifest = sample()
+    logger = manifest.resource("logger")
+    assert logger is not None and logger.table_schema is not None
+    for field in logger.table_schema.fields:
+        if field.name == "logger_model":
+            field.measurement_scale = "ordinal"
+        if field.name == "depth_cm":
+            field.measurement_scale = "interval"
+    xml = to_eml(manifest, root=SAMPLE)
+
+    assert_valid(xml)
+    model = attribute(xml, "logger", "logger_model")
+    assert model.find("measurementScale/ordinal/nonNumericDomain/textDomain") is not None
+    depth = attribute(xml, "logger", "depth_cm")
+    assert depth.findtext("measurementScale/interval/unit/customUnit") == "cm"
+    assert depth.findtext("measurementScale/interval/numericDomain/numberType") == "integer"
+
+
+def test_a_related_column_is_noted_in_the_attribute_definition() -> None:
+    attr = attribute(to_eml(sample(), root=SAMPLE), "logger", "water_temp_unc_c")
+
+    definition = attr.findtext("attributeDefinition") or ""
+    assert definition.endswith("Related column: water_temp_c (uncertainty).")
+
+
+def test_purpose_is_written() -> None:
+    manifest = sample()
+    root = ET.fromstring(to_eml(manifest, root=SAMPLE))
+
+    assert root.findtext("dataset/purpose/para") == manifest.purpose
+
+
+def test_vector_attributes_are_the_spatial_vectors_attribute_list() -> None:
+    root = ET.fromstring(to_eml(sample(), root=SAMPLE))
+    vector = root.find("dataset/spatialVector")
+    assert vector is not None
+
+    names = [a.findtext("attributeName") for a in vector.iter("attribute")]
+    assert names == ["site", "name"]
+    assert vector.findtext("geometry") == "Point"
+
+
+def test_project_keywords_and_an_unknown_end_validate() -> None:
+    manifest = sample().model_copy(
+        update={
+            "project": "streams",
+            "temporal_coverage": TemporalCoverage.model_validate(
+                {"start": "1991-01-01", "end": "unknown"}
+            ),
+        }
+    )
+    project = Project(id="streams", title="Streams", keywords=["temperature", "LTER"])
+    xml = to_eml(manifest, project, root=SAMPLE)
+
+    assert_valid(xml)
+    root = ET.fromstring(xml)
+    descriptor = root.find("dataset/project/studyAreaDescription/descriptor")
+    assert descriptor is not None and descriptor.get("name") == "keywords"
+    assert [v.text for v in descriptor.iter("descriptorValue")] == ["temperature", "LTER"]
+    assert root.findtext("dataset/coverage/temporalCoverage/singleDateTime/calendarDate") == (
+        "1991-01-01"
+    )
+    assert root.findtext("dataset/maintenance/maintenanceUpdateFrequency") == "unknown"

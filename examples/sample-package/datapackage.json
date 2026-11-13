@@ -34,8 +34,8 @@
       "format": "csv",
       "mediatype": "text/csv",
       "encoding": "utf-8",
-      "bytes": 3083,
-      "hash": "sha256:31913fc3551def14981d5d3b2849c82da6ac8c747528214f66df2be3fc8e9a60",
+      "bytes": 3400,
+      "hash": "sha256:1b8a6b3736dfbb165673581395b27d1a4e29ec3d90de3acb9a3cc98a72eeb341",
       "schema": {
         "fields": [
           {
@@ -45,7 +45,10 @@
             "description": "Local standard time of the reading, on the hour.",
             "archive:sourceName": null,
             "archive:codeList": null,
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "dateTime",
+            "archive:ancillaryOf": null
           },
           {
             "name": "site",
@@ -54,7 +57,10 @@
             "description": "Site code; the sites resource holds each site's location.",
             "archive:sourceName": null,
             "archive:codeList": null,
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
           },
           {
             "name": "water_temp_c",
@@ -63,7 +69,25 @@
             "description": "Water temperature in degrees Celsius.",
             "archive:sourceName": "WTemp",
             "archive:codeList": null,
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": "degC",
+            "archive:measurementScale": "interval",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "water_temp_unc_c",
+            "type": "number",
+            "title": "Water temperature uncertainty (C)",
+            "description": "The logger's stated accuracy at the reading, wider when it drifted or was buried; added in cleaning.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": "degC",
+            "archive:measurementScale": "ratio",
+            "archive:ancillaryOf": {
+              "field": "water_temp_c",
+              "role": "uncertainty"
+            }
           },
           {
             "name": "condition",
@@ -72,7 +96,10 @@
             "description": "The logger's condition at the reading, from the code list.",
             "archive:sourceName": null,
             "archive:codeList": null,
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
           },
           {
             "name": "qc_flag",
@@ -81,7 +108,10 @@
             "description": "Quality flag set by the logger's software.",
             "archive:sourceName": null,
             "archive:codeList": "undocumented",
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
           },
           {
             "name": "logger_model",
@@ -90,14 +120,20 @@
             "description": "Model of the temperature logger.",
             "archive:sourceName": null,
             "archive:codeList": null,
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
           },
           {
             "name": "battery_v",
             "type": "number",
             "archive:sourceName": null,
             "archive:codeList": null,
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": "V",
+            "archive:measurementScale": "ratio",
+            "archive:ancillaryOf": null
           },
           {
             "name": "depth_cm",
@@ -105,7 +141,10 @@
             "description": "depth_cm",
             "archive:sourceName": null,
             "archive:codeList": null,
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": "cm",
+            "archive:measurementScale": "ratio",
+            "archive:ancillaryOf": null
           }
         ],
         "foreignKeys": [
@@ -120,7 +159,8 @@
       },
       "archive:kind": "table",
       "archive:files": null,
-      "archive:alternateOf": null
+      "archive:alternateOf": null,
+      "archive:attributes": null
     },
     {
       "name": "condition-codes",
@@ -141,7 +181,10 @@
             "description": "The code.",
             "archive:sourceName": null,
             "archive:codeList": null,
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
           },
           {
             "name": "label",
@@ -149,7 +192,10 @@
             "description": "A short label.",
             "archive:sourceName": null,
             "archive:codeList": null,
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
           },
           {
             "name": "description",
@@ -157,14 +203,18 @@
             "description": "What the code means.",
             "archive:sourceName": null,
             "archive:codeList": null,
-            "archive:sensitivity": null
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
           }
         ],
         "primaryKey": ["code"]
       },
       "archive:kind": "table",
       "archive:files": null,
-      "archive:alternateOf": null
+      "archive:alternateOf": null,
+      "archive:attributes": null
     },
     {
       "name": "sites",
@@ -195,7 +245,35 @@
           "hash": "sha256:a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4"
         }
       ],
-      "archive:alternateOf": null
+      "archive:alternateOf": null,
+      "archive:attributes": {
+        "fields": [
+          {
+            "name": "site",
+            "type": "string",
+            "title": "Site",
+            "description": "Site code, as in the logger table's site column.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "title": "Site name",
+            "description": "The stream and spot the logger sits at.",
+            "archive:sourceName": null,
+            "archive:codeList": null,
+            "archive:sensitivity": null,
+            "archive:unit": null,
+            "archive:measurementScale": "nominal",
+            "archive:ancillaryOf": null
+          }
+        ]
+      }
     },
     {
       "name": "depth",
@@ -216,7 +294,8 @@
           "hash": "sha256:a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4"
         }
       ],
-      "archive:alternateOf": null
+      "archive:alternateOf": null,
+      "archive:attributes": null
     },
     {
       "name": "logger-xlsx",
@@ -226,11 +305,12 @@
       "description": "The logger table as an Excel workbook.",
       "format": "xlsx",
       "mediatype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "bytes": 39969,
-      "hash": "sha256:4fe3d694906f291c1abbd05ef786814558a11fb14d95636f26d1b5d83e6c17b7",
+      "bytes": 41879,
+      "hash": "sha256:b09cca036f66fd07104eaa3f14757d4070e8d1de80c26dabe1409e22c416d930",
       "archive:kind": "table",
       "archive:files": null,
-      "archive:alternateOf": "logger"
+      "archive:alternateOf": "logger",
+      "archive:attributes": null
     },
     {
       "name": "logger-original",
@@ -243,7 +323,8 @@
       "hash": "sha256:fb35f740aedc3bb2f6e97bd91290a5408043ba13cb70a6afbe23c63035949675",
       "archive:kind": "file",
       "archive:files": null,
-      "archive:alternateOf": null
+      "archive:alternateOf": null,
+      "archive:attributes": null
     },
     {
       "name": "methods",
@@ -256,7 +337,8 @@
       "hash": "sha256:0e8a8f588bd82374cebcbdb21c930cda7434bae5c85d95b8766230e1b9a9f37a",
       "archive:kind": "document",
       "archive:files": null,
-      "archive:alternateOf": null
+      "archive:alternateOf": null,
+      "archive:attributes": null
     },
     {
       "name": "site-photo",
@@ -269,7 +351,8 @@
       "hash": "sha256:d991b5bf883551c2bf3f76be94688f1048bb166ad4ea9beba99c1c33b7788da8",
       "archive:kind": "media",
       "archive:files": null,
-      "archive:alternateOf": null
+      "archive:alternateOf": null,
+      "archive:attributes": null
     },
     {
       "name": "discharge",
@@ -279,7 +362,8 @@
       "format": "csv",
       "archive:kind": "linked",
       "archive:files": null,
-      "archive:alternateOf": null
+      "archive:alternateOf": null,
+      "archive:attributes": null
     }
   ],
   "archive:project": null,
@@ -296,6 +380,8 @@
   "archive:relatedIdentifiers": null,
   "archive:funding": null,
   "archive:methods": "Hourly loggers with field checks at each visit; see docs/methods.md.",
+  "archive:citation": "Invented, A. (2024). Stream temperature at three invented sites. Version 1. Example Lab.",
+  "archive:purpose": "To show how a research archive package holds tables, code lists, spatial data and documents, with gaps left in for the audit to find.",
   "archive:legacyIdentifiers": null,
   "archive:metadataHistory": null,
   "archive:validation": null,
