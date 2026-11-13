@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from archive_contract.exports._common import person_name
 from archive_contract.exports.eml import read_code_list, to_eml
 from archive_contract.fields import Field
@@ -90,13 +92,12 @@ def test_non_standard_tags_are_skipped_and_listed() -> None:
     assert result.manifest.title is not None
 
 
-def test_eml_2_2_0_record_reads_its_license_and_ongoing_coverage() -> None:
+def test_eml_2_2_0_record_reads_its_license() -> None:
     result = from_eml(fixture("invented-2.2.0.xml"))
     m = result.manifest
 
     assert m.licenses is not None and m.licenses[0].name == "CC-BY-4.0"
     assert m.rights_status is None
-    assert m.temporal_coverage is not None and m.temporal_coverage.ongoing
     other = m.resource("basket-map")
     assert other is not None and other.kind == "document" and other.path == "baskets.pdf"
 
@@ -165,3 +166,145 @@ def test_skipped_lists_what_sits_inside_unread_parts() -> None:
     )
     assert "dataset/project/personnel/leadPerson: not standard EML" in result.skipped
     assert "dataset/project/personnel: no name, so no person" in result.skipped
+
+
+BILLION_LAUGHS = """<?xml version="1.0"?>
+<!DOCTYPE eml [
+  <!ENTITY lol "lol">
+  <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+  <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
+]>
+<eml:eml xmlns:eml="eml://ecoinformatics.org/eml-2.1.1">
+  <dataset><title>&lol3;</title></dataset>
+</eml:eml>"""
+
+DOCTYPE_ONLY = """<?xml version="1.0"?>
+<!DOCTYPE eml SYSTEM "http://example.org/eml.dtd">
+<eml:eml xmlns:eml="eml://ecoinformatics.org/eml-2.1.1">
+  <dataset><title>Invented</title></dataset>
+</eml:eml>"""
+
+
+@pytest.mark.parametrize("xml", [BILLION_LAUGHS, DOCTYPE_ONLY], ids=["entities", "doctype"])
+def test_documents_with_a_doctype_or_entities_are_refused(xml: str) -> None:
+    with pytest.raises(ValueError, match="DOCTYPE"):
+        from_eml(xml)
+
+
+def test_columns_sharing_a_name_keep_their_own_code_lists() -> None:
+    def table(name: str, codes: list[tuple[str, str]]) -> str:
+        definitions = "".join(
+            f"<codeDefinition><code>{c}</code><definition>{d}</definition></codeDefinition>"
+            for c, d in codes
+        )
+        return f"""<dataTable><entityName>{name}</entityName>
+          <physical><objectName>{name}.csv</objectName></physical>
+          <attributeList><attribute><attributeName>status</attributeName>
+            <attributeDefinition>Status</attributeDefinition>
+            <measurementScale><nominal><nonNumericDomain><enumeratedDomain>{definitions}
+            </enumeratedDomain></nonNumericDomain></nominal></measurementScale>
+          </attribute></attributeList></dataTable>"""
+
+    xml = f"""<eml:eml xmlns:eml="https://eml.ecoinformatics.org/eml-2.2.0">
+      <dataset><title>Invented</title>
+        {table("plots", [("A", "Active"), ("R", "Retired")])}
+        {table("traps", [("O", "Open"), ("C", "Closed")])}
+      </dataset></eml:eml>"""
+    result = from_eml(xml)
+
+    def target(name: str) -> str:
+        resource = result.manifest.resource(name)
+        assert resource is not None and resource.table_schema is not None
+        [key] = resource.table_schema.foreign_keys or []
+        assert key.reference.resource is not None
+        return key.reference.resource
+
+    plots, traps = target("plots"), target("traps")
+    assert plots != traps
+    assert [r["code"] for r in result.code_lists[plots]] == ["A", "R"]
+    assert [r["code"] for r in result.code_lists[traps]] == ["O", "C"]
+    assert result.manifest.resource(plots) is not None
+    assert result.manifest.resource(traps) is not None
+
+
+def test_identical_code_lists_are_shared() -> None:
+    attribute = """<attribute><attributeName>status</attributeName>
+      <measurementScale><nominal><nonNumericDomain><enumeratedDomain>
+        <codeDefinition><code>A</code><definition>Active</definition></codeDefinition>
+      </enumeratedDomain></nonNumericDomain></nominal></measurementScale></attribute>"""
+    xml = f"""<eml:eml xmlns:eml="https://eml.ecoinformatics.org/eml-2.2.0">
+      <dataset><title>Invented</title>
+        <dataTable><entityName>plots</entityName>
+          <attributeList>{attribute}</attributeList></dataTable>
+        <dataTable><entityName>traps</entityName>
+          <attributeList>{attribute}</attributeList></dataTable>
+      </dataset></eml:eml>"""
+    result = from_eml(xml)
+
+    assert list(result.code_lists) == ["status-codes"]
+
+
+def single_date_with_maintenance(description: str, frequency: str) -> str:
+    return f"""<eml:eml xmlns:eml="https://eml.ecoinformatics.org/eml-2.2.0">
+      <dataset><title>Invented</title>
+        <coverage><temporalCoverage>
+          <singleDateTime><calendarDate>2021-05-01</calendarDate></singleDateTime>
+        </temporalCoverage></coverage>
+        <maintenance>
+          <description><para>{description}</para></description>
+          <maintenanceUpdateFrequency>{frequency}</maintenanceUpdateFrequency>
+        </maintenance>
+      </dataset></eml:eml>"""
+
+
+def test_the_exports_ongoing_convention_reads_as_ongoing() -> None:
+    m = from_eml(
+        single_date_with_maintenance("Data collection is ongoing.", "continually")
+    ).manifest
+
+    assert m.temporal_coverage is not None and m.temporal_coverage.ongoing
+    assert str(m.temporal_coverage.start) == "2021-05-01"
+
+
+def test_ordinary_maintenance_leaves_a_single_date_and_is_skipped() -> None:
+    result = from_eml(single_date_with_maintenance("Updated monthly.", "monthly"))
+    coverage = result.manifest.temporal_coverage
+
+    assert coverage is not None and not coverage.ongoing
+    assert str(coverage.start) == "2021-05-01" and str(coverage.end) == "2021-05-01"
+    assert any(s.startswith("dataset/maintenance") for s in result.skipped)
+
+
+def test_units_are_listed_as_skipped() -> None:
+    result = from_eml(fixture("invented-2.1.1.xml"))
+
+    assert (
+        "dataset/dataTable/attributeList/attribute[depth]/unit: not representable (units)"
+        in result.skipped
+    )
+
+
+def test_the_exports_unknown_unit_is_not_listed_as_lost() -> None:
+    result = from_eml(to_eml(sample(), root=SAMPLE))
+
+    assert not any("/unit:" in s for s in result.skipped)
+
+
+def test_interval_and_ordinal_scales_are_listed_as_skipped() -> None:
+    xml = """<eml:eml xmlns:eml="https://eml.ecoinformatics.org/eml-2.2.0">
+      <dataset><title>Invented</title>
+        <dataTable><entityName>plots</entityName><attributeList>
+          <attribute><attributeName>temp</attributeName><measurementScale><interval>
+            <unit><customUnit>unknown</customUnit></unit>
+            <numericDomain><numberType>real</numberType></numericDomain>
+          </interval></measurementScale></attribute>
+          <attribute><attributeName>rank</attributeName><measurementScale><ordinal>
+            <nonNumericDomain><textDomain><definition>Rank</definition></textDomain>
+            </nonNumericDomain></ordinal></measurementScale></attribute>
+        </attributeList></dataTable>
+      </dataset></eml:eml>"""
+    skipped = from_eml(xml).skipped
+
+    path = "dataset/dataTable/attributeList/attribute"
+    assert f"{path}[temp]/measurementScale/interval: not representable (scale)" in skipped
+    assert f"{path}[rank]/measurementScale/ordinal: not representable (scale)" in skipped

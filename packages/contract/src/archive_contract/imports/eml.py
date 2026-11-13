@@ -15,14 +15,17 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, get_args
+from typing import Any, NoReturn, get_args
 from xml.etree import ElementTree as ET
+from xml.parsers import expat
 
 from archive_contract.exports.eml import (
     DATE_FORMATS,
     NO_DEFINITION,
+    ONGOING,
     TABLE_SCHEMA_TYPES,
     UNDOCUMENTED_CODES,
+    UNKNOWN_UNIT,
     CodeRow,
     strptime_format,
 )
@@ -157,7 +160,7 @@ STORAGE_TYPES: dict[str, FieldType] = {
 
 KINDS: frozenset[str] = frozenset(get_args(ResourceKind))
 FIELD_TYPES: frozenset[str] = frozenset(get_args(FieldType))
-NOT_ONGOING = frozenset({"notPlanned", "unknown"})
+ONGOING_FREQUENCY = "continually"
 
 
 @dataclass
@@ -303,13 +306,19 @@ def _coverage(dataset: ET.Element, raw: dict[str, Any], skips: _Skips) -> None:
         for single in _kids(temporal, "singleDateTime"):
             if day := _date(_kid_text(single, "calendarDate")):
                 singles.append(day)
-    frequency = _kid_text(_kid(dataset, "maintenance"), "maintenanceUpdateFrequency")
+    maintenance = _kid(dataset, "maintenance")
+    ongoing = (
+        _kid_text(maintenance, "description") == ONGOING
+        and _kid_text(maintenance, "maintenanceUpdateFrequency") == ONGOING_FREQUENCY
+    )
+    if maintenance is not None and not ongoing:
+        skips.add("dataset/maintenance: not read")
     if starts:
         raw["archive:temporalCoverage"] = {
             "start": min(starts + singles).isoformat(),
             "end": max(ends + singles).isoformat(),
         }
-    elif singles and frequency and frequency not in NOT_ONGOING:
+    elif singles and ongoing:
         raw["archive:temporalCoverage"] = {"start": min(singles).isoformat(), "ongoing": True}
     elif singles:
         raw["archive:temporalCoverage"] = {
@@ -459,6 +468,14 @@ def _attributes(
         if definition and definition != NO_DEFINITION:
             out["description"] = definition
         scale = _kid(attribute, "measurementScale")
+        here = f"{path}/attributeList/attribute[{name}]"
+        for level in ("interval", "ordinal"):
+            if _kid(scale, level) is not None:
+                skips.add(f"{here}/measurementScale/{level}: not representable (scale)")
+        for level in ("ratio", "interval"):
+            unit = _kid(_kid(scale, level), "unit")
+            if unit is not None and _kid_text(unit, "customUnit") != UNKNOWN_UNIT:
+                skips.add(f"{here}/unit: not representable (units)")
         kind, fmt = _field_type(attribute, scale)
         if kind:
             out["type"] = kind
@@ -591,16 +608,22 @@ CODE_COLUMNS = ["code", "label", "description"]
 
 
 def _code_list_name(
-    table: str, column: str, taken: set[str], raw_resources: list[dict[str, Any]]
+    table: str,
+    column: str,
+    rows: list[CodeRow],
+    code_lists: dict[str, list[CodeRow]],
+    taken: set[str],
+    raw_resources: list[dict[str, Any]],
 ) -> str:
-    """The code list's resource name: `<column>-codes`, reusing a code-list table of that name
-    the record already lists, and adding a resource for it otherwise."""
+    """The code list's resource name: `<column>-codes`, else `<table>-<column>-codes`. A
+    code-list table of that name the record already lists is reused when its rows are the same
+    (or not yet known, for a table the record lists itself); otherwise a resource is added."""
     candidates = [slug(f"{column}-codes"), slug(f"{table}-{column}-codes")]
     for candidate in candidates:
         existing = next((r for r in raw_resources if r["name"] == candidate), None)
         if existing is not None:
             names = [f["name"] for f in existing.get("schema", {}).get("fields", [])]
-            if names == CODE_COLUMNS:
+            if names == CODE_COLUMNS and code_lists.get(candidate, rows) == rows:
                 return candidate
             continue
         if candidate in taken:
@@ -626,8 +649,28 @@ def _code_list_name(
     raise ValueError(f"no free resource name for the code list of {table}.{column}")
 
 
+def _refuse_dtd(xml: str) -> None:
+    """Raise ValueError on a DOCTYPE, entity declaration or external reference, before any
+    tree is built: ElementTree expands internal entities, so a record could blow up memory."""
+
+    def refuse(*_: object) -> NoReturn:
+        raise ValueError("refused: the EML record has a DOCTYPE, entity or external reference")
+
+    parser = expat.ParserCreate()
+    parser.StartDoctypeDeclHandler = refuse
+    parser.EntityDeclHandler = refuse
+    parser.UnparsedEntityDeclHandler = refuse
+    parser.ExternalEntityRefHandler = refuse
+    try:
+        parser.Parse(xml, True)
+    except expat.ExpatError as error:
+        raise ValueError(f"not well-formed XML: {error}") from error
+
+
 def from_eml(xml: str) -> EmlImport:
-    """Read an EML 2.1.1 or 2.2.0 record. Raises ValueError when it isn't an EML document."""
+    """Read an EML 2.1.1 or 2.2.0 record. Raises ValueError when it isn't an EML document or
+    has a DOCTYPE."""
+    _refuse_dtd(xml)
     root = ET.fromstring(xml)
     if _local(root.tag) != "eml":
         raise ValueError(f"not an EML document: the root element is {_local(root.tag)!r}")
@@ -719,7 +762,7 @@ def from_eml(xml: str) -> EmlImport:
     for table, codes in pending:
         keys = []
         for column, rows in codes.items():
-            code_name = _code_list_name(table["name"], column, taken, resources)
+            code_name = _code_list_name(table["name"], column, rows, code_lists, taken, resources)
             code_lists[code_name] = rows
             reference = {"resource": code_name, "fields": ["code"]}
             keys.append({"fields": [column], "reference": reference})

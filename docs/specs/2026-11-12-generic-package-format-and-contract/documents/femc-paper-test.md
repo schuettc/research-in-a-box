@@ -214,7 +214,7 @@ table of the shapefile, not the same data (it has no geometry), so it is its own
 than an alternate of the vector (see the list below). The record's 27 attributes describe the
 CSV only in part: 24 match a column, `State`, `Area_ha` and `Shape_Length` match `STATE`,
 `Area_Ha` and `Shape_Leng` only after a case change or the shapefile's 10-character limit
-(each becomes `archive:sourceName` or a rename in `changes.jsonl`), and 18 columns have no
+(each becomes `archive:sourceName` or a rename in `changes.jsonl`), and 15 columns have no
 attribute (`HOST4`, `PATTERN1`, `TPA1`, `NOTES`, `SURVEY_ID1` and others).
 
 **Title, description, coverage, creators.** Title and description from the `dataTable`; its
