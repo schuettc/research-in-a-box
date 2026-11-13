@@ -2,8 +2,12 @@
   "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
   "schema": 4,
   "title": "Package format and contract (Plan 2)",
-  "expect": 6,
-  "agent_at": "2026-11-13T15:13:35.267715Z",
+  "expect": 7,
+  "working": {
+    "text": "Fixing three PLAN3 review findings, test first",
+    "since": "2026-11-13T11:54:30.707926-06:00"
+  },
+  "agent_at": "2026-11-13T17:54:30.707926Z",
   "start": {
     "opening": {
       "text": "i think we got started incorrectly here.\n\nthe goal here is to build a research in abox.  we'll use the FEMC data as an example, but we want to build this generically.  once we have the correct format, we can work on a process to migrate FEMC data\n\n[...]\n\nyes, let's do that.  we can delete that plan 2 and restart fresh\n\n(Brief: Plan 2 in docs/planning-handoff.md, revised 2026-11-12 to be generic first. Read the handoff, including the Decision log, before continuing.)"
@@ -573,6 +577,72 @@
           "because": "note:plan"
         }
       ]
+    },
+    {
+      "id": "DCSN7",
+      "name": "Gaps the paper test found",
+      "question": "The paper test found eight things the format can't express. Which do we add to the format now?",
+      "example": "A column of air temperatures says 12.4 but nowhere says °C or °F, so the EML export writes the unit as `unknown`. The eight: (1) a start date with no known end, (2) units, (3) the source's preferred citation, (4) purpose separate from the description, (5) project keywords, (6) measurement scale (nominal, ordinal, interval, ratio), (7) how columns relate (a value and its uncertainty or flag), (8) a table inside another resource (a shapefile's attribute table).",
+      "options": [
+        {
+          "id": "A",
+          "title": "Add the six small ones now",
+          "includes": "Gaps 1 to 6, each one optional field: `end: \"unknown\"` on temporal coverage; `archive:unit` and `archive:measurementScale` (nominal, ordinal, interval, ratio, dateTime: EML's list) on a field; `archive:citation` and `archive:purpose` on the package; `keywords` on the project. The exports write each where its standard has a place. Gaps 7 and 8 become follow-ups.",
+          "pulls_in": "A PLAN3 of about two tasks: the fields with their exports and tests, and the paper test updated. One new spec section, reprinted for your approval."
+        },
+        {
+          "id": "B",
+          "title": "Add all eight",
+          "includes": "As A, plus: `archive:ancillaryOf: {field, role}` on a column that qualifies another, with role uncertainty, detection-limit or quality-flag (the idea of the CF conventions' ancillary_variables), shown in the README and EML's attribute definition; and `archive:attributes`, a Table Schema on a vector resource for its attribute table, written as EML's spatialVector attributeList and checked by the validator against the .dbf columns.",
+          "pulls_in": "A PLAN3 of about three tasks. Related columns have no standard form in Frictionless or DataCite, so ours is our own convention; the attribute-table check reads .dbf headers, which the sample's pyshp already writes."
+        },
+        {
+          "id": "D",
+          "title": "Hand them to Plans 3 and 5",
+          "includes": "The format stays as built. A note goes to Plan 3 (units, measurement scale: rules it may want) and to Plan 5 (all eight, since converting FEMC is where they show up). Those plans bring a contract change back when they need one.",
+          "pulls_in": "Nothing now. The contract changes later, while Plans 3, 5 and 8 may already be reading it."
+        },
+        {
+          "id": "C",
+          "title": "Not yet: all eight as follow-ups",
+          "includes": "The format stays as built; the eight gaps are recorded here for later, with no notes sent.",
+          "pulls_in": "Nothing now. Every EML export keeps writing `unknown` units, and imported citations and purposes are dropped."
+        }
+      ],
+      "recommendation": {
+        "option": "B",
+        "why": "With concrete designs, gaps 7 and 8 are about one more task, not open design work, and closing all eight now means Plan 5 converts FEMC's records into a format that can hold everything the paper test found. Each is optional, so nothing already built breaks.",
+        "evidence": [
+          {
+            "text": "The nine other planning folders have no rounds and no decisions yet",
+            "source": "decisions.json in docs/specs/2026-11-13-*",
+            "output": "rounds 0 decisions 0 spec False (9 of 9 folders)"
+          },
+          {
+            "text": "EML's measurement scales and spatial vectors with their own attribute lists",
+            "source": "https://eml.ecoinformatics.org/schema/eml-attribute_xsd.html and https://eml.ecoinformatics.org/schema/eml-spatialvector_xsd.html"
+          },
+          {
+            "text": "The paper test's list, each gap with the datasets that showed it",
+            "source": "documents/femc-paper-test.md (merged in #3)",
+            "output": "start with no known end (3 datasets), units (2), column relationships (1), measurement scale (2), table inside another resource (1), preferred citation (5 of 6), project keywords (4 projects), purpose (4)"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "B",
+      "revisions": [
+        {
+          "at": "2026-11-13T11:24:47.060817-06:00",
+          "text": "Revised after your note: added D, handing the gaps to Plans 3 and 5 by note instead of changing the format now.",
+          "because": "note:DCSN7"
+        },
+        {
+          "at": "2026-11-13T11:32:36.915755-06:00",
+          "text": "Revised after your note: measurement scale moved into A (it's one field matching EML's list), and B now gives concrete designs for related columns and a shapefile's attribute table.",
+          "because": "note:DCSN7"
+        }
+      ]
     }
   ],
   "calls": [
@@ -683,6 +753,24 @@
       "instead": "Branch from origin/main and push the records commit to main separately.",
       "why": "The records commit only touches docs/ and needs a PR anyway; one PR carries both.",
       "state": "standing"
+    },
+    {
+      "id": "AGNT13",
+      "name": "Drop the DataCite schema",
+      "question": "How is the DataCite export checked, given the only JSON Schema has no licence and isn't official?",
+      "took": "Remove the vendored DataCite JSON Schema. A test checks DataCite 4.x's mandatory properties and their shapes instead; Plan 7 confirms real acceptance when it mints test DOIs through DataCite's API.",
+      "instead": "Keep the unofficial, unlicensed schema as a test fixture.",
+      "why": "Its repo grants no licence and its README says it isn't official, so passing it proves little and redistributing it isn't clearly allowed.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT14",
+      "name": "Only DataCite refuses rights",
+      "question": "Should the EML and schema.org exports refuse a package with undetermined or missing rights, as DataCite does?",
+      "took": "No: only DataCite refuses, as the plan says. EML and schema.org also serve previews and hand-offs before publishing; Plan 7's publish check is where unpublishable rights are stopped.",
+      "instead": "All three publication exports refuse, and only the README stays permissive.",
+      "why": "Refusing in every export would block previewing an unpublished package's metadata, which is when the rights gap gets found and fixed.",
+      "state": "standing"
     }
   ],
   "principles": [
@@ -699,10 +787,28 @@
       "name": "Protect main, allow auto-merge",
       "text": "main has no branch protection and auto-merge is off for the repo: PR #1 merged before CI ran, and PR #2 had to be merged by hand after CI. Require the python and typescript checks on main and turn on auto-merge in the repo settings.",
       "kind": "improvement"
+    },
+    {
+      "id": "PARK2",
+      "name": "EML code label delimiter",
+      "text": "The EML export writes a code's definition as 'label: description' and the import splits on ': ', so a label containing ': ' changes meaning on round trip. Pick an unambiguous encoding.",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK3",
+      "name": "schema.org rights statuses",
+      "text": "The schema.org export reads only licenses and ignores archive:rightsStatus (public-domain, third-party, all-rights-reserved). Map statuses where schema.org has a form.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK4",
+      "name": "EML keyword descriptor losses",
+      "text": "The EML import reads descriptorValue from a project descriptor named keywords but doesn't list the descriptor's other contents (citation, classification) as skipped.",
+      "kind": "improvement"
     }
   ],
   "spec": {
-    "hash": "9f91f0ead574b154211e012ddc9c055f592f5382998f730a3818cdd6c87aadd1",
+    "hash": "ae37f7aaefa571fa594832c66fe67e61bf5c01ea3a2c3f4a98e22de6eadd7f47",
     "sections": [
       {
         "id": "SPEC1",
@@ -813,13 +919,20 @@
       },
       {
         "id": "SPEC15",
+        "heading": "Fields the paper test added",
+        "decisions": [
+          "DCSN7"
+        ]
+      },
+      {
+        "id": "SPEC16",
         "heading": "Risk and cost",
         "decisions": [
           "AGNT11"
         ]
       },
       {
-        "id": "SPEC16",
+        "id": "SPEC17",
         "heading": "Left out",
         "decisions": [
           "DCSN1",
@@ -827,7 +940,7 @@
         ]
       },
       {
-        "id": "SPEC17",
+        "id": "SPEC18",
         "heading": "How we'll know it works",
         "decisions": [
           "AGNT7",
@@ -839,7 +952,8 @@
       "hash": "9f91f0ead574b154211e012ddc9c055f592f5382998f730a3818cdd6c87aadd1",
       "at": "2026-11-13T00:16:25.483708-06:00",
       "body": "# The package format and the archive_contract package\n\n## Goal\n\nA written package format and a Python contract package, `archive-contract` (import `archive_contract`) at `packages/contract`, that the local tool, the backend, the web app's schema and the agent layer all build on. The format is designed from Frictionless Data Package v2, EML, DataCite and schema.org and from what any research group's data looks like. A committed, invented sample package exercises all of it, and FEMC's six practice datasets are written down in it afterwards as a test.\n\n## The package folder\n\nA package is a plain folder that is also a valid Frictionless v2 Data Package:\n\n```\nmy-dataset/\n  datapackage.json   the manifest\n  data/              tidy tables (CSV now, Parquet later)\n  data/codes/        code-list tables\n  original/          untouched source files\n  docs/              methods, protocols, field sheets\n  changes.jsonl      every cleaning step, with evidence\n  checksums.sha256   one line per file in the package\n  README.md          generated from the manifest, never edited\n```\n\nRules that hold everywhere:\n\n- Standard Frictionless properties are left out when unknown, never set to null.\n- Our additions sit under the `archive:` prefix and may be null.\n- A resource's `format` (and `mediatype`) is the only place a file type appears. Columns are described by logical type, so adding Parquet later changes no field definitions.\n\nRests on: AGNT1, AGNT11\n\n## The manifest's fields\n\nCore fields, required before a package can be published: a `title`; a `description` of at least 50 characters; at least one creator (a contributor with the creator role); rights (next section); and at least one described resource. This is the union of what DataCite, Google Dataset Search and Frictionless require.\n\nThe archive fills in publisher, publication year, identifier and resource type at publish, from its config.\n\nRecommended fields, following DataCite's and Google's recommended lists: keywords, other contributors, temporal coverage (an end date or `ongoing`), spatial coverage (a bounding box), related identifiers, funding and methods. A profile can promote any of them to required.\n\nTwo separate verdicts are recorded in the manifest and never merged: `archive:validation` (structurally valid or not, by which contract version, when) and `archive:quality` (the counts of findings by severity from the last audit). Valid structure says nothing about quality, and the reverse.\n\n`archive:legacyIdentifiers` holds any identifiers the data had elsewhere, as a list of `{scheme, value}`, such as `{scheme: \"eml-package-id\", value: \"knb-lter-xyz.12.3\"}`.\n\nRests on: AGNT8\n\n## Rights\n\nA package states its rights in one of two ways: one or more licenses in Frictionless `licenses` (an SPDX id or a license URL), or `archive:rightsStatus` with a statement. The statuses are:\n\n- `public-domain`\n- `third-party`, with where the terms are set\n- `all-rights-reserved`, with the statement\n- `undetermined`\n\nThe local tool packages and audits data with `undetermined`, and the audit reports it. Publishing (Plan 7) refuses a package until it has a license or a stated status other than `undetermined`.\n\nRests on: DCSN1\n\n## Resources and their kinds\n\nEvery resource has `archive:kind`, one of `table`, `vector`, `raster`, `document`, `media`, `file` or `linked`. A resource with no kind is read as `file`. Frictionless's own `type` stays `table` for tables and is left out otherwise.\n\n- **Several files that only work together** (a shapefile set, a raster with its world file) are one resource. `path` names the main file (the `.shp`), and `archive:files` lists every member file with its size and hash. Checksums, previews and the web app's file list read the member list.\n- **The same data in several formats** (a table as CSV and XLSX): the copy is its own resource with `archive:alternateOf` naming the primary. Only the primary carries the schema.\n- **Data held elsewhere**: `archive:kind: linked`, `path` is the remote URL, and there is no hash or size. Compatibility tests run the frictionless library with remote fetching off.\n\nRests on: AGNT1, AGNT2, AGNT3, DCSN6\n\n## Columns\n\nA table's columns use Frictionless Table Schema, with three additions.\n\n- **Names.** Source column names are kept. Frictionless `title` holds a readable label, `description` the definition. The local tool may propose a rename; when the person accepts, the new name goes into the tidy table, the old one into `archive:sourceName` on the field, and the rename into `changes.jsonl`.\n- **Code lists.** Each code list is a CSV table under `data/codes/` with `code`, `label` and `description` columns. A column that uses one points at it with a Frictionless foreign key, so one list serves many columns and Frictionless validation checks every code. A column that holds codes with no list is marked `archive:codeList: \"undocumented\"`.\n- **Sensitivity.** `archive:sensitivity` on a field is one of `personal`, `sensitive-location` or `confidential`. No flag means not sensitive.\n\nRests on: DCSN2, DCSN3, AGNT5\n\n## Versions and identifiers\n\nA package has one stable `id` across all its versions, and a `version` of `1`, `2`, `3` and so on. Changing, adding or removing a file makes the next version. A metadata edit updates the current version in place, and each edit is appended to `archive:metadataHistory` (when, who, which fields). When DOIs are on, each version gets its own DOI.\n\nRests on: DCSN4\n\n## Projects\n\nA project (a monitoring program, a grant, a long-term study) is its own small record, `project.json`, with an `id`, `title`, `abstract`, `people` and `links`. A package names its project with `archive:project: \u003cid\u003e`, or leaves it out. A package never copies the project's text and never sits inside a project folder.\n\nWhen a package is exported, the project's current title goes into its README, its DataCite record as a related identifier of type IsPartOf, and its EML project element.\n\nRests on: DCSN5\n\n## Access levels\n\nEach package has one `archive:access` level: `open`, `restricted`, `by-request` or `description-only`. Unpublished is a state of the package in the archive, not an access level.\n\nRests on: AGNT4\n\n## Profiles and the archive config\n\nA profile is a YAML file in the contract (`profiles/core.yaml`, `profiles/ecology.yaml`), read into a `Profile` model. It lists the recommended fields it promotes to required, its vocabularies and the ids of the rules it switches on. The rules themselves are code in Plan 3. The core profile holds only the core fields above.\n\nThe archive config file, read into an `ArchiveConfig` model, is the one file an adopter edits. It picks the profiles and sets required fields, vocabularies, themes, licenses and the access levels offered, plus the publisher name the archive fills in at publish. How it maps to the CDK construct is Plan 4's.\n\nRests on: AGNT6\n\n## The change log and findings\n\nBoth formats are models in the contract, drafted here and confirmed by Plan 3 when it starts.\n\n- **`Change`**, one line of `changes.jsonl`: an id, when, who made it (person, tool or agent) and who accepted it, its kind (such as `rename`, `retype`, `recode`, `fix-value`), its target (resource and field), before and after, the reason, and the evidence (row numbers or values).\n- **`Finding`**: the rule id, a severity (`error`, `warning` or `note`), a message, the target, the evidence, and an optional suggested fix.\n\nRests on: AGNT10, DCSN2\n\n## Exports and import\n\nGenerated from the manifest, never edited by hand:\n\n- EML 2.2.0, with code lists as enumerated domains and the project as the project element.\n- A DataCite record and schema.org Dataset JSON-LD.\n- `README.md`.\n\nImport reads standard EML 2.1.1 and 2.2.0 into a manifest. Tolerating one archive's non-standard EML is Plan 5's.\n\nRests on: AGNT7, DCSN3, DCSN5\n\n## The contract package\n\n`packages/contract/src/archive_contract/`:\n\n| Module | Holds |\n| --- | --- |\n| `manifest.py` | the package model and its `archive:` additions |\n| `resources.py`, `fields.py` | resources, member files, columns |\n| `rights.py`, `project.py` | rights statuses, the project record |\n| `changes.py`, `findings.py` | `Change` and `Finding` |\n| `profile.py`, `config.py`, `profiles/*.yaml` | profiles and the archive config |\n| `validate.py` | structural validation |\n| `schema.py` | JSON Schema generation (from Plan 1) |\n| `exports/` | `eml.py`, `datacite.py`, `schemaorg.py`, `readme.py` |\n| `imports/eml.py` | EML import |\n\nThe JSON Schema generated from the models replaces the skeleton's empty one under `packages/web/`, and Plan 1's drift check keeps it current. The frictionless library is a test-only dependency.\n\nRests on: AGNT11\n\n## The sample package\n\n`examples/sample-package/`: a small stream temperature study at invented sites, licensed CC-BY-4.0. It has a logger table with a code-list table, a site shapefile set, a small raster, a methods document, a site photo, the logger table again as XLSX, a linked resource and ongoing coverage. Known gaps are seeded in and listed in its README, so Plan 3's rules have predictable findings.\n\nRests on: AGNT9, DCSN3, DCSN6\n\n## Risk and cost\n\nRisk: low. The work adds code, docs and one example folder to a repo with no users yet. A mistake is undone by editing the contract; nothing is published or deployed, and no data from `practice-data/` is committed.\n\nCost: no steps for you beyond reviewing. No new programs: the frictionless library is a test-only Python dependency, and PyYAML reads the profiles.\n\nRests on: AGNT11\n\n## Left out\n\n- The quality rules and the commands that run them (Plan 3).\n- Tolerating FEMC's EML quirks, and converting FEMC's data (Plan 5).\n- Storage, tables and the API (Plans 4 and 6), and the publish check that enforces rights (Plan 7).\n- Parquet: only the room for it.\n- Per-resource access levels: one level per package for now.\n\nRests on: DCSN1, AGNT4\n\n## How we'll know it works\n\n- The sample package passes the frictionless library's validation and our own structural validation.\n- Its EML export imports back to the same manifest fields; its DataCite and schema.org exports validate against their schemas.\n- Each of FEMC's six practice datasets is written down in the format on paper, with anything it can't express listed.\n- `just check` passes with the generated JSON Schema committed.\n\nRests on: AGNT7, AGNT9\n"
-    }
+    },
+    "edited": "2026-11-13T11:58:11.110505-06:00"
   },
   "plans": [
     {
@@ -955,7 +1069,10 @@
             "DCSN3",
             "DCSN5"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "3714348 · README generated from the manifest · just check exit 0",
+          "build_at": "2026-11-13T11:08:46.309849-06:00"
         },
         {
           "id": "TASK8",
@@ -967,7 +1084,10 @@
             "DCSN4",
             "DCSN5"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "7fd9c1d · validates against DataCite's JSON Schema · refuses undetermined or missing rights",
+          "build_at": "2026-11-13T11:08:46.309849-06:00"
         },
         {
           "id": "TASK9",
@@ -977,7 +1097,10 @@
           "serves": [
             "DCSN5"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "bec8b93 · Google's required fields · ongoing as start/..",
+          "build_at": "2026-11-13T11:08:46.309849-06:00"
         },
         {
           "id": "TASK10",
@@ -988,7 +1111,10 @@
             "DCSN3",
             "DCSN5"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "da9963e · validates against the EML 2.2.0 XSD (a broken document fails)",
+          "build_at": "2026-11-13T11:08:46.309849-06:00"
         },
         {
           "id": "TASK11",
@@ -999,7 +1125,10 @@
             "DCSN1",
             "DCSN3"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "7b692fd + a204e7a · reads EML 2.1.1 and 2.2.0, lists what it skips · sample round-trips",
+          "build_at": "2026-11-13T11:08:46.309849-06:00"
         },
         {
           "id": "TASK12",
@@ -1012,7 +1141,10 @@
             "DCSN5",
             "DCSN6"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "c2c058d + 0906808 (review fixes) · 198 tests · PR #3 CI green (runs 43470879322, 43470887680) · merged as 90e1a0b",
+          "build_at": "2026-11-13T11:08:46.309849-06:00"
         }
       ],
       "approved": {
@@ -1020,8 +1152,64 @@
         "at": "2026-11-13T10:46:53.67042-06:00",
         "body": "# PLAN2: Exports, EML import and the FEMC paper test\n\n## Spec\n\n`docs/specs/2026-11-12-generic-package-format-and-contract/spec.md`, approved 2026-11-13. PLAN1 (merged in research-in-a-box#1) built the models this plan reads: `Manifest`, `Resource`, `Field`, `TableSchema`, `Project`, `RightsStatus`, `License` in `archive_contract`.\n\n## The change\n\nAdd the four exports the spec names (EML 2.2.0, DataCite, schema.org JSON-LD, README) and EML import (2.1.1 and 2.2.0), all generated from the manifest and never edited by hand. Prove them on the sample package: EML export validates against the EML 2.2.0 schema and imports back to the same manifest fields; DataCite validates against DataCite's JSON Schema; schema.org carries every field Google requires. Then write each of FEMC's six practice datasets down in the format on paper, listing anything the format can't express.\n\nRisk: low. New code and one document in a repo with no users; undone by reverting the PR. The paper test describes FEMC's public metadata and commits no FEMC data files.\n\n## Left out\n\n- Tolerating FEMC's non-standard EML (the misspelled `distibution` tag and others): Plan 5.\n- Converting FEMC's data into packages: Plan 5.\n- A DataCite XML export: the JSON form is what DataCite's REST API takes, and Plan 7 mints DOIs through it.\n- Exporting a whole project on its own: a project appears inside each package's exports.\n\n## Where\n\nRepo `schuettc/research-in-a-box`. Worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-in-a-box/plan2-exports-import`, branch `plan2-exports-import` from `origin/main`, finishing with a PR merged once CI passes.\n\n### Task 1: README export\n\n**Does:** Adds `exports/readme.py` with `render_readme(manifest, project=None) -\u003e str`: title, description, citation line, creators, rights, project title, access level, coverage, and one section per resource with its kind and, for tables, the column dictionary (name, title, type, description, code list). Switches the sample build to write the generated README, and moves the sample's list of seeded gaps to `examples/sample-package/_build/GAPS.md`.\n**Files:** `packages/contract/src/archive_contract/exports/__init__.py`, `exports/readme.py`, `packages/contract/tests/test_export_readme.py`, `examples/sample-package/_build/make.py`, `examples/sample-package/_build/GAPS.md`, `examples/sample-package/README.md`, `examples/sample-package/checksums.sha256`\n**Checks:** `uv run pytest packages/contract`; `uv run python examples/sample-package/_build/make.py \u0026\u0026 git diff --exit-code examples/sample-package`; `just check`\n**Serves:** DCSN3, DCSN5 (rests on call AGNT11)\n\nTests: the sample's README names every resource and every column; a field marked `archive:codeList: \"undocumented\"` is shown as undocumented; a missing standard property prints nothing, not \"None\".\n\n### Task 2: DataCite export\n\n**Does:** Adds `exports/datacite.py` with `to_datacite(manifest, project=None, publisher=..., year=..., identifier=None) -\u003e dict` producing DataCite 4.x JSON: creators, titles, publisher, publicationYear, types (resourceTypeGeneral Dataset), descriptions (Abstract, plus Methods when present), subjects from keywords, dates (Collected from temporal coverage), geoLocations from the bounding box, rightsList from licenses or the rights statement, relatedIdentifiers (including IsPartOf the project), fundingReferences and version. Validates against DataCite's JSON Schema, vendored as a test fixture with its source URL and licence noted.\n**Files:** `packages/contract/src/archive_contract/exports/datacite.py`, `packages/contract/tests/test_export_datacite.py`, `packages/contract/tests/fixtures/schemas/datacite/`, root `pyproject.toml` dev dependency jsonschema, `uv.lock`\n**Checks:** `uv run pytest packages/contract`; `just check`\n**Serves:** DCSN1, DCSN4, DCSN5 (rests on call AGNT11)\n\nTests: the sample's record validates; an `undetermined` rights status is refused with a clear error (it can't be published); `third-party` writes its statement into rightsList.\n\n### Task 3: schema.org export\n\n**Does:** Adds `exports/schemaorg.py` with `to_schemaorg(manifest, project=None, url=None) -\u003e dict`, a schema.org `Dataset` JSON-LD: name, description, creator, license, keywords, temporalCoverage (an open interval `start/..` when ongoing), spatialCoverage as a GeoShape box, distribution (one DataDownload per non-linked resource with encodingFormat), isPartOf the project, version and identifier.\n**Files:** `packages/contract/src/archive_contract/exports/schemaorg.py`, `packages/contract/tests/test_export_schemaorg.py`\n**Checks:** `uv run pytest packages/contract`; `just check`\n**Serves:** DCSN5 (rests on call AGNT11)\n\nTests: Google's required name and 50-to-5000-character description are present; ongoing coverage gives `2024-06-01/..`; a linked resource appears with its remote URL as contentUrl.\n\n### Task 4: EML 2.2.0 export\n\n**Does:** Adds `exports/eml.py` with `to_eml(manifest, project=None) -\u003e str`: dataset title, creators, abstract, keywords, intellectual rights, coverage (temporal and geographic), methods, project, one `dataTable` per table resource with its attributes (code lists as `enumeratedDomain`, read from the code-list table; `archive:codeList: \"undocumented\"` as a text domain with a note), and `otherEntity` for every other local resource. Validates against the EML 2.2.0 XSD with lxml; the XSDs are vendored as a test fixture with their source and licence noted.\n**Files:** `packages/contract/src/archive_contract/exports/eml.py`, `packages/contract/tests/test_export_eml.py`, `packages/contract/tests/fixtures/schemas/eml-2.2.0/`, root `pyproject.toml` dev dependency lxml, `uv.lock`\n**Checks:** `uv run pytest packages/contract`; `just check`\n**Serves:** DCSN3, DCSN5 (rests on call AGNT7)\n\nThe export uses only the standard library's XML writer at run time; lxml is test-only, to validate.\n\n### Task 5: EML import\n\n**Does:** Adds `imports/eml.py` with `from_eml(xml: str) -\u003e Manifest` reading standard EML 2.1.1 and 2.2.0: title, creators, abstract, keywords, rights (a recognised licence URL or name becomes a license, other text becomes a `third-party` or `all-rights-reserved` status with the text as its statement), coverage, methods, project, and each `dataTable`'s attributes as fields (an `enumeratedDomain` becomes a code list, returned alongside the manifest as table rows to write under `data/codes/`). The original package id goes into `archive:legacyIdentifiers` with scheme `eml-package-id`. Round trip: `from_eml(to_eml(sample))` gives the same title, creators, description, keywords, rights, coverage, fields and code lists as the sample.\n**Files:** `packages/contract/src/archive_contract/imports/__init__.py`, `imports/eml.py`, `packages/contract/tests/test_import_eml.py`, `packages/contract/tests/fixtures/eml/` (one small invented 2.1.1 record and one 2.2.0 record)\n**Checks:** `uv run pytest packages/contract`; `just check`\n**Serves:** DCSN1, DCSN3 (rests on calls AGNT7, AGNT8)\n\nStandard EML only: a record with a non-standard tag imports what is standard and returns a list of what it skipped, rather than failing.\n\n### Task 6: The FEMC paper test\n\n**Does:** Writes `docs/specs/2026-11-12-generic-package-format-and-contract/documents/femc-paper-test.md`: for each of the six practice datasets in `practice-data/femc/`, which resources it becomes and of which kind, how its rights are stated, its code lists, its legacy identifiers, its project, and what `from_eml` reads from its EML record and what it skips. Ends with a list of anything the format cannot express, each with the dataset that showed it. Runs `from_eml` on each record locally to fill in what is read and skipped; nothing from `practice-data/` is committed.\n**Files:** `docs/specs/2026-11-12-generic-package-format-and-contract/documents/femc-paper-test.md`\n**Checks:** `git status --porcelain --ignored practice-data` shows only `!! practice-data/`; `just check`\n**Serves:** DCSN1, DCSN3, DCSN5, DCSN6 (rests on calls AGNT1, AGNT3, AGNT8)\n\nAnything the paper test finds the format can't express is brought to the user as a decision before changing the contract.\n"
       }
+    },
+    {
+      "id": "PLAN3",
+      "topic": "fields-from-the-paper-test",
+      "covers": "The eight optional fields the FEMC paper test found missing, with their exports, EML import and validation",
+      "hash": "436ec49749e1e54a5515f5aafd1bd24a936596a52cb1fb73afbdc34c415a2b80",
+      "tasks": [
+        {
+          "id": "TASK13",
+          "heading": "Task 1: The eight fields on the models",
+          "does": "Optional fields for unknown end, unit, measurement scale, citation, purpose, project keywords, related columns and a vector's attribute table, with their rules; JSON Schema regenerated",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN7"
+          ],
+          "state": "keep",
+          "build": "done",
+          "result": "c4a6c64 · eight optional fields with their rules, JSON Schema regenerated · just check exit 0",
+          "build_at": "2026-11-13T11:52:30.762405-06:00"
+        },
+        {
+          "id": "TASK14",
+          "heading": "Task 2: Validator check for attribute tables",
+          "does": "validate_package compares a vector's archive:attributes with its .dbf header and reports mismatches",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN7"
+          ],
+          "state": "keep",
+          "build": "done",
+          "result": "5939b79 · .dbf header checked against archive:attributes (standard library) · just check exit 0",
+          "build_at": "2026-11-13T11:52:30.762405-06:00"
+        },
+        {
+          "id": "TASK15",
+          "heading": "Task 3: Exports, import and the sample package",
+          "does": "The new fields go through README, EML, schema.org and DataCite, the EML import reads them back, the sample uses every one, and the paper test marks each gap closed",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN7"
+          ],
+          "state": "keep",
+          "build": "building",
+          "result": "d169882 + 6556d17 · review: shapefile reader escapes the folder, code lists override explicit scales, related-column encoding misreads prose; fixing",
+          "build_at": "2026-11-13T11:54:30.707926-06:00"
+        }
+      ],
+      "approved": {
+        "hash": "bc06ad27d33826e603cbce7ed94bb41ab5ab0a9d1f13c32d0baf547af63f164f",
+        "at": "2026-11-13T11:41:31.686286-06:00",
+        "body": "# PLAN3: The eight fields from the paper test\n\n## Spec\n\n`docs/specs/2026-11-12-generic-package-format-and-contract/spec.md`, section \"Fields the paper test added\" (DCSN7). PLAN1 and PLAN2 (merged in research-in-a-box#1 and #3) built the models, exports and EML import this plan extends.\n\n## The change\n\nAdd the eight optional fields the spec lists, carry each through the exports and the EML import where its standard has a place, check `archive:attributes` against the `.dbf` in the validator, and use every new field in the sample package so its round trip covers them. Then mark each gap closed in the paper test.\n\nRisk: low. Every field is optional, so existing packages stay valid; undone by reverting the PR.\n\n## Left out\n\n- Quality rules that use the new fields, such as \"numeric column with no unit\": Plan 3 (quality rules).\n- A unit vocabulary: `archive:unit` is free text for now.\n- Reading FEMC's non-standard EML into these fields: Plan 5.\n\n## Where\n\nRepo `schuettc/research-in-a-box`. Worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-in-a-box/plan2-paper-test-fields`, branch `plan2-paper-test-fields` from `origin/main`, finishing with a PR merged once CI passes.\n\n### Task 1: The eight fields on the models\n\n**Does:** Adds to the models, each optional, with a test per rule: `end: \"unknown\"` on `TemporalCoverage` (exclusive with a real end and with `ongoing`); `archive:unit` and `archive:measurementScale` (nominal, ordinal, interval, ratio, dateTime) on `Field`; `archive:citation` and `archive:purpose` on `Manifest`; `keywords` on `Project`; `archive:ancillaryOf` (`field` naming another column in the same schema, `role` one of uncertainty, detection-limit, quality-flag) on `Field`; `archive:attributes` (a `TableSchema`) on `Resource`, allowed only when `archive:kind` is `vector`. Regenerates the committed JSON Schema.\n**Files:** `packages/contract/src/archive_contract/manifest.py`, `fields.py`, `resources.py`, `project.py`, matching tests, `packages/web/src/schema/archive-contract.schema.json`\n**Checks:** `uv run pytest packages/contract`; `just check`\n**Serves:** DCSN7\n\nTests: an ancillaryOf naming a missing column is refused; `archive:attributes` on a table resource is refused; `end: \"unknown\"` with `ongoing: true` is refused.\n\n### Task 2: Validator check for attribute tables\n\n**Does:** `validate_package` reads the `.dbf` header of a vector resource that has `archive:attributes` (with the standard library, from the member file listed in `archive:files`) and reports `structure.attributes-mismatch` for a column described but absent, or present but not described.\n**Files:** `packages/contract/src/archive_contract/validate.py`, `packages/contract/tests/test_validate.py`, a fixture under `packages/contract/tests/fixtures/`\n**Checks:** `uv run pytest packages/contract`; `just check`\n**Serves:** DCSN7\n\nReading the `.dbf` keeps to the package folder and refuses symlinks, as the rest of the validator does.\n\n### Task 3: Exports, import and the sample package\n\n**Does:** Carries the new fields through: README (citation, purpose, units, scale, related columns, the vector resource's attribute columns, project keywords); EML 2.2.0 (unit in place of `unknown`, measurementScale from the field when set, purpose, project keywords, attribute definition noting the related column, spatialVector attributeList, open-ended coverage for `end: \"unknown\"`); schema.org (`creditText`, open interval for unknown end); DataCite (purpose as a description of type Other). `from_eml` reads back units, scales, purpose, project keywords and the spatialVector attribute list, and drops their entries from `skipped`. Adds every new field to the sample package (a unit and scale on each logger column, a citation, a purpose, an uncertainty column for temperature, attribute columns on the sites shapefile) and extends the round-trip test to compare them.\n**Files:** `packages/contract/src/archive_contract/exports/readme.py`, `exports/eml.py`, `exports/schemaorg.py`, `exports/datacite.py`, `imports/eml.py`, matching tests, `examples/sample-package/_build/make.py`, `examples/sample-package/` (regenerated)\n**Checks:** `uv run pytest packages/contract`; `uv run python examples/sample-package/_build/make.py \u0026\u0026 git diff --exit-code examples/sample-package` (after commit); `just check`\n**Serves:** DCSN7\n\nThe sample's EML export still validates against the EML 2.2.0 XSD. The paper test document gets a line under each of its eight gaps saying it is closed and by which field.\n"
+      },
+      "edited": "2026-11-13T11:58:11.110505-06:00"
     }
   ],
+  "signoff": {
+    "due_at": "2026-11-13T11:52:30.762405-06:00"
+  },
   "messages": [
     {
       "id": 1,
@@ -1278,6 +1466,67 @@
       "at": "2026-11-13T10:46:53.67042-06:00",
       "state": "answered",
       "claim": "76b40e0a29e3945c"
+    },
+    {
+      "id": 26,
+      "card": "DCSN7",
+      "from": "user",
+      "action": "note",
+      "text": "┌────────────────────────────────────────────────┬───────────────────────────────────────────────┐\n │ Plan                                           │ Session                                       │\n ├────────────────────────────────────────────────┼───────────────────────────────────────────────┤\n │ 3 · Quality rules and the local tool (the CLI) │ personal/quality-rules-and-local-tool         │\n ├────────────────────────────────────────────────┼───────────────────────────────────────────────┤\n │ 4 · Archive infrastructure (CDK)               │ personal/archive-infrastructure-cdk-construct │\n ├────────────────────────────────────────────────┼───────────────────────────────────────────────┤\n │ 5 · FEMC migration and practice corpus         │ personal/femc-migration-and-practice-corpus   │\n ├────────────────────────────────────────────────┼───────────────────────────────────────────────┤\n │ 6 · API and search                             │ personal/api-and-search                       │\n ├────────────────────────────────────────────────┼───────────────────────────────────────────────┤\n │ 7 · Ingest, review and access                  │ personal/ingest-review-and-access-workflows   │\n ├────────────────────────────────────────────────┼───────────────────────────────────────────────┤\n │ 8 · Web app                                    │ personal/web-app-catalog-and-curation         │\n ├────────────────────────────────────────────────┼───────────────────────────────────────────────┤\n │ 9 · Agent layer                                │ personal/agent-layer-mcp-and-skills           │\n ├────────────────────────────────────────────────┼───────────────────────────────────────────────┤\n │ 10a · Deployment skill and CI                  │ personal/deployment-skill-and-ci              │\n ├────────────────────────────────────────────────┼───────────────────────────────────────────────┤\n │ 10b · The FEMC report                          │ personal/femc-findings-report                 │\n └────────────────────────────────────────────────┴───────────────────────────────────────────────┘\n\n\nwe already have other plans.  will they address this?",
+      "at": "2026-11-13T11:24:09.876466-06:00",
+      "state": "answered",
+      "claim": "cbc899b880884b42"
+    },
+    {
+      "id": 27,
+      "card": "DCSN7",
+      "from": "agent",
+      "action": "reply",
+      "text": "Not as briefed. None of those nine plans has started yet (no rounds, no decisions), and in the handoff none of them owns the format: they read the contract's fields, they don't add them. Plan 3 could add a rule like 'numeric column with no unit', but only once the format has a place to put a unit. Plan 5 is where these gaps will actually bite: converting FEMC records, it will find citations, purposes, units and open-ended dates with nowhere to go. I added option D: hand each gap to the plan that will hit it, by a note to Plans 3 and 5, and let them come back to the contract. I still recommend A, since adding the five small fields now is cheaper than changing the contract later under several plans that already read it.",
+      "at": "2026-11-13T11:24:47.060817-06:00",
+      "answers": [
+        26
+      ]
+    },
+    {
+      "id": 28,
+      "card": "DCSN7",
+      "from": "user",
+      "action": "note",
+      "text": "how do we close the other 3 gaps though?",
+      "at": "2026-11-13T11:32:13.351309-06:00",
+      "state": "answered",
+      "claim": "56c07eca5885d634"
+    },
+    {
+      "id": 29,
+      "card": "DCSN7",
+      "from": "agent",
+      "action": "reply",
+      "text": "Each has a concrete fix. (6) Measurement scale: `archive:measurementScale` on a field, one of nominal, ordinal, interval, ratio or dateTime, which is exactly EML's own list, so the export writes it instead of guessing. That's as small as the first five, so I moved it into A. (7) Related columns: `archive:ancillaryOf` on the dependent column, naming the main column and a role (uncertainty, detection-limit or quality-flag), the same idea as the CF conventions' ancillary_variables. Exports have no standard place for it, so it shows in the README's column dictionary and EML's attribute definition. (8) A shapefile's attribute table: an `archive:attributes` Table Schema on the vector resource, which EML writes as the spatialVector's attributeList and the README shows like any table's columns; the validator checks it against the .dbf. B is now all eight with these designs, about one more task than A.",
+      "at": "2026-11-13T11:32:36.915755-06:00",
+      "answers": [
+        28
+      ]
+    },
+    {
+      "id": 30,
+      "card": "DCSN7",
+      "from": "user",
+      "action": "choose",
+      "option": "B",
+      "at": "2026-11-13T11:33:31.648905-06:00",
+      "state": "answered",
+      "claim": "4aad78fe9c40a05c"
+    },
+    {
+      "id": 31,
+      "card": "PLAN3",
+      "from": "user",
+      "action": "approve-plan",
+      "at": "2026-11-13T11:41:31.686286-06:00",
+      "state": "answered",
+      "claim": "0fcfbb209eac0eb8"
     }
   ]
 }

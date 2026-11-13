@@ -62,10 +62,12 @@ def to_schemaorg(
         data["license"] = licenses[0] if len(licenses) == 1 else licenses
     if manifest.keywords:
         data["keywords"] = list(manifest.keywords)
+    if manifest.citation:
+        data["creditText"] = manifest.citation
 
     temporal = manifest.temporal_coverage
     if temporal is not None:
-        end = ".." if temporal.ongoing else str(temporal.end)
+        end = ".." if temporal.ongoing or temporal.end == "unknown" else str(temporal.end)
         data["temporalCoverage"] = f"{temporal.start}/{end}"
     spatial = manifest.spatial_coverage
     if spatial is not None:

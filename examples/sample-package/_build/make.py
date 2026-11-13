@@ -48,6 +48,8 @@ SITES = [
     ("S3", "Imaginary Creek, culvert", -72.6650, 44.2410, 14.1),
 ]
 HOURS = 20
+UNCERTAINTY_C = {"ok": "0.20", "drift": "0.50", "buried": "1.00"}
+"""The logger's stated accuracy at a reading, wider when it drifted or was buried."""
 
 CONDITION_CODES = [
     ("ok", "OK", "The logger was submerged and reading normally."),
@@ -142,6 +144,7 @@ def logger_rows() -> list[dict[str, Any]]:
                     "timestamp": f"2024-06-01T{hour:02d}:00:00",
                     "site": site,
                     "water_temp_c": f"{temp:.2f}",
+                    "water_temp_unc_c": UNCERTAINTY_C[condition],
                     "condition": condition,
                     "qc_flag": "B" if hour % 7 == 3 else "A",
                     "logger_model": "TL-100",
@@ -159,8 +162,13 @@ def csv_text(header: list[str], rows: list[list[str]]) -> str:
 def write_tables(rows: list[dict[str, Any]]) -> list[str]:
     header = list(rows[0])
     write("data/logger.csv", csv_text(header, [[r[h] for h in header] for r in rows]))
+    # The uncertainty column was added in cleaning, from the logger's stated accuracy.
+    raw_columns = [h for h in header if h != "water_temp_unc_c"]
     raw_header = ["Timestamp", "Site", "WTemp", "Cond", "QC", "Model", "Batt", "Depth"]
-    write("original/logger-raw.csv", csv_text(raw_header, [[r[h] for h in header] for r in rows]))
+    write(
+        "original/logger-raw.csv",
+        csv_text(raw_header, [[r[h] for h in raw_columns] for r in rows]),
+    )
     write(
         "data/codes/condition-codes.csv",
         csv_text(["code", "label", "description"], [list(c) for c in CONDITION_CODES]),
@@ -199,6 +207,7 @@ def write_xlsx(header: list[str], rows: list[dict[str, Any]]) -> None:
                 row["timestamp"],
                 row["site"],
                 float(row["water_temp_c"]),
+                float(row["water_temp_unc_c"]),
                 row["condition"],
                 row["qc_flag"],
                 row["logger_model"],
@@ -281,12 +290,14 @@ def logger_schema() -> dict[str, Any]:
                 "type": "datetime",
                 "title": "Reading time",
                 "description": "Local standard time of the reading, on the hour.",
+                "archive:measurementScale": "dateTime",
             },
             {
                 "name": "site",
                 "type": "string",
                 "title": "Site",
                 "description": "Site code; the sites resource holds each site's location.",
+                "archive:measurementScale": "nominal",
             },
             {
                 "name": "water_temp_c",
@@ -294,12 +305,27 @@ def logger_schema() -> dict[str, Any]:
                 "title": "Water temperature (C)",
                 "description": "Water temperature in degrees Celsius.",
                 "archive:sourceName": "WTemp",
+                "archive:unit": "degC",
+                "archive:measurementScale": "interval",
+            },
+            {
+                "name": "water_temp_unc_c",
+                "type": "number",
+                "title": "Water temperature uncertainty (C)",
+                "description": (
+                    "The logger's stated accuracy at the reading, wider when it drifted or was "
+                    "buried; added in cleaning."
+                ),
+                "archive:unit": "degC",
+                "archive:measurementScale": "ratio",
+                "archive:ancillaryOf": {"field": "water_temp_c", "role": "uncertainty"},
             },
             {
                 "name": "condition",
                 "type": "string",
                 "title": "Logger condition",
                 "description": "The logger's condition at the reading, from the code list.",
+                "archive:measurementScale": "nominal",
             },
             {
                 "name": "qc_flag",
@@ -307,15 +333,28 @@ def logger_schema() -> dict[str, Any]:
                 "title": "QC flag",
                 "description": "Quality flag set by the logger's software.",
                 "archive:codeList": "undocumented",
+                "archive:measurementScale": "nominal",
             },
             {
                 "name": "logger_model",
                 "type": "string",
                 "title": "Logger model",
                 "description": "Model of the temperature logger.",
+                "archive:measurementScale": "nominal",
             },
-            {"name": "battery_v", "type": "number"},
-            {"name": "depth_cm", "type": "integer", "description": "depth_cm"},
+            {
+                "name": "battery_v",
+                "type": "number",
+                "archive:unit": "V",
+                "archive:measurementScale": "ratio",
+            },
+            {
+                "name": "depth_cm",
+                "type": "integer",
+                "description": "depth_cm",
+                "archive:unit": "cm",
+                "archive:measurementScale": "ratio",
+            },
         ],
         "foreignKeys": [
             {
@@ -353,12 +392,23 @@ def resources(site_members: list[str]) -> list[dict[str, Any]]:
             **file_meta("data/codes/condition-codes.csv"),
             "schema": {
                 "fields": [
-                    {"name": "code", "type": "string", "description": "The code."},
-                    {"name": "label", "type": "string", "description": "A short label."},
+                    {
+                        "name": "code",
+                        "type": "string",
+                        "description": "The code.",
+                        "archive:measurementScale": "nominal",
+                    },
+                    {
+                        "name": "label",
+                        "type": "string",
+                        "description": "A short label.",
+                        "archive:measurementScale": "nominal",
+                    },
                     {
                         "name": "description",
                         "type": "string",
                         "description": "What the code means.",
+                        "archive:measurementScale": "nominal",
                     },
                 ],
                 "primaryKey": ["code"],
@@ -373,6 +423,24 @@ def resources(site_members: list[str]) -> list[dict[str, Any]]:
             "format": "shp",
             "archive:kind": "vector",
             "archive:files": [{"path": p, **file_meta(p)} for p in site_members],
+            "archive:attributes": {
+                "fields": [
+                    {
+                        "name": "site",
+                        "type": "string",
+                        "title": "Site",
+                        "description": "Site code, as in the logger table's site column.",
+                        "archive:measurementScale": "nominal",
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "title": "Site name",
+                        "description": "The stream and spot the logger sits at.",
+                        "archive:measurementScale": "nominal",
+                    },
+                ]
+            },
         },
         {
             "name": "depth",
@@ -470,6 +538,14 @@ def manifest(site_members: list[str]) -> dict[str, Any]:
             "description": "Three invented sites along two streams.",
         },
         "archive:methods": "Hourly loggers with field checks at each visit; see docs/methods.md.",
+        "archive:citation": (
+            "Invented, A. (2024). Stream temperature at three invented sites. Version 1. "
+            "Example Lab."
+        ),
+        "archive:purpose": (
+            "To show how a research archive package holds tables, code lists, spatial data "
+            "and documents, with gaps left in for the audit to find."
+        ),
     }
     return Manifest.model_validate(raw).dump()
 

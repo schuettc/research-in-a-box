@@ -3,8 +3,8 @@ diazo: research-archive-in-a-box/generic-package-format-and-contract
 file: spec
 status: approved
 approved: 2026-11-13T00:16:25-06:00
-hash: 9f91f0ead574b154211e012ddc9c055f592f5382998f730a3818cdd6c87aadd1
-rests_on: [AGNT1, AGNT11, AGNT8, DCSN1, AGNT2, AGNT3, DCSN6, DCSN2, DCSN3, AGNT5, DCSN4, DCSN5, AGNT4, AGNT6, AGNT10, AGNT7, AGNT9]
+hash: ae37f7aaefa571fa594832c66fe67e61bf5c01ea3a2c3f4a98e22de6eadd7f47
+rests_on: [AGNT1, AGNT11, AGNT8, DCSN1, AGNT2, AGNT3, DCSN6, DCSN2, DCSN3, AGNT5, DCSN4, DCSN5, AGNT4, AGNT6, AGNT10, AGNT7, AGNT9, DCSN7]
 record: README.md
 ---
 
@@ -159,6 +159,23 @@ Rests on: AGNT11
 `examples/sample-package/`: a small stream temperature study at invented sites, licensed CC-BY-4.0. It has a logger table with a code-list table, a site shapefile set, a small raster, a methods document, a site photo, the logger table again as XLSX, a linked resource and ongoing coverage. Known gaps are seeded in and listed in its README, so Plan 3's rules have predictable findings.
 
 Rests on: AGNT9, DCSN3, DCSN6
+
+## Fields the paper test added
+
+Writing FEMC's six datasets down in the format found eight things it couldn't hold. Each is now an optional field:
+
+- **A start with no known end:** temporal coverage takes `end: "unknown"` beside a real end date or `ongoing`.
+- **Units:** `archive:unit` on a field, free text such as `degC` or `mg/L`. EML writes it in place of `unknown`.
+- **Measurement scale:** `archive:measurementScale` on a field, one of `nominal`, `ordinal`, `interval`, `ratio` or `dateTime` (EML's list). EML uses it instead of guessing from the type.
+- **Preferred citation:** `archive:citation` on the package, the citation the data's authors ask for. The README and schema.org (`creditText`) show it.
+- **Purpose:** `archive:purpose` on the package, why the data was collected. EML writes it as `purpose`, DataCite as a description of type Other.
+- **Project keywords:** `keywords` on the project record, written into EML's project.
+- **Related columns:** `archive:ancillaryOf: {field, role}` on a column that qualifies another, with role `uncertainty`, `detection-limit` or `quality-flag`. Shown in the README's column dictionary, and written to EML as an annotation on the attribute.
+- **A vector resource's attribute table:** `archive:attributes`, a Table Schema on a `vector` resource describing its attribute table. EML writes it as the spatialVector's attribute list, and the validator checks its columns against the `.dbf`.
+
+The EML import reads each of these back where EML has a place for it.
+
+Rests on: DCSN7
 
 ## Risk and cost
 

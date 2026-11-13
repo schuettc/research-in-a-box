@@ -27,5 +27,6 @@ class Project(ArchiveModel):
     id: str
     title: str
     abstract: str | None = None
+    keywords: list[str] | None = None
     people: list[Person] = PydanticField(default_factory=list)
     links: list[Link] = PydanticField(default_factory=list)

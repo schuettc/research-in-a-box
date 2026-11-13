@@ -131,6 +131,8 @@ def to_datacite(
         descriptions.append({"description": manifest.description, "descriptionType": "Abstract"})
     if manifest.methods:
         descriptions.append({"description": manifest.methods, "descriptionType": "Methods"})
+    if manifest.purpose:
+        descriptions.append({"description": manifest.purpose, "descriptionType": "Other"})
     if project is not None:
         descriptions.append({"description": project.title, "descriptionType": "SeriesInformation"})
     if descriptions:
@@ -141,7 +143,7 @@ def to_datacite(
 
     temporal = manifest.temporal_coverage
     if temporal is not None:
-        end = "" if temporal.ongoing else str(temporal.end)
+        end = "" if temporal.ongoing or temporal.end == "unknown" else str(temporal.end)
         record["dates"] = [{"date": f"{temporal.start}/{end}", "dateType": "Collected"}]
 
     spatial = manifest.spatial_coverage

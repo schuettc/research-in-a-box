@@ -283,3 +283,94 @@ def test_other_hash_algorithms_are_a_finding_not_an_exception(
         m["resources"][3]["hash"] = f"{algorithm}:abcdef"
 
     assert rule_ids(validate_package(edited(tmp_path, edit))) == ["structure.hash-algorithm"]
+
+
+SITES_DBF = FIXTURES / "dbf" / "sites.dbf"
+"""A real dBASE file with the columns site_id and elev_m."""
+
+
+def with_attributes(tmp_path: Path, fields: list[dict[str, Any]], *, dbf: Path = SITES_DBF) -> Path:
+    """The valid fixture with `dbf` as the sites shapefile's .dbf, described by `fields`."""
+
+    def edit(m: dict[str, Any]) -> None:
+        sites = m["resources"][2]
+        sites["archive:attributes"] = {"fields": fields}
+        member = next(f for f in sites["archive:files"] if f["path"].endswith(".dbf"))
+        member["bytes"] = dbf.stat().st_size
+        member["hash"] = f"sha256:{_hash_of(dbf, 'sha256')}"
+
+    root = tmp_path / "package"
+    shutil.copytree(FIXTURES / "valid", root)
+    shutil.copy(dbf, root / "data" / "sites" / "sites.dbf")
+    manifest_path = root / "datapackage.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    edit(manifest)
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    write_checksums(root)
+    return root
+
+
+SITE_ID = {"name": "site_id", "type": "string"}
+ELEV_M = {"name": "elev_m", "type": "number"}
+
+
+def test_attributes_matching_the_dbf_have_no_findings(tmp_path: Path) -> None:
+    assert validate_package(with_attributes(tmp_path, [SITE_ID, ELEV_M])) == []
+
+
+def test_attribute_matched_by_its_source_name(tmp_path: Path) -> None:
+    renamed = {"name": "elevation_m", "type": "number", "archive:sourceName": "elev_m"}
+
+    assert validate_package(with_attributes(tmp_path, [SITE_ID, renamed])) == []
+
+
+def test_attribute_described_but_absent_from_the_dbf(tmp_path: Path) -> None:
+    extra = {"name": "habitat", "type": "string"}
+
+    findings = validate_package(with_attributes(tmp_path, [SITE_ID, ELEV_M, extra]))
+
+    assert rule_ids(findings) == ["structure.attributes-mismatch"]
+    target = findings[0].target
+    assert target is not None
+    assert (target.resource, target.field, target.path) == (
+        "sites",
+        "habitat",
+        "data/sites/sites.dbf",
+    )
+
+
+def test_dbf_column_not_described(tmp_path: Path) -> None:
+    findings = validate_package(with_attributes(tmp_path, [SITE_ID]))
+
+    assert rule_ids(findings) == ["structure.attributes-mismatch"]
+    assert findings[0].target is not None and findings[0].target.field == "elev_m"
+
+
+def test_unreadable_dbf_is_a_finding_not_an_exception(tmp_path: Path) -> None:
+    findings = validate_package(
+        with_attributes(tmp_path, [SITE_ID], dbf=FIXTURES / "valid" / "data/sites/sites.dbf")
+    )
+
+    assert rule_ids(findings) == ["structure.attributes-mismatch"]
+
+
+def test_symlinked_dbf_is_refused_and_not_read(tmp_path: Path) -> None:
+    root = with_attributes(tmp_path, [SITE_ID])
+    outside = tmp_path / "outside.dbf"
+    shutil.copy(SITES_DBF, outside)
+    link = root / "data" / "sites" / "sites.dbf"
+    link.unlink()
+    link.symlink_to(outside)
+
+    assert rule_ids(validate_package(root)) == ["structure.symlink"]
+
+
+def test_vector_with_no_dbf_member_is_not_checked(tmp_path: Path) -> None:
+    def edit(m: dict[str, Any]) -> None:
+        sites = m["resources"][2]
+        sites["archive:files"] = sites["archive:files"][:1]
+        sites["archive:attributes"] = {"fields": [SITE_ID]}
+
+    root = edited(tmp_path, edit)
+
+    assert "structure.attributes-mismatch" not in rule_ids(validate_package(root))

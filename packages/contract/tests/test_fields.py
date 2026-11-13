@@ -84,3 +84,63 @@ def test_foreign_key_with_string_fields_reads_as_a_list() -> None:
 def test_unknown_field_type_is_refused() -> None:
     with pytest.raises(ValidationError):
         Field.model_validate({"name": "x", "type": "float"})
+
+
+def test_unit_and_measurement_scale_parse_and_dump() -> None:
+    field = Field.model_validate(
+        {"name": "temp_c", "archive:unit": "degC", "archive:measurementScale": "interval"}
+    )
+
+    assert field.unit == "degC"
+    assert field.measurement_scale == "interval"
+    assert field.dump()["archive:unit"] == "degC"
+    assert field.dump()["archive:measurementScale"] == "interval"
+
+
+@pytest.mark.parametrize("scale", ["nominal", "ordinal", "interval", "ratio", "dateTime"])
+def test_measurement_scale_takes_emls_five(scale: str) -> None:
+    field = Field.model_validate({"name": "x", "archive:measurementScale": scale})
+
+    assert field.measurement_scale == scale
+
+
+def test_measurement_scale_refuses_other_values() -> None:
+    with pytest.raises(ValidationError):
+        Field.model_validate({"name": "x", "archive:measurementScale": "continuous"})
+
+
+def _schema_with_ancillary(of: str, role: str = "uncertainty") -> dict[str, object]:
+    return {
+        "fields": [
+            {"name": "temp_c", "type": "number"},
+            {
+                "name": "temp_sd",
+                "type": "number",
+                "archive:ancillaryOf": {"field": of, "role": role},
+            },
+        ]
+    }
+
+
+@pytest.mark.parametrize("role", ["uncertainty", "detection-limit", "quality-flag"])
+def test_ancillary_column_names_another_column_and_a_role(role: str) -> None:
+    schema = TableSchema.model_validate(_schema_with_ancillary("temp_c", role))
+
+    ancillary = schema.fields[1].ancillary_of
+    assert ancillary is not None
+    assert (ancillary.field, ancillary.role) == ("temp_c", role)
+
+
+def test_ancillary_of_a_missing_column_is_refused() -> None:
+    with pytest.raises(ValidationError, match="ancillaryOf"):
+        TableSchema.model_validate(_schema_with_ancillary("air_temp_c"))
+
+
+def test_ancillary_of_itself_is_refused() -> None:
+    with pytest.raises(ValidationError, match="ancillaryOf"):
+        TableSchema.model_validate(_schema_with_ancillary("temp_sd"))
+
+
+def test_ancillary_role_refuses_other_values() -> None:
+    with pytest.raises(ValidationError):
+        TableSchema.model_validate(_schema_with_ancillary("temp_c", "error-bar"))

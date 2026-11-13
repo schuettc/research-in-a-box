@@ -170,3 +170,34 @@ def test_another_kind_is_written_without_type() -> None:
     raw = {"name": "photo", "path": "docs/photo.png", "archive:kind": "media"}
 
     assert "type" not in Resource.model_validate(raw).dump()
+
+
+_ATTRIBUTES = {"fields": [{"name": "site_id", "type": "string"}]}
+
+
+def test_vector_resource_describes_its_attribute_table() -> None:
+    resource = Resource.model_validate(
+        {
+            "name": "sites",
+            "path": "data/sites.shp",
+            "archive:kind": "vector",
+            "archive:attributes": _ATTRIBUTES,
+        }
+    )
+
+    assert resource.attributes is not None
+    assert resource.attributes.field_names() == ["site_id"]
+    assert resource.dump()["archive:attributes"]["fields"][0]["name"] == "site_id"
+
+
+@pytest.mark.parametrize("kind", ["table", "raster", "file"])
+def test_attributes_on_another_kind_are_refused(kind: str) -> None:
+    with pytest.raises(ValidationError, match="archive:attributes"):
+        Resource.model_validate(
+            {
+                "name": "x",
+                "path": "data/x.csv",
+                "archive:kind": kind,
+                "archive:attributes": _ATTRIBUTES,
+            }
+        )

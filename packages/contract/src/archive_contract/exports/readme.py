@@ -28,6 +28,9 @@ def _table(header: list[str], rows: list[list[str]]) -> list[str]:
 
 
 def _citation(manifest: Manifest) -> str | None:
+    """The citation the authors ask for (`archive:citation`), else one built from the manifest."""
+    if manifest.citation:
+        return " ".join(manifest.citation.split())
     names = [n for n in (person_name(c) for c in creators(manifest)) if n]
     if not manifest.title:
         return None
@@ -65,11 +68,18 @@ def _about(manifest: Manifest, project: Project | None) -> list[str]:
         lines.append(f"- **Project:** `{manifest.project}`")
     if manifest.access:
         lines.append(f"- **Access:** {manifest.access}")
+    if project is not None and project.keywords:
+        lines.append(f"- **Project keywords:** {', '.join(project.keywords)}")
     if manifest.keywords:
         lines.append(f"- **Keywords:** {', '.join(manifest.keywords)}")
     temporal = manifest.temporal_coverage
     if temporal is not None:
-        end = "ongoing" if temporal.ongoing else str(temporal.end)
+        if temporal.ongoing:
+            end = "ongoing"
+        elif temporal.end == "unknown":
+            end = "an unknown end"
+        else:
+            end = str(temporal.end)
         lines.append(f"- **Temporal coverage:** {temporal.start} to {end}")
     spatial = manifest.spatial_coverage
     if spatial is not None:
@@ -85,6 +95,28 @@ def _codes(schema: TableSchema, field: Field) -> str:
     if resource:
         return f"`{resource}`"
     return "undocumented" if field.code_list == "undocumented" else ""
+
+
+def _dictionary(schema: TableSchema) -> list[str]:
+    """A schema's column dictionary. Unit, Scale and Related appear only when a column has one."""
+    header = ["Column", "Title", "Type", "Description", "Codes"]
+    fields = schema.fields
+    units = any(f.unit for f in fields)
+    scales = any(f.measurement_scale for f in fields)
+    related = any(f.ancillary_of for f in fields)
+    header += ["Unit"] * units + ["Scale"] * scales + ["Related"] * related
+    rows = []
+    for f in fields:
+        row = [f"`{f.name}`", f.title or "", f.type or "", f.description or "", _codes(schema, f)]
+        if units:
+            row.append(f.unit or "")
+        if scales:
+            row.append(f.measurement_scale or "")
+        if related:
+            of = f.ancillary_of
+            row.append(f"{of.role} of `{of.field}`" if of else "")
+        rows.append(row)
+    return _table(header, rows)
 
 
 def _resource(resource: Resource) -> list[str]:
@@ -106,11 +138,10 @@ def _resource(resource: Resource) -> list[str]:
         lines += ["", "With " + ", ".join(f"`{m}`" for m in members) + "."]
     schema = resource.table_schema
     if schema is not None and schema.fields:
-        rows = [
-            [f"`{f.name}`", f.title or "", f.type or "", f.description or "", _codes(schema, f)]
-            for f in schema.fields
-        ]
-        lines += ["", *_table(["Column", "Title", "Type", "Description", "Codes"], rows)]
+        lines += ["", *_dictionary(schema)]
+    attributes = resource.attributes
+    if attributes is not None and attributes.fields:
+        lines += ["", "Attribute table:", "", *_dictionary(attributes)]
     return lines
 
 
@@ -126,6 +157,8 @@ def render_readme(manifest: Manifest, project: Project | None = None) -> str:
     citation = _citation(manifest)
     if citation:
         lines += ["## Citation", "", citation, ""]
+    if manifest.purpose:
+        lines += ["## Purpose", "", " ".join(manifest.purpose.split()), ""]
     names = [n for n in (person_name(c) for c in creators(manifest)) if n]
     if names:
         lines += ["## Creators", "", *(f"- {n}" for n in names), ""]

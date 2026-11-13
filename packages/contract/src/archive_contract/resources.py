@@ -31,6 +31,7 @@ class Resource(ArchiveModel):
     - `archive:alternateOf` names the primary when this is the same data in another format;
       only the primary carries the schema.
     - A `linked` resource is held elsewhere: `path` is its URL and it has no hash or size.
+    - `archive:attributes` describes a `vector` resource's attribute table as a Table Schema.
     """
 
     name: str
@@ -51,6 +52,7 @@ class Resource(ArchiveModel):
     kind: ResourceKind = PydanticField(default="file", alias="archive:kind")
     files: list[MemberFile] | None = PydanticField(default=None, alias="archive:files")
     alternate_of: str | None = PydanticField(default=None, alias="archive:alternateOf")
+    attributes: TableSchema | None = PydanticField(default=None, alias="archive:attributes")
 
     @model_validator(mode="before")
     @classmethod
@@ -80,6 +82,8 @@ class Resource(ArchiveModel):
                 raise ValueError("a linked resource has no hash, bytes or member files")
         if self.alternate_of is not None and self.table_schema is not None:
             raise ValueError("an alternate has no schema: only the primary carries the schema")
+        if self.attributes is not None and self.kind != "vector":
+            raise ValueError(f"archive:attributes is for vector resources, not {self.kind}")
         return self
 
     def is_remote(self) -> bool:

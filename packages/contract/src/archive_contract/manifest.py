@@ -48,19 +48,22 @@ class Contributor(ArchiveModel):
 
 
 class TemporalCoverage(ArchiveModel):
-    """When the data covers: a start, and an end date or `ongoing`."""
+    """When the data covers: a start, and an end date, `end: "unknown"` or `ongoing`.
+
+    `end: "unknown"` is for data that stopped at a date nobody recorded.
+    """
 
     start: date
-    end: date | None = None
+    end: date | Literal["unknown"] | None = None
     ongoing: bool = False
 
     @model_validator(mode="after")
     def _end_or_ongoing(self) -> Self:
         if self.ongoing and self.end is not None:
-            raise ValueError("temporal coverage has an end date or is ongoing, not both")
+            raise ValueError("temporal coverage has an end or is ongoing, not both")
         if not self.ongoing and self.end is None:
-            raise ValueError("temporal coverage needs an end date or ongoing true")
-        if self.end is not None and self.end < self.start:
+            raise ValueError("temporal coverage needs an end date, end unknown or ongoing true")
+        if isinstance(self.end, date) and self.end < self.start:
             raise ValueError("temporal coverage ends before it starts")
         return self
 
@@ -172,6 +175,8 @@ class Manifest(ArchiveModel):
     )
     funding: list[Funding] | None = PydanticField(default=None, alias="archive:funding")
     methods: str | None = PydanticField(default=None, alias="archive:methods")
+    citation: str | None = PydanticField(default=None, alias="archive:citation")
+    purpose: str | None = PydanticField(default=None, alias="archive:purpose")
     legacy_identifiers: list[LegacyIdentifier] | None = PydanticField(
         default=None, alias="archive:legacyIdentifiers"
     )

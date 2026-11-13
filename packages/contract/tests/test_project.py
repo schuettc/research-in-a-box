@@ -35,3 +35,10 @@ def test_project_dump_drops_unset_and_keeps_extras() -> None:
     assert "abstract" not in dumped
     assert dumped["people"] == []
     assert dumped["x-note"] == "kept"
+
+
+def test_project_keywords_parse_and_are_left_out_when_unset() -> None:
+    project = Project.model_validate({"id": "p", "title": "T", "keywords": ["streams", "LTER"]})
+
+    assert project.keywords == ["streams", "LTER"]
+    assert "keywords" not in Project.model_validate({"id": "p", "title": "T"}).dump()

@@ -6,9 +6,10 @@ from xml.etree import ElementTree as ET
 import pytest
 from lxml import etree
 
-from archive_contract.exports.eml import UNDOCUMENTED_CODES, to_eml
-from archive_contract.manifest import Manifest
+from archive_contract.exports.eml import UNDOCUMENTED_CODES, shp_geometry, to_eml
+from archive_contract.manifest import Manifest, TemporalCoverage
 from archive_contract.project import Person, Project
+from archive_contract.resources import Resource
 from archive_contract.rights import RightsStatus
 
 SAMPLE = Path(__file__).parents[3] / "examples" / "sample-package"
@@ -96,11 +97,164 @@ def test_every_other_local_resource_is_an_other_entity() -> None:
     root = ET.fromstring(to_eml(sample(), root=SAMPLE))
 
     tables = [t.findtext("entityName") for t in root.iter("dataTable")]
+    vectors = [v.findtext("entityName") for v in root.iter("spatialVector")]
     others = [o.findtext("entityName") for o in root.iter("otherEntity")]
     assert tables == ["logger", "condition-codes"]
-    assert others == ["sites", "depth", "logger-xlsx", "logger-original", "methods", "site-photo"]
+    assert vectors == ["sites"]
+    assert others == ["depth", "logger-xlsx", "logger-original", "methods", "site-photo"]
 
 
 def test_a_code_list_column_needs_the_package_folder() -> None:
     with pytest.raises(ValueError, match="condition-codes"):
         to_eml(sample())
+
+
+def test_a_unit_replaces_unknown() -> None:
+    attr = attribute(to_eml(sample(), root=SAMPLE), "logger", "water_temp_c")
+
+    assert attr.findtext("measurementScale/interval/unit/customUnit") == "degC"
+
+
+def test_the_fields_measurement_scale_is_used() -> None:
+    manifest = sample()
+    logger = manifest.resource("logger")
+    assert logger is not None and logger.table_schema is not None
+    for field in logger.table_schema.fields:
+        if field.name == "logger_model":
+            field.measurement_scale = "ordinal"
+        if field.name == "depth_cm":
+            field.measurement_scale = "interval"
+    xml = to_eml(manifest, root=SAMPLE)
+
+    assert_valid(xml)
+    model = attribute(xml, "logger", "logger_model")
+    assert model.find("measurementScale/ordinal/nonNumericDomain/textDomain") is not None
+    depth = attribute(xml, "logger", "depth_cm")
+    assert depth.findtext("measurementScale/interval/unit/customUnit") == "cm"
+    assert depth.findtext("measurementScale/interval/numericDomain/numberType") == "integer"
+
+
+@pytest.mark.parametrize("scale", ["ratio", "interval", "dateTime"])
+def test_a_coded_column_with_an_explicit_numeric_scale_is_refused(scale: str) -> None:
+    manifest = sample()
+    logger = manifest.resource("logger")
+    assert logger is not None and logger.table_schema is not None
+    for field in logger.table_schema.fields:
+        if field.name == "condition":
+            field.measurement_scale = scale  # type: ignore[assignment]
+            field.unit = "degC"
+
+    with pytest.raises(ValueError, match=f"condition.*{scale}.*code list"):
+        to_eml(manifest, root=SAMPLE)
+
+
+def test_a_coded_column_with_an_explicit_ordinal_scale_keeps_it() -> None:
+    manifest = sample()
+    logger = manifest.resource("logger")
+    assert logger is not None and logger.table_schema is not None
+    for field in logger.table_schema.fields:
+        if field.name == "condition":
+            field.measurement_scale = "ordinal"
+    xml = to_eml(manifest, root=SAMPLE)
+
+    assert_valid(xml)
+    attr = attribute(xml, "logger", "condition")
+    assert attr.find("measurementScale/ordinal/nonNumericDomain/enumeratedDomain") is not None
+
+
+def test_a_related_column_is_an_attribute_annotation() -> None:
+    attr = attribute(to_eml(sample(), root=SAMPLE), "logger", "water_temp_unc_c")
+
+    assert "Related column" not in (attr.findtext("attributeDefinition") or "")
+    [annotation] = attr.findall("annotation")
+    prop, value = annotation.find("propertyURI"), annotation.find("valueURI")
+    assert prop is not None and value is not None
+    assert (prop.get("label"), prop.text) == (
+        "ancillaryOf",
+        "https://research-in-a-box.org/terms/ancillaryOf",
+    )
+    assert value.get("label") == "uncertainty:water_temp_c"
+
+
+def test_purpose_is_written() -> None:
+    manifest = sample()
+    root = ET.fromstring(to_eml(manifest, root=SAMPLE))
+
+    assert root.findtext("dataset/purpose/para") == manifest.purpose
+
+
+def test_vector_attributes_are_the_spatial_vectors_attribute_list() -> None:
+    root = ET.fromstring(to_eml(sample(), root=SAMPLE))
+    vector = root.find("dataset/spatialVector")
+    assert vector is not None
+
+    names = [a.findtext("attributeName") for a in vector.iter("attribute")]
+    assert names == ["site", "name"]
+    assert vector.findtext("geometry") == "Point"
+
+
+def test_project_keywords_and_an_unknown_end_validate() -> None:
+    manifest = sample().model_copy(
+        update={
+            "project": "streams",
+            "temporal_coverage": TemporalCoverage.model_validate(
+                {"start": "1991-01-01", "end": "unknown"}
+            ),
+        }
+    )
+    project = Project(id="streams", title="Streams", keywords=["temperature", "LTER"])
+    xml = to_eml(manifest, project, root=SAMPLE)
+
+    assert_valid(xml)
+    root = ET.fromstring(xml)
+    descriptor = root.find("dataset/project/studyAreaDescription/descriptor")
+    assert descriptor is not None and descriptor.get("name") == "keywords"
+    assert [v.text for v in descriptor.iter("descriptorValue")] == ["temperature", "LTER"]
+    assert root.findtext("dataset/coverage/temporalCoverage/singleDateTime/calendarDate") == (
+        "1991-01-01"
+    )
+    assert root.findtext("dataset/maintenance/maintenanceUpdateFrequency") == "unknown"
+
+
+def _sites_reading(shp: str) -> Resource:
+    resource = sample().resource("sites")
+    assert resource is not None and resource.files is not None
+    member = resource.files[0].model_copy(update={"path": shp})
+    return resource.model_copy(update={"files": [member], "path": shp})
+
+
+def _outside_shp(tmp_path: Path) -> Path:
+    outside = tmp_path / "outside" / "sites"
+    outside.mkdir(parents=True)
+    shp = outside / "sites.shp"
+    shp.write_bytes((SAMPLE / "data" / "sites" / "sites.shp").read_bytes())
+    return shp
+
+
+def test_an_absolute_shp_path_is_not_read(tmp_path: Path) -> None:
+    shp = _outside_shp(tmp_path)
+    root = tmp_path / "package"
+    root.mkdir()
+
+    assert shp_geometry(root, _sites_reading(str(shp))) == "MultiGeometry"
+
+
+def test_a_shp_path_out_of_the_package_is_not_read(tmp_path: Path) -> None:
+    _outside_shp(tmp_path)
+    root = tmp_path / "package"
+    root.mkdir()
+
+    assert shp_geometry(root, _sites_reading("../outside/sites/sites.shp")) == "MultiGeometry"
+
+
+def test_a_shp_under_a_symlinked_folder_is_not_read(tmp_path: Path) -> None:
+    shp = _outside_shp(tmp_path)
+    root = tmp_path / "package"
+    root.mkdir()
+    (root / "data").symlink_to(shp.parent.parent, target_is_directory=True)
+
+    assert shp_geometry(root, _sites_reading("data/sites/sites.shp")) == "MultiGeometry"
+
+
+def test_a_shp_inside_the_package_is_read() -> None:
+    assert shp_geometry(SAMPLE, _sites_reading("data/sites/sites.shp")) == "Point"

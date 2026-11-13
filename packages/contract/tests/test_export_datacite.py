@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from archive_contract.exports.datacite import to_datacite
-from archive_contract.manifest import Manifest
+from archive_contract.manifest import Manifest, TemporalCoverage
 from archive_contract.project import Link, Project
 from archive_contract.rights import RightsStatus
 
@@ -86,7 +86,7 @@ def test_sample_record_carries_the_manifest() -> None:
     assert data["publisher"] == "Example Archive"
     assert data["publicationYear"] == "2024"
     assert data["types"]["resourceTypeGeneral"] == "Dataset"
-    assert [d["descriptionType"] for d in data["descriptions"]] == ["Abstract", "Methods"]
+    assert [d["descriptionType"] for d in data["descriptions"]] == ["Abstract", "Methods", "Other"]
     assert {"date": "2024-06-01/", "dateType": "Collected"} in data["dates"]
     assert data["geoLocations"][0]["geoLocationBox"]["westBoundLongitude"] == -72.74
     assert data["rightsList"][0]["rightsIdentifier"] == "CC-BY-4.0"
@@ -135,3 +135,23 @@ def test_third_party_rights_write_their_statement() -> None:
 
     assert data["rightsList"] == [{"rights": statement}]
     validate(data)
+
+
+def test_purpose_is_a_description_of_type_other() -> None:
+    manifest = sample()
+
+    assert manifest.purpose
+    descriptions = record(manifest)["descriptions"]
+    assert {"description": manifest.purpose, "descriptionType": "Other"} in descriptions
+
+
+def test_unknown_end_is_an_open_date_range() -> None:
+    manifest = sample().model_copy(
+        update={
+            "temporal_coverage": TemporalCoverage.model_validate(
+                {"start": "1991-01-01", "end": "unknown"}
+            )
+        }
+    )
+
+    assert record(manifest)["dates"] == [{"date": "1991-01-01/", "dateType": "Collected"}]
