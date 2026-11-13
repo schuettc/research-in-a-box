@@ -43,6 +43,34 @@ DATE_FORMATS: dict[str, str] = {
 
 CodeRow = dict[str, str]
 
+_FORMAT_TOKENS: tuple[tuple[str, str], ...] = (
+    ("%Y", "YYYY"),
+    ("%m", "MM"),
+    ("%d", "DD"),
+    ("%H", "hh"),
+    ("%M", "mm"),
+    ("%S", "ss"),
+)
+
+
+def eml_format(field: Field) -> str:
+    """A date or time column's EML formatString, from its Frictionless strptime format."""
+    kind = field.type or "datetime"
+    if field.format in (None, "default", "any"):
+        return DATE_FORMATS[kind]
+    text = field.format
+    for pattern, token in _FORMAT_TOKENS:
+        text = text.replace(pattern, token)
+    return text
+
+
+def strptime_format(format_string: str) -> str:
+    """An EML formatString as a Frictionless strptime format (the reverse of `eml_format`)."""
+    text = format_string
+    for pattern, token in _FORMAT_TOKENS:
+        text = text.replace(token, pattern)
+    return text
+
 
 def _sub(parent: ET.Element, tag: str, text: str | None = None, **attrs: str) -> ET.Element:
     element = ET.SubElement(parent, tag, attrs)
@@ -120,7 +148,7 @@ def _measurement(
         _sub(_sub(ratio, "unit"), "customUnit", UNKNOWN_UNIT)
         _sub(_sub(ratio, "numericDomain"), "numberType", "integer" if kind == "integer" else "real")
     elif kind in DATE_FORMATS:
-        _sub(_sub(scale, "dateTime"), "formatString", field.format or DATE_FORMATS[kind])
+        _sub(_sub(scale, "dateTime"), "formatString", eml_format(field))
     else:
         text = _sub(_sub(_sub(scale, "nominal"), "nonNumericDomain"), "textDomain")
         if field.code_list == "undocumented":
