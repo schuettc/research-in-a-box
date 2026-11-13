@@ -4,11 +4,29 @@
 
 `research-archive-in-a-box/generic-package-format-and-contract` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 14 of 15** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → ✓ Build → ✓ Sign off
 
-PLAN1 built · PLAN2 built · PLAN3 building · 2 of 3 done
+Signed off 2026-11-13 12:05.
 
-Running: Task 3: Exports, import and the sample package (PLAN3)
+PLAN1 built · PLAN2 built · PLAN3 built
+
+## Wrap-up
+
+### research-in-a-box now has a working package format: a Python contract that describes, validates and exports a dataset package, with a sample package to test against.
+
+#### How it works now
+
+A dataset package is a plain folder that is also a valid Frictionless Data Package, and `archive_contract` reads it into typed models, checks its structure (references, member files, checksums, hashes, symlinks), and exports it as a README, DataCite, schema.org and EML 2.2.0. It can also read standard EML in. The format holds what research data actually carries: rights statuses beside licenses, code lists as small tables, shapefile sets as one resource, projects as their own record, units, measurement scales, related columns, preferred citations and coverage that is ongoing or has no known end. The committed sample package, an invented stream temperature study, uses all of it and rebuilds byte for byte, and FEMC's six practice datasets have been written down in the format as a test. Plans 3 to 9 can now build on the contract.
+
+#### Results
+
+- Models, structural validation, the generated JSON Schema and the sample package: PLAN1, research-in-a-box#1.
+- README, DataCite, schema.org and EML exports, EML import and the FEMC paper test: PLAN2, research-in-a-box#3.
+- The eight fields the paper test found missing: PLAN3, research-in-a-box#4.
+
+#### Different from the plan
+
+PLAN3 was added after the paper test found eight things the format couldn't hold, and you chose to add all of them. The DataCite export is checked against DataCite's mandatory properties instead of a vendored JSON Schema, because the only one available is unofficial and has no licence. Plan 3 confirms the change log and findings shapes when it starts, rather than before the spec was printed, since it hadn't begun.
 
 ## Pick up next
 
@@ -91,10 +109,10 @@ Running: Task 3: Exports, import and the sample package (PLAN3)
   - TASK10 Task 4: EML 2.2.0 export: done. da9963e · validates against the EML 2.2.0 XSD (a broken document fails)
   - TASK11 Task 5: EML import: done. 7b692fd + a204e7a · reads EML 2.1.1 and 2.2.0, lists what it skips · sample round-trips
   - TASK12 Task 6: The FEMC paper test: done. c2c058d + 0906808 (review fixes) · 198 tests · PR #3 CI green (runs 43470879322, 43470887680) · merged as 90e1a0b
-- [PLAN3](plans/3-fields-from-the-paper-test.md) The eight fields from the paper test: building · 2 of 3 done
+- [PLAN3](plans/3-fields-from-the-paper-test.md) The eight fields from the paper test: built
   - TASK13 Task 1: The eight fields on the models: done. c4a6c64 · eight optional fields with their rules, JSON Schema regenerated · just check exit 0
   - TASK14 Task 2: Validator check for attribute tables: done. 5939b79 · .dbf header checked against archive:attributes (standard library) · just check exit 0
-  - TASK15 Task 3: Exports, import and the sample package: building. d169882 + 6556d17 · review: shapefile reader escapes the folder, code lists override explicit scales, related-column encoding misreads prose; fixing
+  - TASK15 Task 3: Exports, import and the sample package: done. d169882 + review fixes 73c5be0, 323ddfc, 04b042e · 255 tests · PR #4 CI green (runs 43478057995, 43478066110) · merged as ea2636d
 
 ## Files
 
@@ -104,6 +122,7 @@ Running: Task 3: Exports, import and the sample package (PLAN3)
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `wrap-up.md` | the agent, header by diazo | What was built, how it works now, and what went differently from the plan. |
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 
