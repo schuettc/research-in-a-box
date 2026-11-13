@@ -1,0 +1,812 @@
+{
+  "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
+  "schema": 4,
+  "title": "Repo layout and conventions (Plan 1)",
+  "expect": 3,
+  "agent_at": "2026-11-13T06:13:22.868973Z",
+  "start": {
+    "opening": {
+      "text": "let's review this and start our diazo planning sessions\n\n(Brief for this session, from docs/planning-handoff.md, Plan 1 starter prompt:) Read `docs/planning-handoff.md`. Plan the repo layout and conventions for the research archive in a box (Plan 1). The stack is decided: Python for the contract, local tool and backend, TypeScript CDK, and a React with Vite web app. Work through the open questions with me one at a time, with options and trade-offs for each. Do not design features."
+    },
+    "findings": [
+      {
+        "text": "The handoff is the source of truth for every planning session: settled decisions, FEMC findings, and ten plan briefs. Plan 1's open questions: one repo or several, names for the kit and the local tool (working ideas cruise and accession), pip only or also a standalone app, confirm GitHub Actions.",
+        "source": "/Users/courtschuett/GitHub/personal/research-archive-in-a-box/docs/planning-handoff.md",
+        "cases": "1 handoff document"
+      },
+      {
+        "text": "The project folder is not a git repository yet. The user left git init for this plan, since this plan decides the layout. No commits can be made until then.",
+        "source": "git status in research-archive-in-a-box",
+        "output": "fatal: not a git repository (or any of the parent directories): .git",
+        "cases": "1 of 1 folder"
+      },
+      {
+        "text": "practice-data/ is git-ignored and exists only on the user's machine (six FEMC datasets plus the hand-converted Ozone package). Licenses vary, so a committed sample package with a clear license is in Plan 1's scope.",
+        "source": "research-archive-in-a-box/.gitignore and practice-data/femc/SOURCES.md",
+        "output": "# Practice data is fetched, not committed (licenses vary per dataset)\npractice-data/",
+        "cases": "6 of 6 datasets"
+      },
+      {
+        "text": "Plan 2 (package format and contract) is being planned in parallel in its own diazo folder, docs/specs/2026-11-12-package-format-and-contract. Plan 2's module layout should fit the repo layout chosen here; send it a diazo_note when the layout or the Python package name is settled.",
+        "source": "diazo folder af69e15bba0a",
+        "cases": "1"
+      },
+      {
+        "text": "Settled decisions that tie the parts together: adopters fork one repo and deploy with the included CI; the web app reads a JSON Schema generated from the Python contract; the backend and the local tool both use the contract.",
+        "source": "docs/planning-handoff.md, Decisions already made (Framing and delivery, Languages)",
+        "cases": "3 settled decisions"
+      },
+      {
+        "text": "A precedent on this machine: bettor-help-platform is one repo with a uv workspace for its Python packages and npm for the CDK infra and the portal web app, under one ci.yml.",
+        "source": "~/GitHub/bettor-help-workspace/bettor-help-platform: pyproject.toml [tool.uv.workspace], packages/, .github/workflows/",
+        "output": "members = packages/lineup-builder, packages/mcp-server, packages/portal-api, packages/dev-cli, ...\npackages: cli dev-cli infra lake-plane lineup-builder mcp-server portal portal-api refresh\nworkflows: ci.yml deploy-dev.yml deploy-prod.yml ...",
+        "cases": "1 repo"
+      },
+      {
+        "text": "Plan 2's folder has no rounds or decisions yet, so no contract module layout exists to fit around.",
+        "source": "docs/specs/2026-11-12-package-format-and-contract/decisions.json",
+        "output": "rounds: 0, decisions: []",
+        "cases": "1 folder"
+      }
+    ],
+    "rounds": [
+      {
+        "take": "**First fork: one repo or several.** Every other Plan 1 question (layout, tooling, CI, naming, releases) sits inside this one, so it goes first.\n\nThree settled facts in the handoff point the same way:\n\n- **Adopters fork the repo, edit one config file and deploy with the included CI.** One fork has to contain the CDK app, the Lambdas it packages, the web bundle it uploads, the deployment skill and the workflows. With several repos, a fork means forking three or four repos and keeping their versions in step.\n- **The web app reads a JSON Schema generated from the Python contract.** In one repo, CI regenerates the schema and fails the build if the committed copy drifts. Across repos, that becomes a published artifact plus a version bump on every contract change.\n- **The backend imports the contract, and so does the local tool.** In one repo both use it from source. Several repos would make the contract a published package from day one, with release work before any real user exists.\n\nThere's a precedent on your machine: `bettor-help-platform` is one repo with a uv workspace for its Python packages (`packages/mcp-server`, `packages/portal-api`, ...) and npm for the CDK `infra` and the `portal` web app, all under one `ci.yml`.\n\nWhat one repo gives up: the local tool can't have its own repo and issue tracker for researchers who never touch AWS. That doesn't block publishing: `pip install \u003ctool\u003e` still works from a monorepo, since each Python package builds its own wheel. A later split stays possible, because the contract and the tool are separate packages from the start.\n\nThe sketch below shows where each plan's work would sit. The folder names are placeholders: naming is a later card.",
+        "visuals": [
+          {
+            "kind": "mermaid",
+            "caption": "One repo: which plan works where (folder names are placeholders)",
+            "mermaid": "flowchart LR\n  subgraph repo[\"research-archive-in-a-box (one repo)\"]\n    subgraph py[\"uv workspace (Python)\"]\n      contract[\"packages/contract\u003cbr/\u003ePlan 2\"]\n      tool[\"packages/tool\u003cbr/\u003ePlan 3\"]\n      backend[\"packages/backend\u003cbr/\u003ePlans 6, 7\"]\n    end\n    subgraph ts[\"npm workspace (TypeScript)\"]\n      infra[\"packages/infra\u003cbr/\u003eCDK construct + app, Plan 4\"]\n      web[\"packages/web\u003cbr/\u003eReact + Vite, Plan 8\"]\n    end\n    agent[\"agent/\u003cbr/\u003eplugin, MCP, skills, Plan 9\"]\n    examples[\"examples/\u003cbr/\u003elicensed sample package\"]\n    ci[\".github/workflows\u003cbr/\u003eone CI, Plan 10a\"]\n  end\n  tool --\u003e contract\n  backend --\u003e contract\n  contract -- \"generated JSON Schema\" --\u003e web\n  infra -- \"packages\" --\u003e backend\n  infra -- \"uploads bundle\" --\u003e web"
+          },
+          {
+            "kind": "table",
+            "caption": "One repo or several",
+            "table": {
+              "columns": [
+                "",
+                "One repo (recommended)",
+                "Several repos (contract, tool, archive)"
+              ],
+              "rows": [
+                [
+                  "Adopter forks",
+                  "One fork, one config, one deploy",
+                  "Fork the archive, pin the published contract and tool versions"
+                ],
+                [
+                  "Contract to web schema",
+                  "CI regenerates it and fails on drift",
+                  "Publish the schema, bump it in the web repo"
+                ],
+                [
+                  "Contract to backend and tool",
+                  "Imported from source",
+                  "PyPI release on every contract change"
+                ],
+                [
+                  "Local tool for researchers",
+                  "Own wheel on PyPI, issues shared with the archive",
+                  "Own repo and issue tracker"
+                ],
+                [
+                  "CI",
+                  "One workflow set, path-filtered jobs",
+                  "One per repo, plus cross-repo version bumps"
+                ]
+              ],
+              "sample": ""
+            }
+          }
+        ],
+        "recommendation": "One repo, holding a uv workspace (contract, local tool, backend as separate Python packages) and an npm workspace (CDK construct and default app, web app), with one CI. Each Python package still builds its own wheel, so the local tool can be published to PyPI on its own."
+      }
+    ],
+    "direction": {
+      "round": 1,
+      "at": "2026-11-12T23:04:10.675977-06:00",
+      "by": "user"
+    }
+  },
+  "understanding": {
+    "points": [
+      {
+        "kind": "outcome",
+        "text": "A written repo layout, tool choices and names that every other plan can assume, enough to create an empty skeleton from.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "One repo: a uv workspace for the Python packages (contract, local tool, backend) and an npm workspace for the CDK construct with its default app and the web app, under one CI.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "No feature design: layout, tooling, naming and releases only.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "The settled stack and decisions in docs/planning-handoff.md are not reopened.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Generic first: names and layout carry nothing specific to FEMC or ecology. FEMC is an example, not the source.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "The sample package is Plan 2's, built once the format exists; Plan 1 commits no data.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Nothing is published to PyPI or npm: the local tool installs from the repo with uv.",
+        "source": "said"
+      },
+      {
+        "kind": "success",
+        "text": "Plan 2 can place its contract modules from this plan's layout and package name, and is told when they are settled.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "The plan's build stops at an empty, passing skeleton: git init, the folders, the workspace files, the checks wired into CI, all passing on an empty tree.",
+        "source": "said"
+      }
+    ],
+    "confirmed": true,
+    "revisions": [
+      {
+        "at": "0001-01-01T00:00:00Z",
+        "text": "The sample package moved to Plan 2, and the build now stops at an empty, passing skeleton, at your word via Plan 2's session.",
+        "because": "note:plan"
+      },
+      {
+        "at": "0001-01-01T00:00:00Z",
+        "text": "The sample package moved to Plan 2, and the build now stops at an empty, passing skeleton, at your word via Plan 2's session.",
+        "because": "note:plan"
+      },
+      {
+        "at": "0001-01-01T00:00:00Z",
+        "text": "The local tool is no longer published to PyPI: it installs from the repo with uv.",
+        "because": "DCSN2"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "STEP1",
+      "what": "Go to create the public GitHub repo schuettc/research-in-a-box and push the skeleton",
+      "why": "TASK6: the first push, which runs CI and lets cruise install from GitHub",
+      "how": "1. When tasks 1 to 5 show done on the Build view, the skeleton is committed locally on `main`, and `just check` passes.\n2. Press **Go** and I run:\n```\ngh repo create schuettc/research-in-a-box --public --source . --push\n```\nThe repo is public from that moment: the MIT license, the README, the empty packages and the planning docs (`docs/planning-handoff.md` and the two planning folders). `practice-data/` stays out, because it is git-ignored.\n3. Press **No go** if anything in `docs/` shouldn't be public yet, and say what.",
+      "answers": [
+        {
+          "id": "GO",
+          "label": "Go",
+          "detail": "The agent creates the public repo and pushes main"
+        },
+        {
+          "id": "NOGO",
+          "label": "No go",
+          "detail": "Something shouldn't be public yet",
+          "hands_back": true
+        }
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "DCSN1",
+      "name": "Kit name",
+      "question": "What is the kit called: the repo, the docs title, and the prefix for its contract package and CDK construct?",
+      "example": "An adopter reads the README and forks the repo; the contract installs as `\u003ckit\u003e-contract` and the construct is `\u003cKit\u003eArchive`. `cruise` reads well, but it's taken on PyPI by an active project (a Linear agent tool, last release 2026-04-09), and it's a forestry term, which works against 'generic first'.",
+      "options": [
+        {
+          "id": "A",
+          "title": "research-archive-in-a-box (descriptive)",
+          "includes": "The repo keeps its current folder name. The docs say 'Research archive in a box'. The contract installs as `archive-contract`, the construct is `ResearchArchive`.",
+          "pulls_in": "No collisions and says what it is, but it's long and not memorable. A short name can still be chosen later, at the cost of renaming."
+        },
+        {
+          "id": "B",
+          "title": "quadrat",
+          "includes": "A quadrat is the square frame a field researcher drops to sample one patch. Repo `quadrat`, contract `quadrat-contract`, construct `QuadratArchive`.",
+          "pulls_in": "Short and free on PyPI and npm. An ecology word, so it leans toward the motivating field. GitHub user `quadrat` exists, but the repo lives under your own account."
+        },
+        {
+          "id": "C",
+          "title": "cruise",
+          "includes": "Your working idea: a timber cruise is a forest inventory survey. Repo `cruise`, contract `cruise-contract`.",
+          "pulls_in": "Bare `cruise` is taken on PyPI and npm, so only prefixed names are free. Forestry-specific."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "It's the only option that's generic and collision-free today, and it's what the handoff and the folder already use. The kit is forked rather than installed, so its name matters less than the local tool's, which researchers type every day (DCSN2).",
+        "evidence": [
+          {
+            "text": "PyPI and npm lookups (HTTP 200 = taken, 404 = free)",
+            "source": "curl https://pypi.org/pypi/\u003cname\u003e/json and https://registry.npmjs.org/\u003cname\u003e",
+            "output": "cruise pypi=200 npm=200\ncruise-archive pypi=404 npm=404\nquadrat pypi=404 npm=404"
+          },
+          {
+            "text": "What holds `cruise` on PyPI",
+            "source": "https://pypi.org/pypi/cruise/json",
+            "output": "cruise 0.3.6 | Polls Linear for issues and dispatches Claude Code agents to work on them | last upload 2026-04-09"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A",
+      "note": "the repo name can be research-in-a-box.  the tool can be called cruise."
+    },
+    {
+      "id": "DCSN2",
+      "name": "How cruise is installed",
+      "question": "The tool is `cruise`. Do we publish it to PyPI, or do people install it straight from the repo?",
+      "example": "A researcher wants `cruise audit ./my-dataset` on their laptop. Without PyPI, they run one uv command pointing at the GitHub repo. With PyPI they'd run `pip install \u003cname\u003e`, but bare `cruise` is taken there (another tool, active in 2026, which also installs a `cruise` command), so the PyPI name would have to differ from the command.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Not on PyPI: install from the repo with uv",
+          "includes": "`uv tool install \"git+https://github.com/\u003cowner\u003e/research-in-a-box#subdirectory=packages/tool\"`, then `cruise audit .`. Inside the repo, `uv run cruise`. The package is named plain `cruise`, since it's never published. Releases are git tags and GitHub releases only.",
+          "pulls_in": "No PyPI account, trusted publishing or name hunt. The docs say to use uv, since pip can't resolve the contract from the same repo. PyPI can still be added later if an outside user needs a plain `pip install`."
+        },
+        {
+          "id": "B",
+          "title": "Publish to PyPI as cruise-cli",
+          "includes": "`pip install cruise-cli`, then `cruise audit .`. The contract is published too, as `archive-contract`, since the tool depends on it.",
+          "pulls_in": "A PyPI project for each of the two packages, trusted publishing in the release workflow, and a command name that differs from the install name."
+        },
+        {
+          "id": "C",
+          "title": "Publish to PyPI as cruise-archive",
+          "includes": "`pip install cruise-archive`, then `cruise audit .`, plus `archive-contract` as in B.",
+          "pulls_in": "The same as B, and the name reads like the archive server rather than the local tool."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "No one outside this repo is installing cruise yet, and uv already installs it from git with the contract pulled from the same checkout (tested). That drops the PyPI release work and the name clash. Publishing stays a later, additive step.",
+        "evidence": [
+          {
+            "text": "A throwaway git repo with a uv workspace (contract and tool packages, the tool depending on the contract through a workspace source), installed as a uv tool from git",
+            "source": "uv tool install \"git+file://\u003ctmp\u003e/ws#subdirectory=packages/tool\" then running cruise",
+            "output": "+ cruise==0.1.0 (from git+file:///…/ws@a8e2834…#subdirectory=packages/tool)\nInstalled 1 executable: cruise\ncruise ok 1\nexit=0"
+          },
+          {
+            "text": "What holds `cruise` on PyPI",
+            "source": "cruise-0.3.6 wheel, entry_points.txt",
+            "output": "[console_scripts]\ncruise = cruise.cli:main"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A",
+      "revisions": [
+        {
+          "at": "2026-11-12T23:20:56.331961-06:00",
+          "text": "Revised after your notes on DCSN1 and here: the tool is cruise. Bare `cruise` is taken on PyPI, so the card now asks only for the install name; the command is `cruise` either way.",
+          "because": "note:DCSN1"
+        },
+        {
+          "at": "2026-11-12T23:22:21.408706-06:00",
+          "text": "Revised after your note: added installing from the GitHub repo with no PyPI, tested and now recommended.",
+          "because": "note:DCSN2"
+        }
+      ]
+    },
+    {
+      "id": "DCSN3",
+      "name": "Standalone app",
+      "question": "Is a Python install enough for the local tool, or do we also ship a standalone app for people without Python?",
+      "example": "A field technician on a lab Windows machine has no Python. With uv, `uv tool install accessioner` downloads a Python of its own and installs the tool, so the only prerequisite is the one-line uv installer. A standalone app would skip even that, but each OS needs its own build, and macOS and Windows need code signing so the app isn't blocked.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Python packages only (pip, pipx or uv)",
+          "includes": "One wheel on PyPI. The docs lead with `uv tool install`, which works on a machine without Python.",
+          "pulls_in": "Nothing more to build. People who can't run any installer (a locked-down machine) aren't covered."
+        },
+        {
+          "id": "B",
+          "title": "Also standalone binaries per OS",
+          "includes": "PyInstaller or similar builds for macOS, Windows and Linux on every release, attached to the GitHub release.",
+          "pulls_in": "Three build jobs, an Apple Developer ID and a Windows signing certificate, and native dependencies (DuckDB, Pydantic's compiled core) bundled per platform."
+        },
+        {
+          "id": "C",
+          "title": "Python packages now, standalone app as a follow-up",
+          "includes": "Option A, plus a recorded follow-up to build binaries once a real user can't install via uv.",
+          "pulls_in": "Same as A today. The follow-up stays visible."
+        }
+      ],
+      "recommendation": {
+        "option": "C",
+        "why": "No one has needed a standalone app yet, and uv already covers 'no Python on the machine'. Recording it as a follow-up keeps it visible without the signing and per-OS build cost.",
+        "evidence": [
+          {
+            "text": "The handoff lists this as an open question; no user has asked for it yet.",
+            "source": "docs/planning-handoff.md, Plan 1: Open questions to settle"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    }
+  ],
+  "calls": [
+    {
+      "id": "AGNT1",
+      "name": "GitHub Actions for CI",
+      "question": "Which CI does the kit ship with?",
+      "took": "GitHub Actions. The repo is on GitHub, adopters fork it there, and deploys reach AWS with GitHub OIDC (no stored keys).",
+      "instead": "A CI-neutral setup (scripts plus thin wrappers per CI), which means more files and a second path to test.",
+      "why": "The handoff assumes it, the family repos all use it, and nothing points to another CI.",
+      "evidence": [
+        {
+          "text": "Handoff assumption",
+          "source": "docs/planning-handoff.md, Framing and delivery",
+          "output": "CI is part of the kit. GitHub Actions is assumed and not yet confirmed."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT2",
+      "name": "Folder layout",
+      "question": "Where does each part live in the repo?",
+      "took": "`packages/contract`, `packages/tool`, `packages/backend` (Python, uv workspace); `packages/infra` (CDK construct plus default app) and `packages/web` (React and Vite) (npm workspace); `agent/` (plugin, MCP server, skills); `examples/` (the sample package and an example archive config); `docs/`; `.github/workflows/`. Root holds `pyproject.toml`, `package.json`, `justfile`, `LICENSE`.",
+      "instead": "Top-level folders per part (`contract/`, `tool/`, `infra/`, `web/`) with no `packages/`, which is flatter but mixes code with docs and examples at the root.",
+      "why": "It matches the round you accepted and the bettor-help-platform precedent. Where the MCP server lives inside `agent/` is Plan 9's call.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT3",
+      "name": "Python tooling",
+      "question": "Which Python tools?",
+      "took": "uv for packages, the lock and the workspace; ruff for lint and format; mypy in strict mode with the Pydantic plugin; pytest. Wheels built with hatchling. requires-python \u003e=3.12 for every package; the backend runs on the newest Lambda Python runtime CDK offers.",
+      "instead": "pyright instead of mypy (faster, stricter inference), or a lower Python floor such as 3.11 for older lab machines.",
+      "why": "This is the set your Python repos already use (uv, ruff, mypy, pytest, hatchling), and mypy has a first-party Pydantic plugin.",
+      "evidence": [
+        {
+          "text": "Tool sections across local Python repos",
+          "source": "grep '^\\[tool\\.' ~/GitHub/*/*/pyproject.toml",
+          "output": "bh-lineup-engine: hatchling, ruff, mypy, pytest\nbettor-help-platform: uv workspace, pytest\nimage-sorter: hatchling, ruff, mypy, pytest"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT4",
+      "name": "TypeScript tooling",
+      "question": "Which TypeScript tools?",
+      "took": "npm workspaces, TypeScript strict, ESLint (flat config), Prettier, Vitest for both the web app and the CDK construct tests.",
+      "instead": "pnpm, or Biome in place of ESLint and Prettier.",
+      "why": "npm is what bettor-help-platform uses alongside its CDK and portal, and Vitest serves both packages with one runner.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT5",
+      "name": "One task runner",
+      "question": "How do people and CI run the checks?",
+      "took": "A root `justfile`: `just check` runs every lint, type check and test across Python and TypeScript, and CI runs exactly `just check`, path-filtered into Python and TypeScript jobs.",
+      "instead": "Separate commands per language, documented in the README.",
+      "why": "One command that CI and a person run identically means local and CI can't disagree.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT6",
+      "name": "Schema drift check",
+      "question": "How does the web app's JSON Schema stay in step with the contract?",
+      "took": "The schema generated from the contract is committed under `packages/web/`, and `just check` regenerates it and fails when the committed copy differs.",
+      "instead": "Generate it at web build time only, with nothing committed. Simpler, but a contract change then shows up only as a web build or runtime error.",
+      "why": "Your rule: anything crossing Python to TypeScript is a generated contract that fails the build on drift.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT7",
+      "name": "Versioning and releases",
+      "question": "How are versions numbered and released?",
+      "took": "One SemVer version for the whole repo, starting at 0.1.0. A `vX.Y.Z` tag makes a GitHub release with generated notes. Nothing is published to PyPI or npm; people install `cruise` from a tag with uv, and adopters deploy from their fork.",
+      "instead": "Per-package versions, so the tool can release without the archive. More flexible, more bookkeeping.",
+      "why": "Adopters fork the whole kit, so one version says which contract, tool and archive go together. DCSN2 dropped PyPI, and the handoff defers the npm library release.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT9",
+      "name": "Contract as its own package",
+      "question": "Is the contract a package of its own?",
+      "took": "Yes: `archive-contract` (import `archive_contract`) is its own package in the uv workspace, and `cruise` and the backend depend on it through workspace sources. It isn't published anywhere.",
+      "instead": "Put the contract inside the tool's package. One fewer package, but the backend would then depend on the CLI.",
+      "why": "The backend, the tool and the MCP server all need the contract; only researchers need the CLI. A uv install from git resolves it from the same checkout (tested on DCSN2).",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT10",
+      "name": "Local folder keeps its name",
+      "question": "Does the local folder get renamed to research-in-a-box?",
+      "took": "No. The GitHub repo is `research-in-a-box`, and the local folder stays `research-archive-in-a-box` for now, because both planning folders (this one and Plan 2's) and their running sessions are recorded by that path.",
+      "instead": "Rename the folder now, then reopen both planning folders at the new path.",
+      "why": "Renaming under two live diazo folders breaks their recorded paths for no gain today. A rename can happen once the planning sessions are done.",
+      "state": "standing"
+    }
+  ],
+  "principles": [
+    {
+      "id": "PRIN1",
+      "text": "FEMC is an example, not the source: nothing in the layout, names or tooling is modelled on FEMC's records.",
+      "from": "note:plan",
+      "struck": false
+    }
+  ],
+  "follow_ups": [],
+  "spec": {
+    "hash": "6c9f6e5cbb7dad3dd6da9b382e45db9ff749a8e8de733badb8966dc6fd0d872b",
+    "sections": [
+      {
+        "id": "SPEC1",
+        "heading": "Goal",
+        "decisions": []
+      },
+      {
+        "id": "SPEC2",
+        "heading": "One repo",
+        "decisions": [
+          "AGNT2",
+          "DCSN1"
+        ]
+      },
+      {
+        "id": "SPEC3",
+        "heading": "Folder layout",
+        "decisions": [
+          "AGNT2"
+        ]
+      },
+      {
+        "id": "SPEC4",
+        "heading": "Names",
+        "decisions": [
+          "DCSN1",
+          "DCSN2"
+        ]
+      },
+      {
+        "id": "SPEC5",
+        "heading": "Installing cruise",
+        "decisions": [
+          "DCSN2",
+          "DCSN3",
+          "AGNT9"
+        ]
+      },
+      {
+        "id": "SPEC6",
+        "heading": "Python tooling",
+        "decisions": [
+          "AGNT3",
+          "AGNT9"
+        ]
+      },
+      {
+        "id": "SPEC7",
+        "heading": "TypeScript tooling",
+        "decisions": [
+          "AGNT4"
+        ]
+      },
+      {
+        "id": "SPEC8",
+        "heading": "One check command and CI",
+        "decisions": [
+          "AGNT1",
+          "AGNT5"
+        ]
+      },
+      {
+        "id": "SPEC9",
+        "heading": "Schema drift",
+        "decisions": [
+          "AGNT6"
+        ]
+      },
+      {
+        "id": "SPEC10",
+        "heading": "Versioning and releases",
+        "decisions": [
+          "AGNT7",
+          "DCSN2"
+        ]
+      },
+      {
+        "id": "SPEC11",
+        "heading": "Risk and cost",
+        "decisions": [
+          "AGNT1",
+          "DCSN1"
+        ]
+      },
+      {
+        "id": "SPEC12",
+        "heading": "Left out",
+        "decisions": [
+          "DCSN2",
+          "DCSN3"
+        ]
+      },
+      {
+        "id": "SPEC13",
+        "heading": "How we'll know it works",
+        "decisions": [
+          "AGNT5",
+          "AGNT6",
+          "DCSN2"
+        ]
+      }
+    ],
+    "approved": {
+      "hash": "6c9f6e5cbb7dad3dd6da9b382e45db9ff749a8e8de733badb8966dc6fd0d872b",
+      "at": "2026-11-12T23:31:36.152754-06:00",
+      "body": "# Repo layout and conventions for research-in-a-box\n\n## Goal\n\nEvery other plan can assume one repo layout, one toolchain and one set of names, and an empty skeleton of that repo exists with its checks passing locally and in CI. No features are designed here.\n\n## One repo\n\nEverything lives in one repo, `research-in-a-box`: the Python contract, the local tool, the backend Lambdas, the CDK construct with its default app, the web app, the agent layer, the docs and the CI. An adopter forks this one repo, edits one config file and deploys. The web app's JSON Schema, the backend and the local tool all use the contract from source, with no published artifact between them.\n\nPython packages form a uv workspace; TypeScript packages form an npm workspace. Both are declared at the repo root.\n\nRests on: AGNT2, DCSN1\n\n## Folder layout\n\n```\nresearch-in-a-box/\n  packages/\n    contract/      Python: archive-contract, the Pydantic models (Plan 2)\n    tool/          Python: cruise, the local tool (Plan 3)\n    backend/       Python: the Lambda code (Plans 6 and 7)\n    infra/         TypeScript: the CDK construct and the default app (Plan 4)\n    web/           TypeScript: the React and Vite web app (Plan 8)\n  agent/           the plugin, MCP server and skills (Plan 9)\n  examples/        example archive config and, from Plan 2, the sample package\n  docs/            specs, plans and user docs\n  .github/workflows/\n  pyproject.toml   uv workspace root\n  package.json     npm workspace root\n  justfile\n  LICENSE          MIT\n```\n\nEach Python package keeps its code under `src/\u003cimport name\u003e/` and its tests under `tests/`. Where the MCP server sits inside `agent/` is Plan 9's call.\n\n```mermaid\nflowchart LR\n  tool[\"packages/tool (cruise)\"] --\u003e contract[\"packages/contract (archive-contract)\"]\n  backend[\"packages/backend\"] --\u003e contract\n  contract -- \"generated JSON Schema\" --\u003e web[\"packages/web\"]\n  infra[\"packages/infra\"] -- \"packages\" --\u003e backend\n  infra -- \"uploads bundle\" --\u003e web\n```\n\nRests on: AGNT2\n\n## Names\n\n| Thing | Name |\n| --- | --- |\n| The repo, and the docs title | `research-in-a-box` |\n| The contract package and import | `archive-contract`, `archive_contract` |\n| The CDK construct | `ResearchArchive` |\n| The local tool: package, command and import | `cruise` |\n\n`cruise` is never published, so the PyPI project of the same name doesn't matter. The only clash would be its `cruise` command if both were installed in one environment, and `uv tool install` gives each tool its own.\n\nRests on: DCSN1, DCSN2\n\n## Installing cruise\n\n`cruise` is installed from the repo with uv, at a release tag or the default branch:\n\n```\nuv tool install \"git+https://github.com/\u003cowner\u003e/research-in-a-box@v0.1.0#subdirectory=packages/tool\"\n```\n\nuv resolves `archive-contract` from the same checkout through the workspace source. Inside a clone, `uv run cruise` runs it. uv downloads a Python of its own, so a machine without Python needs only the uv installer. The docs name uv as the way to install; plain pip can't resolve the contract from the same repo. There is no standalone app.\n\nRests on: DCSN2, DCSN3, AGNT9\n\n## Python tooling\n\n- uv for dependencies, the lock file (`uv.lock`, committed) and the workspace.\n- hatchling builds each package.\n- ruff for lint and format.\n- mypy in strict mode with the Pydantic plugin.\n- pytest.\n- `requires-python = \"\u003e=3.12\"` for every package. The backend runs on the newest Lambda Python runtime that CDK offers, chosen in Plan 4.\n- `archive-contract` is its own package; `cruise` and the backend depend on it through `[tool.uv.sources] archive-contract = { workspace = true }`.\n\nRests on: AGNT3, AGNT9\n\n## TypeScript tooling\n\n- npm workspaces, with `package-lock.json` committed.\n- TypeScript in strict mode.\n- ESLint with a flat config, and Prettier.\n- Vitest for both the web app and the CDK construct tests.\n\nRests on: AGNT4\n\n## One check command and CI\n\nA root `justfile` holds the commands. `just check` runs every format check, lint, type check and test in both languages, plus the schema drift check. CI is GitHub Actions: on every push and pull request, `.github/workflows/ci.yml` runs `just check`, split into a Python job and a TypeScript job that each run their half (`just check-python`, `just check-ts`). The job commands are the same recipes a person runs, so local and CI can't disagree.\n\nDeploy workflows with GitHub OIDC to AWS are Plan 10a's.\n\nRests on: AGNT1, AGNT5\n\n## Schema drift\n\nThe JSON Schema generated from the contract is committed under `packages/web/`. `just check` regenerates it and fails when the committed copy differs. In the skeleton the contract is empty, so the generator and the check exist with an empty schema, and Plan 2 fills them in.\n\nRests on: AGNT6\n\n## Versioning and releases\n\nOne SemVer version covers the whole repo, starting at 0.1.0. A `vX.Y.Z` tag runs `.github/workflows/release.yml`, which makes a GitHub release with generated notes. Nothing is published to PyPI or npm. People install `cruise` from a tag, and adopters deploy from their fork.\n\nRests on: AGNT7, DCSN2\n\n## Risk and cost\n\nRisk: low. The work creates a new, empty repo; a mistake is undone by editing or deleting files, and nothing outside the repo changes. Creating the GitHub repo is the one outward step, and it is a single step for you.\n\nCost: one step for you (creating the GitHub repo and pushing). The new programs are the ones named above (uv, just, Node and npm), which this machine already uses in other repos.\n\nRests on: AGNT1, DCSN1\n\n## Left out\n\n- Any feature design, and any code beyond empty packages and the checks.\n- The sample package: Plan 2 builds it once the format exists. No data is committed by this plan.\n- Publishing to PyPI or npm, and any standalone app.\n- Deploy workflows, OIDC and the deployment skill (Plan 10a).\n- Where the MCP server runs (Plan 9) and which Lambda runtime version (Plan 4).\n\nRests on: DCSN2, DCSN3\n\n## How we'll know it works\n\n- A fresh clone runs `just check` and it exits 0.\n- The CI workflow on GitHub runs the same checks on the first push, and both jobs pass.\n- `uv tool install` from the pushed repo installs a `cruise` command that runs (it prints its version).\n- Each check fails when it should: a lint error, a type error, a failing test and a stale schema each make `just check` exit non-zero.\n- Plan 2's folder has been told the layout and the contract's package name.\n\nRests on: AGNT5, AGNT6, DCSN2\n"
+    }
+  },
+  "plans": [
+    {
+      "id": "PLAN1",
+      "topic": "empty-skeleton",
+      "covers": "git init, the uv and npm workspaces with empty packages, the checks, CI and release workflows, and the first push to GitHub",
+      "hash": "38b1d89c9594cfeae1d2b21349379b6333922f4fd857267ea5743365a1b07ea0",
+      "tasks": [
+        {
+          "id": "TASK1",
+          "heading": "Task 1: Initialise the repo and root files",
+          "does": "git init on main; LICENSE, README, .gitignore, .editorconfig; first commit with the handoff and this planning folder; note to Plan 2",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN1"
+          ],
+          "state": "keep",
+          "build": "building",
+          "build_at": "2026-11-13T00:13:22.868973-06:00"
+        },
+        {
+          "id": "TASK2",
+          "heading": "Task 2: Python workspace with three empty packages",
+          "does": "uv workspace root with ruff, mypy strict and pytest settings; archive-contract, cruise (with --version and one test) and archive-backend packages; uv.lock",
+          "pulls_in": "pydantic, ruff, mypy, pytest, hatchling",
+          "serves": [
+            "DCSN2",
+            "DCSN3"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK3",
+          "heading": "Task 3: TypeScript workspace with the empty construct and web app",
+          "does": "npm workspace root, strict tsconfig, ESLint and Prettier; empty ResearchArchive construct with default app and a synth test; Vite React app with a render test",
+          "pulls_in": "aws-cdk-lib, constructs, React, Vite, Vitest, ESLint, Prettier",
+          "serves": [],
+          "state": "keep"
+        },
+        {
+          "id": "TASK4",
+          "heading": "Task 4: Schema generator and drift check",
+          "does": "archive_contract.schema writes the JSON Schema of an empty root model; the schema is committed under packages/web; a generator test",
+          "pulls_in": "Nothing new",
+          "serves": [],
+          "state": "keep"
+        },
+        {
+          "id": "TASK5",
+          "heading": "Task 5: justfile, CI and release workflows",
+          "does": "just check and its per-language recipes; ci.yml with Python and TypeScript jobs on pinned actions; release.yml on v* tags; proves each check can fail",
+          "pulls_in": "GitHub Actions: setup-uv, setup-just, setup-node",
+          "serves": [],
+          "state": "keep"
+        },
+        {
+          "id": "TASK6",
+          "heading": "Task 6: Publish to GitHub and confirm CI and the install",
+          "does": "After your Go, creates public schuettc/research-in-a-box and pushes; confirms the pushed commit's CI run passes and cruise installs from GitHub with uv",
+          "pulls_in": "A public GitHub repo",
+          "serves": [
+            "DCSN1",
+            "DCSN2"
+          ],
+          "state": "keep",
+          "waits": [
+            {
+              "on": "STEP1",
+              "since": "2026-11-13T00:13:22.868973-06:00"
+            }
+          ]
+        }
+      ],
+      "approved": {
+        "hash": "38b1d89c9594cfeae1d2b21349379b6333922f4fd857267ea5743365a1b07ea0",
+        "at": "2026-11-13T00:11:59.322218-06:00",
+        "body": "# PLAN1: An empty, passing skeleton of research-in-a-box\n\n## Spec\n\n`docs/specs/2026-11-12-repo-layout-and-conventions/spec.md`, approved 2026-11-12.\n\n## The change\n\nTurn the project folder into a git repo holding the approved layout: a uv workspace with three empty Python packages (`archive-contract`, `cruise`, backend), an npm workspace with an empty CDK construct and an empty Vite web app, a schema generator with its drift check, one `just check` that runs every check, and the CI and release workflows. Then push it to a new public GitHub repo, `schuettc/research-in-a-box`, and confirm CI passes and `cruise` installs from it.\n\nEach package holds only enough code for its checks to be able to fail: `cruise --version` prints the version, the contract's schema generator writes an empty schema, and the construct synthesises an empty stack.\n\nRisk: low. Everything is new files in a new repo. A mistake is undone by editing or deleting files; the one outward step, creating the public GitHub repo, waits on your Go (STEP1).\n\n## Left out\n\n- Any feature code: the contract models, the tool's commands, Lambdas, resources in the construct and screens in the web app.\n- The sample package (Plan 2), deploy workflows and OIDC (Plan 10a).\n- Publishing to PyPI or npm.\n- Renaming the local folder (call AGNT10).\n- Committing other plans' planning folders: each planning session commits its own.\n\n## Where\n\nThe project folder `/Users/courtschuett/GitHub/personal/research-archive-in-a-box`, branch `main`. The repo doesn't exist yet, so tasks 1 to 5 commit straight to `main` locally, and task 6 makes the first push.\n\n### Task 1: Initialise the repo and root files\n\n**Does:** Runs `git init -b main`, then adds the root files: `LICENSE` (MIT, 2026, Court Schuett), a short `README.md` (what the kit is, the layout, how to install `cruise` with uv, `just check`), `.gitignore` (keeps `practice-data/`, adds `.venv/`, `node_modules/`, `dist/`, `cdk.out/`, `__pycache__/`, `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`), and `.editorconfig`. The first commit holds these files, `docs/planning-handoff.md` and this planning folder.\n**Files:** `LICENSE`, `README.md`, `.gitignore`, `.editorconfig`, `docs/planning-handoff.md`, `docs/specs/2026-11-12-repo-layout-and-conventions/`\n**Checks:** `git -C /Users/courtschuett/GitHub/personal/research-archive-in-a-box rev-parse --abbrev-ref HEAD` prints `main`; `git status --porcelain --ignored practice-data` shows it ignored (`!! practice-data/`).\n**Serves:** DCSN1 (rests on calls AGNT2, AGNT10)\n\nAfter the commit, send Plan 2's folder (`8da653f233f9`) a diazo_note saying the repo exists, so its session commits its own folder.\n\n### Task 2: Python workspace with three empty packages\n\n**Does:** Writes the root `pyproject.toml` as the uv workspace root (`members = [\"packages/contract\", \"packages/tool\", \"packages/backend\"]`, dev dependencies ruff, mypy, pytest, pydantic) with the ruff, mypy (strict, `plugins = [\"pydantic.mypy\"]`) and pytest settings. Adds the three packages, each with its own `pyproject.toml` (hatchling, `requires-python = \"\u003e=3.12\"`) and `src/\u003cimport name\u003e/`, listed below.\n**Files:** `pyproject.toml`, `uv.lock`, `packages/contract/`, `packages/tool/`, `packages/backend/`\n**Checks:** `uv sync --all-packages`; `uv run ruff format --check`; `uv run ruff check`; `uv run mypy packages`; `uv run pytest`; `uv run cruise --version` prints `cruise 0.1.0`.\n**Serves:** DCSN2, DCSN3 (rests on calls AGNT3, AGNT9)\n\n- `packages/contract`: `archive-contract`, import `archive_contract`, depends on pydantic, empty `__init__.py` with `__version__`.\n- `packages/tool`: `cruise`, depends on `archive-contract` through `[tool.uv.sources] archive-contract = { workspace = true }`, script `cruise = \"cruise.cli:main\"`, where `main` handles `--version` with argparse and prints `cruise \u003cversion\u003e`. One test: `tests/test_cli.py` runs `main([\"--version\"])` and checks the output.\n- `packages/backend`: `archive-backend`, import `archive_backend`, depends on `archive-contract` through the workspace source, an empty package with no tests yet.\n\nCommits `uv.lock`.\n\n### Task 3: TypeScript workspace with the empty construct and web app\n\n**Does:** Writes the root `package.json` (private, `\"workspaces\": [\"packages/infra\", \"packages/web\"]`), a shared `tsconfig.base.json` (strict), `eslint.config.js` (flat config with typescript-eslint and the React hooks rules for web) and `.prettierrc`, and adds the two packages listed below.\n**Files:** `package.json`, `package-lock.json`, `tsconfig.base.json`, `eslint.config.js`, `.prettierrc`, `packages/infra/`, `packages/web/`\n**Checks:** `npm ci`; `npx prettier --check .`; `npx eslint .`; `npm run typecheck --workspaces`; `npm test --workspaces`; `npm run build -w packages/web`.\n**Serves:** none (rests on calls AGNT2, AGNT4)\n\n- `packages/infra`: aws-cdk-lib and constructs; `src/research-archive.ts` exports an empty `ResearchArchive` construct; `bin/app.ts` is the default app with one stack that uses it and tags the app with `Repo` set to `schuettc/research-in-a-box`; `cdk.json`. One Vitest test synthesises the stack and checks the template has the `Repo` tag.\n- `packages/web`: React and Vite in TypeScript, an `App` that renders the kit's title. One Vitest test (jsdom and Testing Library) renders `App` and finds the title.\n\nCommits `package-lock.json`.\n\n### Task 4: Schema generator and drift check\n\n**Does:** Adds `archive_contract.schema` with a `main` that writes the JSON Schema of the contract's root model to a given path. In the skeleton the root model is an empty Pydantic model (`ArchiveContract`), which Plan 2 replaces. Writes `packages/web/src/schema/archive-contract.schema.json` and commits it. A test in `packages/contract/tests/` checks the generator output is valid JSON with a `title`.\n**Files:** `packages/contract/src/archive_contract/schema.py`, `packages/contract/tests/test_schema.py`, `packages/web/src/schema/archive-contract.schema.json`\n**Checks:** `uv run python -m archive_contract.schema /tmp/schema.json \u0026\u0026 diff /tmp/schema.json packages/web/src/schema/archive-contract.schema.json`; `uv run pytest packages/contract`.\n**Serves:** none (rests on call AGNT6)\n\n### Task 5: justfile, CI and release workflows\n\n**Does:** Writes the root `justfile` with `check` (runs `check-python`, `check-ts` and `check-schema`), `check-python` (ruff format check, ruff check, mypy, pytest), `check-ts` (prettier check, eslint, typecheck, tests, web build), `check-schema` (regenerate to a temp file and `diff` against the committed one), `schema` (rewrite the committed one) and `fmt`. Writes `.github/workflows/ci.yml`: on push and pull request, a Python job (checkout, `astral-sh/setup-uv`, `extractions/setup-just`, `uv sync --all-packages --locked`, `just check-python check-schema`) and a TypeScript job (checkout, `actions/setup-node` with Node 24 and npm cache, setup-just, `npm ci`, `just check-ts`), each action pinned to a full commit SHA. Writes `.github/workflows/release.yml`: on a `v*` tag, `gh release create \"$GITHUB_REF_NAME\" --generate-notes` with `contents: write`.\n**Files:** `justfile`, `.github/workflows/ci.yml`, `.github/workflows/release.yml`\n**Checks:** `just check` exits 0 on the clean tree; each of the six breakages makes `just check` exit non-zero, and `git status --porcelain` is empty after reverting them.\n**Serves:** none (rests on calls AGNT1, AGNT5, AGNT6, AGNT7)\n\nThen proves each check can fail, without committing the breakage: a ruff lint error, a mypy type error, a failing pytest, a Prettier violation, a failing Vitest test and a stale schema file each make `just check` exit non-zero; each is reverted after.\n\n### Task 6: Publish to GitHub and confirm CI and the install\n\n**Does:** Waits on your Go (STEP1), then creates the public repo with `gh repo create schuettc/research-in-a-box --public --source . --push`. Captures the new CI run's id for the pushed commit (not the latest run) and checks it: both jobs must pass. Then installs `cruise` from GitHub into a throwaway tool directory and runs it.\n**Files:** none\n**Checks:** `gh run view \u003cid\u003e --json conclusion` reports `success` for the run of the pushed SHA; `UV_TOOL_DIR=\u003ctmp\u003e UV_TOOL_BIN_DIR=\u003ctmp\u003e/bin uv tool install \"git+https://github.com/schuettc/research-in-a-box#subdirectory=packages/tool\"` exits 0 and `\u003ctmp\u003e/bin/cruise --version` prints `cruise 0.1.0`.\n**Serves:** DCSN1, DCSN2 (rests on call AGNT1)\n"
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": 1,
+      "card": "DIRN",
+      "from": "user",
+      "action": "direction",
+      "at": "2026-11-12T23:04:10.675977-06:00",
+      "state": "answered",
+      "claim": "c5a7a62d123cf4fd"
+    },
+    {
+      "id": 2,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 2, at Court's word after reviewing both plans: FEMC is an example, not the source. The format is now designed generically, and FEMC migration comes later as its own plan. Two changes for Plan 1. (1) AGNT8, the sample package, moves to Plan 2. It needs the format to exist first, and modelling it on FEMC's Ozone record repeats the FEMC-first mistake. Plan 2 will build it as a generic invented dataset once the format is settled. Please reverse or remove AGNT8 so that Plan 1's build stops at an empty, passing skeleton. (2) For DCSN1, quadrat and cruise are field-ecology names, which sits against your own generic-first point. Your recommendation of A already avoids them, so this is only a flag. The old Plan 2 folder (af69e15bba0a) is deleted. A new Plan 2 folder follows; the layout in your note (packages/contract and so on) still stands. docs/planning-handoff.md now records all of this in its Decision log.",
+      "at": "2026-11-12T23:15:24.667426-06:00",
+      "state": "answered",
+      "claim": "cdd8ccbcc92f4154",
+      "sender": {
+        "project": "personal",
+        "folder": "af69e15bba0a"
+      }
+    },
+    {
+      "id": 3,
+      "card": "plan",
+      "from": "agent",
+      "action": "reply",
+      "text": "Removed AGNT8, since the sample package moves to Plan 2. The understanding now says the build stops at an empty, passing skeleton, and 'FEMC is an example, not the source' is recorded as a principle. DCSN1 is unchanged: its recommendation, A, already avoids the field-ecology names.",
+      "at": "2026-11-12T23:15:35.48154-06:00",
+      "answers": [
+        2
+      ]
+    },
+    {
+      "id": 4,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-12T23:19:17.582698-06:00",
+      "state": "answered",
+      "claim": "7db7ea562ecd9dc9"
+    },
+    {
+      "id": 5,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "text": "the repo name can be research-in-a-box.  the tool can be called cruise.",
+      "at": "2026-11-12T23:19:51.319667-06:00",
+      "state": "answered",
+      "claim": "eaab9b2bbbd7f229"
+    },
+    {
+      "id": 6,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "note",
+      "text": "what about cruise",
+      "at": "2026-11-12T23:20:06.514231-06:00",
+      "state": "answered",
+      "claim": "61c83f20478afcd8"
+    },
+    {
+      "id": 7,
+      "card": "DCSN3",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-12T23:20:28.603785-06:00",
+      "state": "answered",
+      "claim": "f943e8e84d7d19ef"
+    },
+    {
+      "id": 8,
+      "card": "DCSN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "The tool is cruise. Bare cruise is taken on PyPI, so this card now asks only what researchers install it as; the command is cruise either way. On DCSN1 I recorded research-in-a-box as the repo and docs title, in your words, and kept archive-contract and ResearchArchive from option A.",
+      "at": "2026-11-12T23:20:56.331961-06:00",
+      "answers": [
+        5
+      ]
+    },
+    {
+      "id": 9,
+      "card": "DCSN2",
+      "from": "agent",
+      "action": "reply",
+      "text": "The tool is cruise. Bare cruise is taken on PyPI, so this card now asks only what researchers install it as; the command is cruise either way. On DCSN1 I recorded research-in-a-box as the repo and docs title, in your words, and kept archive-contract and ResearchArchive from option A.",
+      "at": "2026-11-12T23:20:56.331961-06:00",
+      "answers": [
+        6
+      ]
+    },
+    {
+      "id": 10,
+      "card": "DCSN3",
+      "from": "agent",
+      "action": "reply",
+      "text": "Recorded: Python packages only, with no standalone app and no follow-up for one.",
+      "at": "2026-11-12T23:21:02.509948-06:00",
+      "answers": [
+        7
+      ]
+    },
+    {
+      "id": 11,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "note",
+      "text": "can we just have this local?  does it need to be on pypi?",
+      "at": "2026-11-12T23:21:46.976421-06:00",
+      "state": "answered",
+      "claim": "25a5fcf6e4a4358e"
+    },
+    {
+      "id": 12,
+      "card": "DCSN2",
+      "from": "agent",
+      "action": "reply",
+      "text": "No, it doesn't need PyPI. I tested it: uv installs the tool straight from the git repo, and pulls the contract from the same checkout. I added that as option A and recommend it. If it's chosen, the release call (AGNT7) drops PyPI publishing, and nothing is published until a real outside user needs a PyPI install.",
+      "at": "2026-11-12T23:22:21.408706-06:00",
+      "answers": [
+        11
+      ]
+    },
+    {
+      "id": 13,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-12T23:24:00.938044-06:00",
+      "state": "answered",
+      "claim": "64b5e99a788e6f56"
+    },
+    {
+      "id": 14,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-12T23:31:34.058549-06:00",
+      "state": "answered",
+      "claim": "a1baa46cf8bf8be0"
+    },
+    {
+      "id": 15,
+      "card": "spec",
+      "from": "user",
+      "action": "approve-spec",
+      "at": "2026-11-12T23:31:36.152754-06:00",
+      "state": "answered",
+      "claim": "c1b10d517950f0c2"
+    },
+    {
+      "id": 16,
+      "card": "spec",
+      "from": "agent",
+      "action": "reply",
+      "text": "Approved. The folder can't be committed yet: the project isn't a git repository, and git init is TASK1 of the plan. TASK1's first commit includes this folder.",
+      "at": "2026-11-12T23:32:08.02076-06:00",
+      "answers": [
+        15
+      ]
+    },
+    {
+      "id": 17,
+      "card": "PLAN1",
+      "from": "user",
+      "action": "approve-plan",
+      "at": "2026-11-13T00:11:59.322218-06:00",
+      "state": "answered",
+      "claim": "059fe06c9df6270c"
+    }
+  ]
+}

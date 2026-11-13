@@ -1,0 +1,12 @@
+# Practice data is fetched, not committed (licenses vary per dataset)
+practice-data/
+
+# Build and tool output
+.venv/
+node_modules/
+dist/
+cdk.out/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

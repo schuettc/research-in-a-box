@@ -1,0 +1,1055 @@
+{
+  "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
+  "schema": 4,
+  "title": "Package format and contract (Plan 2)",
+  "expect": 6,
+  "agent_at": "2026-11-13T06:12:48.675723Z",
+  "start": {
+    "opening": {
+      "text": "i think we got started incorrectly here.\n\nthe goal here is to build a research in abox.  we'll use the FEMC data as an example, but we want to build this generically.  once we have the correct format, we can work on a process to migrate FEMC data\n\n[...]\n\nyes, let's do that.  we can delete that plan 2 and restart fresh\n\n(Brief: Plan 2 in docs/planning-handoff.md, revised 2026-11-12 to be generic first. Read the handoff, including the Decision log, before continuing.)"
+    },
+    "findings": [
+      {
+        "text": "Frictionless Data Package v2 requires only resources at package level. Name, id, licenses, title, description, version, created, keywords, contributors and sources are all optional. Extra properties are allowed.",
+        "source": "https://datapackage.org/standard/data-package/",
+        "cases": "1 standard"
+      },
+      {
+        "text": "A Frictionless v2 resource requires a name plus either path or inline data. Its type is only table or unspecified (a plain file). A path array means one resource split across several files, not a set of sidecar files.",
+        "source": "https://datapackage.org/standard/data-resource/",
+        "output": "path or data [required] ... sometimes it can be convenient to have a single resource whose data is split across multiple files",
+        "cases": "1 standard"
+      },
+      {
+        "text": "Frictionless v2 Table Schema already has field categories (code lists inline), missingValues, primaryKey, uniqueKeys and foreignKeys, and geopoint and geojson field types. A foreign key to another resource in the package is a standard way to point a column at a code-list table.",
+        "source": "https://datapackage.org/standard/table-schema/",
+        "cases": "1 standard"
+      },
+      {
+        "text": "DataCite 4.6 has six mandatory properties: Identifier, Creator, Title, Publisher, PublicationYear and ResourceType. The recommended ones are Subject, Contributor, Date, RelatedIdentifier, Description (Abstract above all) and GeoLocation.",
+        "source": "https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/overview/",
+        "output": "Table 1: 1 Identifier · 2 Creator · 3 Title · 4 Publisher · 5 PublicationYear · 10 ResourceType",
+        "cases": "1 standard"
+      },
+      {
+        "text": "Google Dataset Search requires a schema.org Dataset name and a description of 50 to 5000 characters. Everything else (creator, license, temporalCoverage, spatialCoverage, distribution, identifier, funder) is recommended.",
+        "source": "https://developers.google.com/search/docs/appearance/structured-data/dataset",
+        "output": "Required properties: description (between 50 and 5000 characters long) · name",
+        "cases": "1 standard"
+      },
+      {
+        "text": "Google counts as datasets: a table, a collection of tables, a file in a proprietary format, a collection of files that together make a dataset, and images capturing data.",
+        "source": "https://developers.google.com/search/docs/appearance/structured-data/dataset",
+        "cases": "1 standard"
+      },
+      {
+        "text": "Plan 1 is settled: the repo is research-in-a-box, one repo with a uv workspace. The contract lives at packages/contract as its own package, archive-contract (import archive_contract); packages/tool (command cruise) and packages/backend depend on it. Nothing is published to PyPI: the contract is used through uv workspace sources, and cruise installs from the git repo. The generated JSON Schema is committed under packages/web/ and checked for drift by just check in CI. Tooling: Python \u003e=3.12, ruff, mypy strict with the Pydantic plugin, pytest, hatchling. The sample package belongs to Plan 2.",
+        "source": "diazo notes from Plan 1 (folder d65ecf18be29), 2026-11-12",
+        "cases": "1"
+      },
+      {
+        "text": "FEMC's six practice datasets cover a table, a very wide table, a multi-file shapefile set shipped with CSV and XLSX copies, code lists, and a record whose data lives elsewhere. They serve as the test set once the format exists, not as its source.",
+        "source": "practice-data/femc/SOURCES.md and docs/planning-handoff.md",
+        "cases": "6 datasets"
+      },
+      {
+        "text": "Zenodo makes a new version only when a record's files change, and edits metadata in place.",
+        "source": "https://help.zenodo.org/docs/deposit/manage-versions/",
+        "output": "Versioning is used when you have updated the files of your published record. If you just need to edit metadata (title, creators, description etc) then see Edit published records",
+        "cases": "1 repository"
+      }
+    ],
+    "rounds": [
+      {
+        "take": "Start the format from two generic sources instead of from any one archive.\n\n**1. Core fields come from what the exports require.** The kit must produce DataCite, schema.org and EML from the manifest, so a package is publishable only when those exports can be filled. Taking the union of their required fields gives a small, defensible core:\n\n- title (DataCite, Google)\n- description of at least 50 characters (Google)\n- at least one creator (DataCite)\n- rights: a license, or a recorded rights status (needed for any reuse)\n- at least one described resource (Frictionless)\n\nThe archive fills in publisher, publication year, identifier and resource type at publish, from its config. The *recommended* tier is DataCite's and Google's recommended lists: keywords, contributors, temporal and spatial coverage, related identifiers, funding and methods. Profiles such as ecology promote some recommended fields to required and add domain checks.\n\n**2. Resource kinds come from the shapes research data arrives in.** Frictionless only knows table and plain file. A small archive receives at least:\n\n- tables (CSV now, Parquet later)\n- spatial data, vector or raster, often several files that only work together\n- documents (methods, protocols, field sheets)\n- images and other media\n- other files in a domain format\n- data held elsewhere, linked rather than stored\n\nplus cross-cutting needs: code lists, which Frictionless can already point to with a foreign key to a small table in the package; the same data in several formats; and coverage that is still ongoing.\n\n**3. A committed sample package covers every kind.** It's an invented dataset with a clear license, with known gaps seeded in, so later plans test against it. Only then do we write each FEMC practice dataset down in the format, as a test.",
+        "visuals": [
+          {
+            "kind": "table",
+            "caption": "Which standard requires which field",
+            "table": {
+              "columns": [
+                "Field",
+                "Frictionless v2",
+                "DataCite 4.6",
+                "Google (schema.org)",
+                "Core?"
+              ],
+              "rows": [
+                [
+                  "Title / name",
+                  "optional",
+                  "mandatory",
+                  "required",
+                  "yes"
+                ],
+                [
+                  "Description",
+                  "optional",
+                  "recommended (abstract)",
+                  "required, 50 to 5000 chars",
+                  "yes"
+                ],
+                [
+                  "Creator",
+                  "optional (contributors)",
+                  "mandatory",
+                  "recommended",
+                  "yes"
+                ],
+                [
+                  "Publisher",
+                  "-",
+                  "mandatory",
+                  "-",
+                  "set by the archive"
+                ],
+                [
+                  "Publication year",
+                  "-",
+                  "mandatory",
+                  "-",
+                  "set at publish"
+                ],
+                [
+                  "Identifier",
+                  "optional (id)",
+                  "mandatory",
+                  "recommended",
+                  "set at publish"
+                ],
+                [
+                  "Resource type",
+                  "-",
+                  "mandatory",
+                  "-",
+                  "always Dataset"
+                ],
+                [
+                  "License / rights",
+                  "optional",
+                  "optional",
+                  "recommended",
+                  "yes, as license or rights status"
+                ],
+                [
+                  "Resources",
+                  "required",
+                  "-",
+                  "recommended (distribution)",
+                  "yes"
+                ],
+                [
+                  "Keywords / subjects",
+                  "optional",
+                  "recommended",
+                  "recommended",
+                  "recommended"
+                ],
+                [
+                  "Temporal coverage",
+                  "-",
+                  "recommended (Date)",
+                  "recommended",
+                  "recommended"
+                ],
+                [
+                  "Spatial coverage",
+                  "-",
+                  "recommended (GeoLocation)",
+                  "recommended",
+                  "recommended"
+                ],
+                [
+                  "Funding",
+                  "-",
+                  "optional",
+                  "recommended",
+                  "recommended"
+                ]
+              ],
+              "sample": "3 standards"
+            }
+          }
+        ],
+        "recommendation": "Define the core as the union of the export standards' required fields, define resource kinds from the generic shapes above, build the sample package to cover them, and use FEMC's six datasets only as the test afterwards."
+      }
+    ],
+    "done": [
+      {
+        "text": "Deleted the first Plan 2 folder, which had derived the format from FEMC's datasets; its FEMC findings were copied into the handoff first",
+        "ref": "docs/specs/2026-11-12-package-format-and-contract (removed)"
+      },
+      {
+        "text": "Corrected the handoff: FEMC is an example, not the source; FEMC migration (Plan 5) moves after Plans 2 and 3; standard EML only in Plan 2; the sample package moves from Plan 1 to Plan 2; Plan 2 and 3 starter prompts no longer start from FEMC",
+        "ref": "docs/planning-handoff.md"
+      },
+      {
+        "text": "Sent Plan 1 a note asking it to drop AGNT8 (the sample package moves to Plan 2) and flagging ecology-flavoured name candidates",
+        "ref": "diazo folder d65ecf18be29"
+      }
+    ],
+    "direction": {
+      "round": 1,
+      "at": "2026-11-12T23:23:34.221051-06:00",
+      "by": "user"
+    }
+  },
+  "understanding": {
+    "points": [
+      {
+        "kind": "outcome",
+        "text": "A written package spec and a Python contract package, archive-contract (import archive_contract) at packages/contract, that the local tool and the backend import. It is designed from Frictionless Data Package v2, EML, DataCite and schema.org and from what any research group needs, not from FEMC.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "The core required fields are the union of what the exports require: title, a description of at least 50 characters, at least one creator, rights (a license or a recorded rights status) and at least one described resource. The archive fills in publisher, publication year, identifier and resource type at publish. A recommended tier follows DataCite's and Google's recommended lists, and profiles (core and ecology first) promote fields and add domain checks.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "Resource kinds cover the shapes a small archive receives: tables, vector and raster spatial data (often several files that only work together), documents, images and media, other files, and data held elsewhere. The format also holds code lists, the same data in several formats, and coverage that is still ongoing.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "Pydantic models for the manifest, profiles, the archive config file, the project record, the change log (changes.jsonl) and the findings format. A JSON Schema is generated from them and committed under packages/web/, checked for drift by just check.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "Standard EML import and export, plus schema.org and DataCite export generated from the manifest. Nobody edits those by hand.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "A committed sample package: a small invented dataset with a clear license, covering every resource kind, with known gaps seeded in so Plan 3's rules have predictable findings.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Nothing in the core is specific to FEMC or to ecology. FEMC's six practice datasets are the test afterwards, written down in the format on paper.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Every package is a valid Frictionless v2 Data Package. Standard properties are left out when unknown, never null. Our additions sit under the archive: prefix and may be null.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Compatibility is tested against the frictionless library, which is not a run-time dependency.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "CSV first, with Parquet easy to add later: columns are described by logical type, and a resource's format is the only place the file type appears.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Plan 1's conventions: Python 3.12 or later, ruff, mypy strict with the Pydantic plugin, pytest, hatchling. Nothing is published to PyPI: archive-contract is used through uv workspace sources, and cruise installs from the git repo.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Out of scope: the quality rules themselves (Plan 3), tolerating FEMC's EML quirks (Plan 5), storage and the API (Plans 4 and 6).",
+        "source": "said"
+      },
+      {
+        "kind": "success",
+        "text": "The spec is written, the sample package expresses every resource kind, each of the six FEMC practice datasets can be written in the format on paper, and the model list and module layout are agreed.",
+        "source": "said"
+      },
+      {
+        "kind": "success",
+        "text": "The sample package passes the frictionless library's validation and our own structural validation, its EML export imports back to the same manifest fields, and just check passes with the JSON Schema committed.",
+        "source": "assumed"
+      }
+    ],
+    "confirmed": true
+  },
+  "decisions": [
+    {
+      "id": "DCSN1",
+      "name": "Packages without a license",
+      "question": "What does a package need on rights before the pipeline will publish it?",
+      "example": "A lab packages a field season's data with the local tool before its PI has chosen a license, so the package says 'undetermined'. Another group reuses an agency's data whose terms are set by the agency, not an open license. A third holds data under 'all rights reserved'. Which of these can the pipeline publish?",
+      "options": [
+        {
+          "id": "A",
+          "title": "Publish needs a license or a stated rights status",
+          "includes": "The local tool can package with rights 'undetermined', and the audit reports it. The pipeline refuses to publish until there is a license, or a stated status with its statement: public domain, third party sets the license (with where), or all rights reserved.",
+          "pulls_in": "A rights-status vocabulary in the contract, and a publish check in Plan 7. Anything with unknown rights waits unpublished until someone records them."
+        },
+        {
+          "id": "B",
+          "title": "Publish the record without its files",
+          "includes": "As A, except a package with rights 'undetermined' can still be published as description-only. The record is findable and citable, and its files are withheld until rights are recorded.",
+          "pulls_in": "The same vocabulary, plus a rule that 'undetermined' forces the description-only level, which Plans 7 and 8 have to show."
+        },
+        {
+          "id": "D",
+          "title": "Publish needs a real license, nothing else",
+          "includes": "Only a license (an SPDX id or a license URL) passes the publish check. Third-party and all-rights-reserved statements don't count.",
+          "pulls_in": "A simpler check. Data reused under another body's terms, or held under restrictive terms, can't be published until an open license is attached."
+        },
+        {
+          "id": "C",
+          "title": "Refuse it at packaging",
+          "includes": "A package with no license and no stated rights is not a valid package at all.",
+          "pulls_in": "The local tool can't package data until its license is settled, so a group can't clean or audit its data first, which is when the gap is usually found."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "No published package has unknown rights, which is what your earlier note asked for. A stated status still lets a group publish data whose terms are real but are not an open license, which D would shut out. The standards treat rights as a statement, not only a license: DataCite's Rights property takes free text with an optional URI and identifier, and neither Frictionless nor DataCite makes it mandatory.",
+        "evidence": [
+          {
+            "text": "DataCite Rights is property 16, among the recommended and optional properties, not the mandatory six",
+            "source": "https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/overview/",
+            "output": "Table 1: 1 Identifier · 2 Creator · 3 Title · 4 Publisher · 5 PublicationYear · 10 ResourceType"
+          },
+          {
+            "text": "Frictionless v2 licenses is optional at package level",
+            "source": "https://datapackage.org/standard/data-package/"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A",
+      "revisions": [
+        {
+          "at": "2026-11-12T23:33:11.9569-06:00",
+          "text": "Revised after your note: the pipeline requires rights to publish in every option. A now names a license or stated rights status as the requirement and is recommended. Added D, license only.",
+          "because": "note:DCSN1"
+        },
+        {
+          "at": "2026-11-12T23:34:26.301193-06:00",
+          "text": "Revised after your note on the whole plan: generic examples and reasons only, recommendation unchanged.",
+          "because": "note:plan"
+        }
+      ]
+    },
+    {
+      "id": "DCSN2",
+      "name": "Column names",
+      "question": "Do tidy tables keep the source's column names, or rename them to a house style?",
+      "example": "A lab's spreadsheet has columns 'Temp (°C)', 'Site #' and 'DO mg/L'. Renaming them to temp_c, site_id and do_mg_l reads better, but the lab's own scripts, their older files and any EML that describes the columns all use the original names.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Always keep the source names",
+          "includes": "The column name in data/ is the source name. Frictionless's title field holds a readable label, and description holds the definition.",
+          "pulls_in": "Nothing new in the format. Awkward names stay in the data."
+        },
+        {
+          "id": "B",
+          "title": "Always rename to a house style",
+          "includes": "Every column is renamed to lower snake_case in data/, and the source name is kept in archive:sourceName.",
+          "pulls_in": "A naming rule in the contract and a rename on every import. Every EML round trip maps names both ways, and the group sees names that differ from their own files and scripts."
+        },
+        {
+          "id": "C",
+          "title": "Keep by default, rename as a recorded change",
+          "includes": "Source names are kept, as in A. The local tool may propose a rename, which the person accepts and which is recorded in changes.jsonl with archive:sourceName on the field.",
+          "pulls_in": "archive:sourceName as an optional field property, and a rename change type agreed with Plan 3."
+        }
+      ],
+      "recommendation": {
+        "option": "C",
+        "why": "Keeping names preserves the link to the originals, to the group's own code, and to any metadata that describes the columns by name. Frictionless already separates name from title, so a readable label costs nothing. C still lets a person fix a truly unusable name, with the change on record.",
+        "evidence": [
+          {
+            "text": "Frictionless fields carry name, title and description separately",
+            "source": "https://datapackage.org/standard/table-schema/"
+          },
+          {
+            "text": "EML describes each column by attributeName, matched to the column header",
+            "source": "https://eml.ecoinformatics.org/schema/eml-attribute_xsd.html"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "C",
+      "revisions": [
+        {
+          "at": "2026-11-12T23:34:26.301193-06:00",
+          "text": "Revised after your note on the whole plan: generic examples and reasons only, recommendation unchanged.",
+          "because": "note:plan"
+        }
+      ]
+    },
+    {
+      "id": "DCSN3",
+      "name": "Where code lists live",
+      "question": "Where does a package keep the list of what each code in a column means?",
+      "example": "A vegetation survey records damage in three columns, damage_1, damage_2 and damage_3, which all use the same 12-code list. The same survey has a species column holding numeric codes that nobody ever wrote down.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Inline on each column",
+          "includes": "Frictionless categories on the field, with value and label for each code.",
+          "pulls_in": "A shared list is copied onto every column that uses it (three copies in the example). Long lists bloat the manifest."
+        },
+        {
+          "id": "B",
+          "title": "A small code-list table, linked by foreign key",
+          "includes": "Each list is a CSV resource under data/codes/ with code, label and description columns. Columns point at it with a Frictionless foreign key, so one list serves many columns.",
+          "pulls_in": "Code-list tables count as table resources. EML export writes them as enumerated domains. Frictionless validation checks every code is in its list."
+        },
+        {
+          "id": "C",
+          "title": "Both, by size",
+          "includes": "Inline categories for a short list used by one column, a table for long or shared lists.",
+          "pulls_in": "Two ways to read a code list everywhere: the tool, the exports, the web app's column dictionary."
+        }
+      ],
+      "recommendation": {
+        "option": "B",
+        "why": "One way to hold code lists, it shares a list across columns, and Frictionless already validates it. In every option, a column that holds codes with no list is marked archive:codeList: \"undocumented\", so Plan 3's rule can find it.",
+        "evidence": [
+          {
+            "text": "Frictionless v2 foreign keys can point a column at another resource in the package",
+            "source": "https://datapackage.org/standard/table-schema/"
+          },
+          {
+            "text": "EML holds a code list as an enumeratedDomain on a nominal attribute",
+            "source": "https://eml.ecoinformatics.org/schema/eml-attribute_xsd.html"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "B",
+      "revisions": [
+        {
+          "at": "2026-11-12T23:34:26.301193-06:00",
+          "text": "Revised after your note on the whole plan: generic examples and reasons only, recommendation unchanged.",
+          "because": "note:plan"
+        }
+      ]
+    },
+    {
+      "id": "DCSN4",
+      "name": "Version numbers",
+      "question": "What makes a new version of a package, and how are versions numbered?",
+      "example": "A curator fixes a typo in a published dataset's description, and a month later the lab adds a year of new rows. Is each of those a new version that people can cite separately?",
+      "options": [
+        {
+          "id": "A",
+          "title": "Every change is a new version",
+          "includes": "Versions 1, 2, 3, and any change to data or metadata makes the next one.",
+          "pulls_in": "A typo fix mints a new version and, with DOIs on, a new DOI."
+        },
+        {
+          "id": "B",
+          "title": "File changes make a version, metadata edits in place",
+          "includes": "Versions 1, 2, 3. Changing, adding or removing a file makes the next version. Metadata edits update the current version, and each edit is recorded in its history. The package keeps one stable id across versions.",
+          "pulls_in": "A metadata edit history in the manifest. Each version gets its own DOI when DOIs are on."
+        },
+        {
+          "id": "C",
+          "title": "Semantic versions",
+          "includes": "major.minor.patch: a schema change is major, appended rows are minor, metadata is patch.",
+          "pulls_in": "Rules to classify every change, and arguments over edge cases. Citations look like software versions."
+        }
+      ],
+      "recommendation": {
+        "option": "B",
+        "why": "A citation should guarantee the files did not change, and that is what B protects. Metadata fixes stay cheap. This is Zenodo's model, which researchers already know.",
+        "evidence": [
+          {
+            "text": "Zenodo makes a new version only when files change, and edits metadata in place",
+            "source": "https://help.zenodo.org/docs/deposit/manage-versions/",
+            "output": "Versioning is used when you have updated the files of your published record. If you just need to edit metadata (title, creators, description etc) then see Edit published records"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "B",
+      "revisions": [
+        {
+          "at": "2026-11-12T23:34:26.301193-06:00",
+          "text": "Revised after your note on the whole plan: checked it rests only on general practice; unchanged.",
+          "because": "note:plan"
+        }
+      ]
+    },
+    {
+      "id": "DCSN5",
+      "name": "Projects and their packages",
+      "question": "How does a project record relate to the packages under it?",
+      "example": "A long-running monitoring program publishes one dataset a year. Each dataset should show the program's name and purpose, and when the program's description is updated, every dataset should show the new one.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Its own small record, packages point to it",
+          "includes": "A project.json with id, title, abstract, people and links, stored on its own. Each package names it with archive:project: \u003cid\u003e.",
+          "pulls_in": "A Project model in the contract, and a projects area in storage (Plan 4). A package's README and exports look up the project's title."
+        },
+        {
+          "id": "B",
+          "title": "Copied into each package",
+          "includes": "Every package carries the project's title and abstract.",
+          "pulls_in": "Nothing new to store. Copies drift, and updating a project means editing every package."
+        },
+        {
+          "id": "C",
+          "title": "A folder that holds its packages",
+          "includes": "A project folder with packages nested inside it.",
+          "pulls_in": "Moving a package between projects moves files. A package can't stand alone, which breaks 'a package is a plain folder'."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "One copy of the project, and packages stay self-contained folders. It matches how the exports already model it: DataCite links a dataset to its parent with a related identifier of type IsPartOf, and EML has its own project element.",
+        "evidence": [
+          {
+            "text": "DataCite relates a dataset to a larger whole with relationType IsPartOf",
+            "source": "https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/relatedidentifier/"
+          },
+          {
+            "text": "EML describes the research project as its own project element",
+            "source": "https://eml.ecoinformatics.org/schema/eml-project_xsd.html"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A",
+      "revisions": [
+        {
+          "at": "2026-11-12T23:34:26.301193-06:00",
+          "text": "Revised after your note on the whole plan: generic examples and reasons only, recommendation unchanged.",
+          "because": "note:plan"
+        }
+      ]
+    },
+    {
+      "id": "DCSN6",
+      "name": "Multi-file resources",
+      "question": "How does a package describe something made of several files that only work together, such as a shapefile set?",
+      "example": "A shapefile layer of study plots is a .shp file plus .shx, .dbf and .prj files. None of them is usable alone, and Frictionless has no notion of sidecar files.",
+      "options": [
+        {
+          "id": "A",
+          "title": "One resource, member files listed",
+          "includes": "One resource with path pointing at the main file (.shp), archive:kind set to vector, and archive:files listing every member file with its size and hash.",
+          "pulls_in": "A member-file list in the resource model. Checksums, previews and the web app's file list read it."
+        },
+        {
+          "id": "B",
+          "title": "Zip the set into one file",
+          "includes": "One plain file resource, a .zip.",
+          "pulls_in": "The contents can't be checked, previewed or given a spatial extent without unzipping."
+        },
+        {
+          "id": "C",
+          "title": "One resource per file, grouped",
+          "includes": "Each file is its own resource, tied together by archive:group.",
+          "pulls_in": "Four resources for one layer. Every consumer has to regroup them, and a lone .dbf looks like a table."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "One resource per thing a person uses, with every file still checksummed. Frictionless's path array means one dataset split across files, not sidecars, so it doesn't fit, and A stays valid Frictionless because path names a real file. Google already counts a set of files that together make a dataset as one dataset.",
+        "evidence": [
+          {
+            "text": "A Frictionless path array is one resource split across several files",
+            "source": "https://datapackage.org/standard/data-resource/",
+            "output": "sometimes it can be convenient to have a single resource whose data is split across multiple files"
+          },
+          {
+            "text": "Google counts a collection of files that together make a dataset",
+            "source": "https://developers.google.com/search/docs/appearance/structured-data/dataset"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A",
+      "revisions": [
+        {
+          "at": "2026-11-12T23:34:26.301193-06:00",
+          "text": "Revised after your note on the whole plan: generic examples and reasons only, recommendation unchanged.",
+          "because": "note:plan"
+        }
+      ]
+    }
+  ],
+  "calls": [
+    {
+      "id": "AGNT1",
+      "name": "Resource kinds vocabulary",
+      "question": "What values does archive:kind take?",
+      "took": "table, vector, raster, document, media, file and linked. Code-list tables are tables. A resource with no kind is read as file.",
+      "instead": "A longer list (separate image, audio, video, notebook) or fewer kinds, with the rest left to mediatype.",
+      "why": "It matches Round 1's shapes one to one, and mediatype already says the exact type.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT2",
+      "name": "Same data, several formats",
+      "question": "How is a copy of the same data in another format marked?",
+      "took": "The copy is its own resource with archive:alternateOf: \u003cname of the primary resource\u003e. Only the primary carries the schema.",
+      "instead": "Treat each copy as an independent resource with its own schema.",
+      "why": "Groups often ship one table as CSV and XLSX, or one layer as a shapefile and a CSV. One schema avoids the descriptions drifting apart.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT3",
+      "name": "Linked resources",
+      "question": "How is data held elsewhere described?",
+      "took": "A resource with archive:kind linked whose path is the remote URL (allowed by Frictionless), with no hash or bytes. Compatibility tests run frictionless with remote fetching off.",
+      "instead": "Keep the URL only in an archive: property with no path, which is not valid Frictionless.",
+      "why": "It stays valid Frictionless, and the location of data held on GitHub, an agency server or another repository is a real field, not buried in a citation or a description.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT4",
+      "name": "Access levels per package",
+      "question": "Where is the access level set, and what values does it take?",
+      "took": "One level per package: open, restricted, by-request or description-only. Unpublished is a state of the package, not an access level.",
+      "instead": "A level per resource, for example open tables with restricted precise locations.",
+      "why": "Repositories such as Zenodo set access per record, and a per-resource override can be added later without breaking packages. Precise locations are already handled by the column sensitivity flag.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT5",
+      "name": "Column sensitivity flags",
+      "question": "What does a per-column sensitivity flag look like?",
+      "took": "archive:sensitivity on a field, one of personal, sensitive-location or confidential. No flag means not sensitive.",
+      "instead": "A free-text note, or a numeric level.",
+      "why": "Three named reasons map to what a curator does about each: remove people, coarsen locations, restrict access.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT6",
+      "name": "Profiles as data files",
+      "question": "How is a profile defined?",
+      "took": "As a data file in the contract (YAML, read into a Pydantic Profile model) listing the fields it promotes to required, its vocabularies and the ids of the rules it switches on. Rule code lives in Plan 3.",
+      "instead": "Profiles as Python classes with their own validators.",
+      "why": "An adopter can read and copy a profile without writing code, and it keeps checks in one place, the rules engine.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT7",
+      "name": "EML versions",
+      "question": "Which EML versions are imported and exported?",
+      "took": "Export EML 2.2.0. Import standard EML 2.1.1 and 2.2.0.",
+      "instead": "Export 2.1.1 as well, for archives whose tools only read the older version.",
+      "why": "2.2.0 is the current release. Many existing archives still hold 2.1.1 records, so import has to read it.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT8",
+      "name": "Legacy identifiers as a list",
+      "question": "How are a dataset's older identifiers stored?",
+      "took": "archive:legacyIdentifiers as a list of {scheme, value}, such as {scheme: eml-package-id, value: knb-lter-xyz.12.3}.",
+      "instead": "A fixed set of named keys for the identifier kinds we know today.",
+      "why": "Every archive has its own identifier kinds (package ids, internal table names, page codes, accession numbers). A list holds any of them without changing the contract.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT9",
+      "name": "Sample package subject",
+      "question": "What is the invented sample dataset about?",
+      "took": "A small stream temperature study at invented sites, licensed CC-BY-4.0. It has a logger table with a code-list table, a site shapefile set, a small raster, a methods document, a site photo, the table again as XLSX, a linked resource and ongoing coverage. Its seeded gaps are listed in its README.",
+      "instead": "A non-field subject, such as a survey of people or a lab assay.",
+      "why": "It exercises every resource kind and both the core and ecology profiles, while staying small enough to commit.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT10",
+      "name": "Change log and findings shapes",
+      "question": "Where are the change log and findings formats defined, and who confirms them?",
+      "took": "The contract defines both models (Change and Finding), drafted in this spec. Plan 3 has no planning folder yet, so it confirms or changes them when its session starts, and this folder sends it a diazo note then. A change from Plan 3 is an edit to the contract, not a reopened decision here.",
+      "instead": "Hold this spec until Plan 3 is planned far enough to agree the shapes first.",
+      "why": "Both are stored in the package and read by the backend and the web app, so they belong with the contract. Waiting on a plan that hasn't started would stall Plans 4 and 6, which need the rest of the format.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT11",
+      "name": "Contract module layout",
+      "question": "How is archive_contract laid out?",
+      "took": "One module per record under `src/archive_contract/`: `manifest.py` (package and its archive: additions), `resources.py`, `fields.py`, `rights.py`, `project.py`, `changes.py`, `findings.py`, `profile.py`, `config.py`; `profiles/core.yaml` and `profiles/ecology.yaml`; `validate.py` (structural validation); `schema.py` (JSON Schema generation, from Plan 1); `exports/` (`eml.py`, `datacite.py`, `schemaorg.py`, `readme.py`); `imports/eml.py`.",
+      "instead": "A flat models.py with everything in one file, splitting later.",
+      "why": "Plans 3, 4, 6 and 7 each import a different slice; separate modules keep those imports narrow, and exports and imports are the code that grows.",
+      "state": "standing"
+    }
+  ],
+  "principles": [
+    {
+      "id": "PRIN1",
+      "text": "FEMC is only the test afterwards. It is never the example on a card or the reason for a design choice; examples and reasons come from the standards and from any research group's data.",
+      "from": "note:plan",
+      "struck": false
+    }
+  ],
+  "follow_ups": [],
+  "spec": {
+    "hash": "9f91f0ead574b154211e012ddc9c055f592f5382998f730a3818cdd6c87aadd1",
+    "sections": [
+      {
+        "id": "SPEC1",
+        "heading": "Goal",
+        "decisions": []
+      },
+      {
+        "id": "SPEC2",
+        "heading": "The package folder",
+        "decisions": [
+          "AGNT1",
+          "AGNT11"
+        ]
+      },
+      {
+        "id": "SPEC3",
+        "heading": "The manifest's fields",
+        "decisions": [
+          "AGNT8"
+        ]
+      },
+      {
+        "id": "SPEC4",
+        "heading": "Rights",
+        "decisions": [
+          "DCSN1"
+        ]
+      },
+      {
+        "id": "SPEC5",
+        "heading": "Resources and their kinds",
+        "decisions": [
+          "AGNT1",
+          "AGNT2",
+          "AGNT3",
+          "DCSN6"
+        ]
+      },
+      {
+        "id": "SPEC6",
+        "heading": "Columns",
+        "decisions": [
+          "DCSN2",
+          "DCSN3",
+          "AGNT5"
+        ]
+      },
+      {
+        "id": "SPEC7",
+        "heading": "Versions and identifiers",
+        "decisions": [
+          "DCSN4"
+        ]
+      },
+      {
+        "id": "SPEC8",
+        "heading": "Projects",
+        "decisions": [
+          "DCSN5"
+        ]
+      },
+      {
+        "id": "SPEC9",
+        "heading": "Access levels",
+        "decisions": [
+          "AGNT4"
+        ]
+      },
+      {
+        "id": "SPEC10",
+        "heading": "Profiles and the archive config",
+        "decisions": [
+          "AGNT6"
+        ]
+      },
+      {
+        "id": "SPEC11",
+        "heading": "The change log and findings",
+        "decisions": [
+          "AGNT10",
+          "DCSN2"
+        ]
+      },
+      {
+        "id": "SPEC12",
+        "heading": "Exports and import",
+        "decisions": [
+          "AGNT7",
+          "DCSN3",
+          "DCSN5"
+        ]
+      },
+      {
+        "id": "SPEC13",
+        "heading": "The contract package",
+        "decisions": [
+          "AGNT11"
+        ]
+      },
+      {
+        "id": "SPEC14",
+        "heading": "The sample package",
+        "decisions": [
+          "AGNT9",
+          "DCSN3",
+          "DCSN6"
+        ]
+      },
+      {
+        "id": "SPEC15",
+        "heading": "Risk and cost",
+        "decisions": [
+          "AGNT11"
+        ]
+      },
+      {
+        "id": "SPEC16",
+        "heading": "Left out",
+        "decisions": [
+          "DCSN1",
+          "AGNT4"
+        ]
+      },
+      {
+        "id": "SPEC17",
+        "heading": "How we'll know it works",
+        "decisions": [
+          "AGNT7",
+          "AGNT9"
+        ]
+      }
+    ]
+  },
+  "plans": [],
+  "messages": [
+    {
+      "id": 1,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "Forwarded from Plan 1 (folder d65ecf18be29). The note reached the session that handed this folder over, not you. Plan 1 says it is settled: the repo is research-in-a-box, one repo with a uv workspace. The contract lives at packages/contract and is published as its own wheel, archive-contract (import archive_contract). The local tool (packages/tool, command cruise) and the backend (packages/backend) depend on it. The JSON Schema generated from the contract is committed under packages/web/ and checked for drift by just check in CI. Tooling: Python \u003e=3.12, ruff, mypy strict with the Pydantic plugin, pytest, hatchling. The sample package is yours, as agreed.",
+      "at": "2026-11-12T23:21:50.909038-06:00",
+      "state": "answered",
+      "claim": "4e7a5c53aeb9f342",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 2,
+      "card": "DIRN",
+      "from": "user",
+      "action": "direction",
+      "at": "2026-11-12T23:23:34.221051-06:00",
+      "state": "answered",
+      "claim": "2949e36e9ef43b48"
+    },
+    {
+      "id": 3,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 1, a correction to my last note: nothing is published to PyPI. archive-contract (import archive_contract) is still its own package at packages/contract, but it is used only through uv workspace sources. cruise installs from the git repo with uv, which resolves the contract from the same checkout.",
+      "at": "2026-11-12T23:24:18.779881-06:00",
+      "state": "answered",
+      "claim": "b7611bbf8a64edce",
+      "sender": {
+        "project": "personal",
+        "folder": "d65ecf18be29"
+      }
+    },
+    {
+      "id": 4,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-12T23:32:04.390012-06:00",
+      "state": "answered",
+      "claim": "f9eb8e7e201ffbbb"
+    },
+    {
+      "id": 5,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "note",
+      "text": "wouldn't our pipeline require a license?",
+      "at": "2026-11-12T23:32:47.930766-06:00",
+      "state": "answered",
+      "claim": "a0d252927a36ae02"
+    },
+    {
+      "id": 6,
+      "card": "DCSN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Yes: publishing should require it, and the pipeline (Plan 7) is the right place to enforce that. The format still has to be able to say \"no license yet\", because people clean and package data with the local tool before anyone settles the rights, and the audit has to report the gap. So the question is only what counts as enough to publish. I've revised the card: A is now \"publish requires a license or a stated rights status\" and is my recommendation. D is new: publish requires a real license, with nothing else accepted. B, which publishes the record without its files, stays as an option but is no longer recommended.",
+      "at": "2026-11-12T23:33:11.9569-06:00",
+      "answers": [
+        5
+      ]
+    },
+    {
+      "id": 7,
+      "card": "plan",
+      "from": "user",
+      "action": "note",
+      "text": "are we building a generic pipeline or are we trying to build for FEMC data again?",
+      "at": "2026-11-12T23:33:12.034278-06:00",
+      "state": "answered",
+      "claim": "2fbe8ac29188da4d"
+    },
+    {
+      "id": 8,
+      "card": "plan",
+      "from": "agent",
+      "action": "reply",
+      "text": "Generic. You're right to call it out: I had let FEMC creep back in as the examples and as the reason behind several recommendations, which is the same mistake the first Plan 2 made. I've rewritten all six cards and the calls that leaned on FEMC. Each example is now an ordinary research case, and each reason rests on the standards (Frictionless, DataCite, EML, schema.org) or on general repository practice. None of the recommendations changed: each one stood without FEMC. I've also recorded your note as a principle: FEMC is only the test afterwards, never the example or the reason for a design choice.",
+      "at": "2026-11-12T23:34:26.301193-06:00",
+      "answers": [
+        7
+      ]
+    },
+    {
+      "id": 9,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-12T23:52:35.122748-06:00",
+      "state": "answered",
+      "claim": "3d9acdeb375f52ce"
+    },
+    {
+      "id": 10,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "note",
+      "text": "can we offer to rename them?",
+      "at": "2026-11-12T23:53:05.900673-06:00",
+      "state": "answered",
+      "claim": "cdbf74c330ffefce"
+    },
+    {
+      "id": 11,
+      "card": "DCSN2",
+      "from": "agent",
+      "action": "reply",
+      "text": "Yes, that is option C. Source names are kept by default, and the local tool offers a rename, for example 'Temp (°C)' to temp_c. If you accept, the new name goes into the tidy table, the original is kept on the field as archive:sourceName, and the rename is recorded in changes.jsonl. Nothing is renamed without that yes, and the files in original/ are never touched. All the format needs for this is the one optional sourceName property. How the tool words the offer belongs to Plan 3.",
+      "at": "2026-11-12T23:53:12.816705-06:00",
+      "answers": [
+        10
+      ]
+    },
+    {
+      "id": 12,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "choose",
+      "option": "C",
+      "at": "2026-11-12T23:54:05.745642-06:00",
+      "state": "answered",
+      "claim": "20ec5e91ae0f5c00"
+    },
+    {
+      "id": 13,
+      "card": "plan",
+      "from": "user",
+      "action": "note",
+      "text": "Open the diazo planning folder\n /Users/courtschuett/GitHub/personal/research-archive-in-a-box/docs/specs/2026-11-12-generic-package-format-and-cont\n ract with diazo_open (the diazo skill) and continue it. DCSN1 (A) and DCSN2 (C) are decided; DCSN3 to DCSN6 are\n open, and the AGNT calls and principle PRIN1 are posted.'",
+      "at": "2026-11-12T23:55:50.796653-06:00",
+      "state": "answered",
+      "claim": "d3f38c311cfefa25"
+    },
+    {
+      "id": 14,
+      "card": "plan",
+      "from": "agent",
+      "action": "reply",
+      "text": "This note reached me, the session that owns the folder now, so nothing moved. A note on this page always goes to whichever session owns the folder. To move the folder, paste that text into the other session's terminal pane instead. When that session runs diazo_open, it becomes the owner and the events go to it.",
+      "at": "2026-11-12T23:55:56.178014-06:00",
+      "answers": [
+        13
+      ]
+    },
+    {
+      "id": 15,
+      "card": "DCSN3",
+      "from": "user",
+      "action": "explain",
+      "at": "2026-11-12T23:57:08.625581-06:00",
+      "state": "answered",
+      "claim": "8e60473d912317e1"
+    },
+    {
+      "id": 16,
+      "card": "DCSN3",
+      "from": "agent",
+      "action": "reply",
+      "text": "**The problem.** A column often holds short codes instead of words, such as `BR` for \"broken branch\". Without the list of what each code means, the data can't be read. The question is where in the package that list is written down.\n\n**Option B in practice.** The list is a tiny CSV of its own inside the package:\n\n`data/codes/damage-codes.csv`\n```\ncode,label,description\nBR,Broken branch,Branch snapped but still attached\nDF,Defoliation,More than 30% of leaves missing\n...\n```\n\nThe data table's schema in `datapackage.json` then points the three damage columns at it:\n```json\n\"foreignKeys\": [\n  {\"fields\": [\"damage_1\"], \"reference\": {\"resource\": \"damage-codes\", \"fields\": [\"code\"]}},\n  {\"fields\": [\"damage_2\"], \"reference\": {\"resource\": \"damage-codes\", \"fields\": [\"code\"]}},\n  {\"fields\": [\"damage_3\"], \"reference\": {\"resource\": \"damage-codes\", \"fields\": [\"code\"]}}\n]\n```\n\nWhat that gives you:\n- **One list, three columns.** Fix a label once and all three columns read it.\n- **Checking for free.** The Frictionless validator already reports any value in `damage_1` that isn't in the list, such as a typo `RB`, so we write no checking code for it.\n- **Readable on its own.** Someone who opens the folder without our tool sees a plain CSV of codes next to the data.\n- **The exports.** EML export turns each list into the `enumeratedDomain` EML expects on the column. The web app's column dictionary shows each code with its label.\n\n**Option A** writes the list into each column's entry in `datapackage.json` instead (Frictionless `categories`). That's fine for one column with three codes, but the 12-code damage list would be copied three times, and fixing a label means editing three places.\n\n**Option C** allows both, so every reader (the tool, the exports, the web app) has to handle two shapes.\n\n**A column with codes and no list**, like the species column in the example, is marked `\"archive:codeList\": \"undocumented\"`. The package is still valid, and Plan 3's audit lists it as a gap to fill. That works the same under any option.",
+      "at": "2026-11-12T23:57:30.656262-06:00",
+      "answers": [
+        15
+      ]
+    },
+    {
+      "id": 17,
+      "card": "DCSN3",
+      "from": "user",
+      "action": "choose",
+      "option": "B",
+      "at": "2026-11-12T23:59:20.967617-06:00",
+      "state": "answered",
+      "claim": "1c7db0ceda0f9614"
+    },
+    {
+      "id": 18,
+      "card": "DCSN4",
+      "from": "user",
+      "action": "choose",
+      "option": "B",
+      "at": "2026-11-12T23:59:43.169841-06:00",
+      "state": "answered",
+      "claim": "886ac6721b82600f"
+    },
+    {
+      "id": 19,
+      "card": "DCSN5",
+      "from": "user",
+      "action": "explain",
+      "at": "2026-11-13T00:00:18.074792-06:00",
+      "state": "answered",
+      "claim": "87088d052f0fff3d"
+    },
+    {
+      "id": 20,
+      "card": "DCSN5",
+      "from": "agent",
+      "action": "reply",
+      "text": "**What a project is.** A project is the larger effort a dataset belongs to: a monitoring program, a grant or a long-term study. It produces many datasets over the years. Readers want to see \"this is part of the River Monitoring Program\" on each dataset page, and click through to every dataset from it.\n\n**Option A in practice.** The project is one small record of its own:\n\n`project.json`\n```json\n{\n  \"id\": \"river-monitoring\",\n  \"title\": \"River Monitoring Program\",\n  \"abstract\": \"Weekly water quality at 12 sites since 2004...\",\n  \"people\": [{\"name\": \"A. Researcher\", \"role\": \"lead\"}],\n  \"links\": [\"https://example.org/river-program\"]\n}\n```\n\nEach package's `datapackage.json` carries one line pointing at it:\n```json\n\"archive:project\": \"river-monitoring\"\n```\n\nWhat that gives you:\n- **One place to edit.** Update the program's abstract once and every dataset page shows the new text, because pages look it up rather than store a copy.\n- **Packages stay plain folders.** A package is still one self-contained folder you can zip, move or hand to someone, and it doesn't live inside the project.\n- **The exports.** When a package is exported, the archive writes the project's current title into its README and its DataCite and EML records. DataCite records the link as \"IsPartOf river-monitoring\", and EML has a project section for it. Both standards already treat a project as its own thing.\n- **Moving a dataset** to another project means changing one line.\n\n**Option B** copies the title and abstract into every package. Nothing new is stored, but after an abstract update, 20 yearly datasets show 20 slightly different versions until each one is edited.\n\n**Option C** nests the packages inside a project folder. Moving a dataset then means moving files, and a package can't stand alone. That breaks the settled rule that a package is a plain folder.\n\n**What A adds:** a small Project model in the contract and a place to store projects in the archive (Plan 4). A package with no project is fine: the line is simply left out.",
+      "at": "2026-11-13T00:00:36.386443-06:00",
+      "answers": [
+        19
+      ]
+    },
+    {
+      "id": 21,
+      "card": "DCSN5",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-13T00:11:28.189009-06:00",
+      "state": "answered",
+      "claim": "da9657f6c63f1a35"
+    },
+    {
+      "id": 22,
+      "card": "DCSN6",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-13T00:11:41.512203-06:00",
+      "state": "answered",
+      "claim": "e735f1a9eac9743d"
+    }
+  ]
+}
