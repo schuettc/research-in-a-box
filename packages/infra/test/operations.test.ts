@@ -94,3 +94,14 @@ test("there is one dashboard per stage", () => {
     });
   }
 });
+
+test("the dashboard graphs the tables and CloudFront", () => {
+  const template = Template.fromStack(archive("prod").stack);
+  const body = JSON.stringify(
+    Object.values(template.findResources("AWS::CloudWatch::Dashboard"))[0],
+  );
+
+  expect(body).toContain("ConsumedWriteCapacityUnits");
+  expect(body).toContain("AWS/CloudFront");
+  expect(body).toContain("us-east-1");
+});

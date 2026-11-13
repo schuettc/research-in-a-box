@@ -78,6 +78,15 @@ export class ResearchArchive extends Construct {
     this.settings = tables.settings;
     this.userProfiles = tables.userProfiles;
     this.downloadCounts = tables.downloadCounts;
+    this.operations.addTables([
+      this.catalogTables.a,
+      this.catalogTables.b,
+      this.submissions,
+      this.reviews,
+      this.settings,
+      this.userProfiles,
+      this.downloadCounts,
+    ]);
 
     const auth = new Auth(this, "Auth", { stage: props.stage, isProd: this.isProd });
     this.userPool = auth.userPool;
@@ -97,6 +106,7 @@ export class ResearchArchive extends Construct {
       archiveBucket: this.archiveBucket,
       restApi: this.api,
     }).distribution;
+    this.operations.addDistribution(this.distribution);
     this.userPoolClients = auth.addAppClients(this.distribution.distributionDomainName);
 
     new IntegrityCheck(this, "IntegrityCheck", {

@@ -1,8 +1,10 @@
 import { Duration } from "aws-cdk-lib";
 import type * as apigateway from "aws-cdk-lib/aws-apigateway";
+import type * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as budgets from "aws-cdk-lib/aws-budgets";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as actions from "aws-cdk-lib/aws-cloudwatch-actions";
+import type * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import type * as lambda from "aws-cdk-lib/aws-lambda";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
@@ -68,6 +70,41 @@ export class Operations extends Construct {
         title: "API",
         left: [api.metricClientError({ statistic: "Sum", period }), serverErrors],
         right: [api.metricCount({ statistic: "Sum", period })],
+      }),
+    );
+  }
+
+  /** Graph the tables' consumed reads and writes. */
+  addTables(tables: dynamodb.Table[]): void {
+    const period = Duration.minutes(5);
+    this.dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Tables: consumed reads",
+        left: tables.map((t) => t.metricConsumedReadCapacityUnits({ period })),
+      }),
+      new cloudwatch.GraphWidget({
+        title: "Tables: consumed writes",
+        left: tables.map((t) => t.metricConsumedWriteCapacityUnits({ period })),
+      }),
+    );
+  }
+
+  /** Graph the distribution's requests and error rates. CloudFront's metrics live in us-east-1. */
+  addDistribution(distribution: cloudfront.Distribution): void {
+    const metric = (metricName: string, statistic: string): cloudwatch.Metric =>
+      new cloudwatch.Metric({
+        namespace: "AWS/CloudFront",
+        metricName,
+        dimensionsMap: { DistributionId: distribution.distributionId, Region: "Global" },
+        region: "us-east-1",
+        statistic,
+        period: Duration.minutes(5),
+      });
+    this.dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "CloudFront",
+        left: [metric("4xxErrorRate", "Average"), metric("5xxErrorRate", "Average")],
+        right: [metric("Requests", "Sum")],
       }),
     );
   }
