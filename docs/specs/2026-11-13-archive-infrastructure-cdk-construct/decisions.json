@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "Archive infrastructure (Plan 4)",
   "expect": 4,
-  "agent_at": "2026-11-13T21:57:36.798332Z",
+  "agent_at": "2026-11-13T22:30:22.854904Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 1, repo layout, folder d65ecf18be29, and the manifest shape from Plan 2, folder 8da653f233f9.)\n\nBrief: Plan 4 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the archive infrastructure as a TypeScript CDK construct (Plan 4). The service choices are decided and listed under \"Infrastructure\". Do not reopen them. Plan the resources, the DynamoDB design and the construct's interface, and take the open questions with me one at a time."
@@ -508,6 +508,20 @@
       "text": "Before flipping the active catalog, re-put every package published after the reindex's snapshot time, so a publish during a run isn't lost from the new table. Needed once Plan 7 publishes; until then a reindex runs while publishing is quiet.",
       "from": "plan",
       "kind": "improvement"
+    },
+    {
+      "id": "PARK6",
+      "name": "Projects in reindex",
+      "text": "Load project records into the catalog on reindex once Plan 7 decides where a project.json lives in the archive bucket. Until then reindex loads datasets, versions and files only.",
+      "from": "PLAN3",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK7",
+      "name": "Reserved stage names",
+      "text": "A stage name containing a Cognito reserved word (aws, amazon, cognito) makes the user pool domain prefix fail at deploy. Refuse such names in the Stage model, or encode the prefix, if an adopter ever hits it.",
+      "from": "PLAN2",
+      "kind": "bug"
     }
   ],
   "spec": {
@@ -713,7 +727,10 @@
           "does": "Adds just lambda-assets (binary-only arm64 wheels with uv, no Docker), pythonFunction for arm64 Python 3.13 Lambdas with an errors alarm, and the operations part: alert topic, monthly budget at 80 and 100 percent, dashboard.",
           "pulls_in": "boto3 in archive-backend, boto3-stubs for mypy, uv in CI's typescript job.",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "878a540; just lambda-assets exit 0 (aarch64 pydantic_core .so present); infra tests exit 0",
+          "build_at": "2026-11-13T16:13:48.388778-06:00"
         },
         {
           "id": "TASK6",
@@ -721,7 +738,10 @@
           "does": "Adds the Python handlers for /api/health and /api/whoami, and the integrity check: compares each archived object's stored SHA-256 with its package's checksums.sha256 and alerts on mismatches, missing objects and missing checksums.",
           "pulls_in": "Unit tests with a small in-memory S3 fake, no moto.",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "52169bf; pytest packages/backend exit 0 (7 passed); just check-python exit 0",
+          "build_at": "2026-11-13T16:13:48.388778-06:00"
         },
         {
           "id": "TASK7",
@@ -729,7 +749,10 @@
           "does": "Adds the Cognito user pool (email sign-in, three groups, managed login, web and CLI clients), the REST API with a public health route and a signed-in whoami route, fixed throttling, optional regional WAF, and the weekly integrity schedule with no retries.",
           "pulls_in": "A whoami route, since CDK refuses an authorizer attached to no method.",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "0ae57d1; infra tests exit 0",
+          "build_at": "2026-11-13T16:13:48.388778-06:00"
         },
         {
           "id": "TASK8",
@@ -737,7 +760,10 @@
           "does": "Adds one distribution: site/ with an index fallback, /data/* to open/ at stable URLs, /api/* to the API uncached, standard logs to the derived bucket; records the package layout, API path and app clients in the decision log.",
           "pulls_in": "The derived bucket accepts the log ACL, which CloudFront's standard logs need.",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "2f63c81 + review fixes; just check exit 0; research-in-a-box#12 CI green (infra files 4-7 s each on CI), merged as 15596b4",
+          "build_at": "2026-11-13T16:26:57.636499-06:00"
         }
       ],
       "approved": {
@@ -752,7 +778,49 @@
       "covers": "The reindex durable function and its just recipes, then one test deploy in your AWS account that walks every check, and its teardown",
       "waits_on": [
         "PLAN2"
-      ]
+      ],
+      "hash": "73556a3c44e81618d678d419dcbf3cf97cdc4a37bf200165dbf8c8dfd97666a2",
+      "tasks": [
+        {
+          "id": "TASK9",
+          "heading": "Task 1: The reindex function",
+          "does": "Adds archive_backend.reindex: manifests become DynamoDB JSON lines; a durable handler empties the inactive catalog table, writes the input files, bulk-loads them, waits, and flips the active-catalog parameter only on COMPLETED, alerting otherwise. Unit-tested with fakes.",
+          "pulls_in": "aws-durable-execution-sdk-python 3.0.2 in archive-backend; a first cut of the catalog item attributes that Plan 6 may extend.",
+          "serves": [
+            "DCSN1",
+            "DCSN3"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK10",
+          "heading": "Task 2: The reindex in the construct, the just recipes and a test-stage config",
+          "does": "Adds the reindex as a durable function behind a live alias with its permissions and a ReindexFunction stack output, just reindex and just reindex-status, ARCHIVE_CONFIG for another config file, a 30-second infra test timeout, and the decision-log lines.",
+          "pulls_in": "durableConfig on pythonFunction, which Plan 7 reuses.",
+          "serves": [
+            "DCSN3"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK11",
+          "heading": "Task 3: The test deploy",
+          "does": "Deploys a test stage to your AWS account and walks every spec check (health, throttling, open and restricted downloads, sign-up and a signed-in call, reindex, integrity check), fixes what the live run shows, then destroys it. One walkthrough step for you.",
+          "pulls_in": "Real AWS resources for the length of the walk, a few dollars at most; your Go before the deploy and before the teardown.",
+          "serves": [
+            "DCSN1",
+            "DCSN2",
+            "DCSN3",
+            "DCSN4"
+          ],
+          "state": "keep"
+        }
+      ],
+      "approved": {
+        "hash": "73556a3c44e81618d678d419dcbf3cf97cdc4a37bf200165dbf8c8dfd97666a2",
+        "at": "2026-11-13T16:31:09.112828-06:00",
+        "body": "# PLAN3: Reindex and the test deploy\n\n## Spec\n\n`docs/specs/2026-11-13-archive-infrastructure-cdk-construct/spec.md`, sections \"Reindex\", \"Risk and cost\" and \"How we'll know it works\". PLAN1 (research-in-a-box#10) and PLAN2 (research-in-a-box#12) are built and merged. Build on their code: `ResearchArchive`, `pythonFunction`, `catalogTables` with `activeCatalogParameter`, `derivedBucket`, `archiveBucket` and `alertTopic`. The implementer reads the spec beside this plan.\n\n## The change\n\nThe reindex is a Python durable function in the construct. It:\n\n1. Empties the inactive catalog table.\n2. Turns every published manifest in the archive bucket into line-delimited DynamoDB JSON under the derived bucket's `reindex/\u003crun\u003e/`.\n3. Bulk-loads that into the inactive table and waits for the load to end.\n4. Flips the active-catalog parameter only when the load ends `COMPLETED`.\n\nAn admin starts it with `just reindex \u003cstage\u003e` and follows it with `just reindex-status \u003cstage\u003e`. Then one test deploy, a stage named `test` in your AWS account, walks every check in the spec's \"How we'll know it works\" and is destroyed.\n\n**Risk:**\n\n- Tasks 1 and 2 are local code and CI; a mistake is undone by reverting the PR.\n- Task 3 creates real resources in one AWS account you choose, under a non-prod stage, so every bucket, table and user pool deletes with the stack. A mistake there costs a few dollars at most, and `cdk destroy` undoes it.\n- Nothing touches a prod stage; none exists.\n\n**Cost:**\n\n- One walkthrough step for you (STEP1). You name the AWS profile and alert address, approve the deploy, confirm the alert email subscription, sign up once in the browser and paste back one URL, then approve the teardown.\n- New dependency: `aws-durable-execution-sdk-python==3.0.2` in `archive-backend`.\n- No new programs on your machine; the AWS CLI is already installed.\n\n## Left out\n\n- Projects in the catalog. Where a project record lives in the archive bucket is Plan 7's to decide, so reindex loads datasets, versions and files only (follow-up PARK6).\n- Catching up packages published during a reindex (follow-up PARK5).\n- Reindex from `cruise` (follow-up PARK1).\n- A prod deploy, a CI deploy and the deployment skill (Plan 10a).\n- Testing write-once locking and WAF on the test deploy. Both stay synth-tested; locked objects can't be removed by a clean teardown, and WAF needs no outside credentials to synth.\n\n## Where\n\n- Worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-archive-in-a-box/plan4/reindex-and-test-deploy`, branch `plan4/reindex-and-test-deploy` from `origin/main`. Confirm with `git -C \u003cwt\u003e branch --show-current` before editing.\n- Python: `packages/backend/pyproject.toml`, `uv.lock`, `packages/backend/src/archive_backend/reindex.py`, `packages/backend/tests/test_reindex.py`.\n- TypeScript: `packages/infra/src/python-function.ts`, `packages/infra/src/reindex.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/bin/app.ts`, `packages/infra/vitest.config.ts`, `packages/infra/test/reindex.test.ts`, `packages/infra/test/app.test.ts`.\n- `justfile`, `docs/planning-handoff.md` (decision log).\n- Global constraints:\n  - Lambdas are Python 3.13 on arm64; `just check` must exit 0.\n  - Nothing reaches AWS in Tasks 1 and 2.\n  - Task 3 runs only with your Go on STEP1, under the profile you name, never against a stage named `prod`.\n  - On any AWS auth error, stop and report; never copy or export credentials.\n\n### Task 1: The reindex function\n\n**Does:** Adds `archive_backend.reindex`. Plain functions turn manifests into DynamoDB JSON lines; a durable handler runs the empty, write, load, wait and flip as checkpointed steps and alerts on a bad outcome. All of it is unit-tested with fakes.\n**Files:** `packages/backend/pyproject.toml`, `uv.lock`, `packages/backend/src/archive_backend/reindex.py`, `packages/backend/tests/test_reindex.py`\n**Checks:** `uv run pytest packages/backend` exits 0; `just check-python` exits 0.\n**Serves:** DCSN1, DCSN3 (rests on calls AGNT8, AGNT10)\n\nAdd `aws-durable-execution-sdk-python==3.0.2` to `archive-backend` and run `uv lock`. The package needs `boto3\u003e=1.43.114`; the lock has 1.44.3.\n\nArchive layout, from the decision log: a published version sits at `\u003copen|restricted\u003e/\u003cdatasetId\u003e/\u003cversion\u003e/` with `datapackage.json` at its root.\n\nCatalog items (catalog keys from the spec; attributes beyond the keys are Plan 4's first cut, which Plan 6 may extend). Every value is a DynamoDB JSON string unless noted.\n\n- **Dataset:** `PK=DATASET#\u003cid\u003e`, `SK=META`, `id`, `title`, `access` (from `archive:access`, default `open`), `currentVersion` (number, the highest version found), `prefix` (`open` or `restricted`, of the current version). When `archive:project` is set: `project`, `GSI1PK=PROJECT#\u003cproject\u003e` and `GSI1SK=DATASET#\u003cid\u003e`.\n- **Version:** `PK=DATASET#\u003cid\u003e`, `SK=V#\u003cversion zero-padded to 6\u003e`, `version` (number), `prefix`, `manifest` (the `datapackage.json` text as one string).\n- **File:** `PK=DATASET#\u003cid\u003e`, `SK=V#\u003cversion padded\u003e#FILE#\u003cpath\u003e`, `path`, `name` (resource name), and `format`, `bytes` (number) and `hash` when the resource has them. One item per resource `path`, plus one per member of `archive:files` when a resource lists them.\n\nFunctions:\n\n- `catalog_items(prefix: str, dataset_id: str, version: int, manifest_text: str) -\u003e list[dict[str, Any]]`: the version item and its file items, as DynamoDB JSON maps (`{\"S\": ...}`, `{\"N\": ...}`).\n- `dataset_item(versions: list[tuple[str, int, dict[str, Any]]]) -\u003e dict[str, Any]`: given `(prefix, version, manifest)` for every version of one dataset, the dataset item for the highest version.\n- `to_lines(items: list[dict[str, Any]]) -\u003e str`: one `{\"Item\": {...}}` per line, newline-terminated, the bulk put items input format.\n- `manifest_keys(s3, bucket: str) -\u003e list[str]`: every key ending `/datapackage.json` exactly three segments under `open/` or `restricted/`, sorted.\n\n`@durable_execution def handler(event: dict[str, Any], context: DurableContext) -\u003e dict[str, Any]` reads `ARCHIVE_BUCKET`, `DERIVED_BUCKET`, `CATALOG_TABLE_A`, `CATALOG_TABLE_B`, `ACTIVE_CATALOG_PARAMETER` and `ALERT_TOPIC_ARN`. It does only these, each as a named `context.step`:\n\n1. `start`: return `{\"run\": \u003cUTC timestamp YYYYMMDDTHHMMSSZ\u003e, \"active\": \u003cparameter value\u003e}`. The target is the other table (`A` loads `B`, and back).\n2. `empty`, repeated: each step scans one page of the target table (projection `PK, SK`), deletes it with `batch_write_item` in groups of 25, retrying unprocessed items, and returns the `LastEvaluatedKey` (or `None` when done).\n3. `list`: return `manifest_keys`.\n4. `write-\u003cn\u003e`: for each batch of 200 keys, read the manifests, write `reindex/\u003crun\u003e/data/part-\u003cn:05d\u003e.json` with `to_lines`, and return the item count. Group keys by dataset id first, so a dataset's item is written in the batch holding its versions; a batch boundary never splits a dataset.\n5. `load`: `start_bulk_put_items` into the target table with input `{S3Bucket: DERIVED_BUCKET, S3KeyPrefix: \"reindex/\u003crun\u003e/data/\", InputFormat: \"DYNAMODB_JSON\"}`, output `{S3Bucket: DERIVED_BUCKET, S3KeyPrefix: \"reindex/\u003crun\u003e/report/\", OutputType: [\"ERROR\"]}`, `PerformanceTier: \"STANDARD\"` and `ClientToken` = the run. Return the operation ARN. With no manifests, skip the load and treat it as `COMPLETED`.\n6. `wait_for_condition` named `wait-load`: the check describes the operation and returns `{\"status\", \"processed\", \"failed\"}`. The strategy stops once the status is not `IN_PROGRESS` or `CANCELLING`, else waits `min(30 * attempt, 300)` seconds.\n7. On `COMPLETED`, a step `flip` writes the target letter to the parameter (overwrite). On anything else, a step `alert` publishes `Reindex \u003crun\u003e on \u003ctarget\u003e ended \u003cstatus\u003e` with the report prefix to the alert topic, and the parameter is left alone.\n8. Return `{\"run\", \"target\", \"status\", \"items\", \"flipped\": bool}`.\n\nTests use fake S3, DynamoDB, SSM and SNS clients and a `FakeContext` whose `step(func, name)` calls `func(None)` and whose `wait_for_condition` loops the check until the strategy stops, recording each step name. The handler takes its clients from a module function `clients()` that the tests monkeypatch.\n\n- `test_catalog_items_for_the_sample_package`: `examples/sample-package/datapackage.json` as version 1 under `open` yields one version item with the manifest text, and one file item per resource path and per `archive:files` member, each with its `format`, `bytes` and `hash` where present.\n- `test_dataset_item_takes_the_highest_version_and_its_prefix`: versions 1 (`open`) and 2 (`restricted`) give `currentVersion` 2 and `prefix` `restricted`.\n- `test_dataset_item_has_gsi1_only_with_a_project`.\n- `test_to_lines_is_one_item_per_line`: each line parses as `{\"Item\": {...}}`.\n- `test_manifest_keys_skips_nested_and_other_prefixes`: `open/a/1/datapackage.json` is kept; `open/a/1/docs/datapackage.json` and `staging/a/1/datapackage.json` are not.\n- `test_reindex_loads_the_inactive_table_and_flips_on_completed`: active `A`, the load targets table B, and the parameter ends `B`.\n- `test_reindex_empties_the_target_before_loading`: target items present before the run are deleted, and `empty` runs before `load`.\n- `test_reindex_does_not_flip_and_alerts_on_completed_with_errors`: also for `FAILED`.\n- `test_reindex_with_no_packages_flips_to_an_empty_table`.\n\nCommit: `Add the reindex durable function`\n\n### Task 2: The reindex in the construct, the just recipes and a test-stage config\n\n**Does:** Adds the reindex as a durable function with a `live` alias, its permissions and a stack output. Adds `just reindex` and `just reindex-status`. Lets the default app read another config file through `ARCHIVE_CONFIG`, raises the infra test timeout, and records the reindex facts in the decision log.\n**Files:** `packages/infra/src/python-function.ts`, `packages/infra/src/reindex.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/bin/app.ts`, `packages/infra/vitest.config.ts`, `packages/infra/test/reindex.test.ts`, `packages/infra/test/app.test.ts`, `justfile`, `docs/planning-handoff.md`\n**Checks:** `npm test -w packages/infra` exits 0; `just check` exits 0; `npx cdk synth -q` in `packages/infra` exits 0.\n**Serves:** DCSN3 (rests on calls AGNT8, AGNT10)\n\n- `PythonFunctionProps` gains `readonly durableConfig?: lambda.DurableConfig`, passed through. Plan 7's durable functions use the same helper.\n- `reindex.ts`: `class Reindex extends Construct`, props `{ archive: ResearchArchive }`:\n  - The function comes from `archive.pythonFunction(\"ReindexFunction\", { handler: \"archive_backend.reindex.handler\", timeout: Duration.minutes(15), memorySize: 1024, durableConfig: { executionTimeout: Duration.hours(12), retentionPeriod: Duration.days(30) }, environment: {...} })`. The environment holds the six names Task 1 reads.\n  - `readonly alias = new lambda.Alias(this, \"Live\", { aliasName: \"live\", version: fn.currentVersion })`. Durable functions are invoked only through a version or alias.\n  - Grants:\n    - read on the archive bucket;\n    - read and write on the derived bucket's `reindex/*`;\n    - read and write data on both catalog tables;\n    - read and write on the active-catalog parameter;\n    - publish on the alert topic;\n    - `dynamodb:StartBulkOperation` on `*` (account-scoped, per AWS);\n    - `dynamodb:BulkPutItems` and `dynamodb:DescribeBulkOperation` on both catalog table ARNs and `\u003ctable ARN\u003e/bulk-operation/*`.\n\n    Task 3's deploy proves these grants against the real service; if an action name differs, Task 3 fixes it with the error text as its evidence.\n  - `new CfnOutput(Stack.of(this), \"ReindexFunction\", { key: \"ReindexFunction\", value: alias.functionArn })`.\n- `ResearchArchive` creates `Reindex` last and exposes `reindexFunction` (the alias).\n- `bin/app.ts`: the config path is `process.env.ARCHIVE_CONFIG ?? \u003crepo root\u003e/archive.yaml`, so a test stage needs no edit to `archive.yaml`.\n- `vitest.config.ts` in `packages/infra`: `testTimeout: 30_000`. On research-in-a-box#12's CI run, the infra test files took 3.7 to 7.0 seconds each against a 5-second per-test default.\n- `justfile`:\n  - `reindex stage`: reads the `ReindexFunction` output of `ResearchArchive-\u003cstage\u003e` with `aws cloudformation describe-stacks`, then `aws lambda invoke --invocation-type Event --function-name \u003calias ARN\u003e --payload '{}' --cli-binary-format raw-in-base64-out /dev/null`. It prints `reindex started on \u003cstage\u003e; follow it with just reindex-status \u003cstage\u003e`.\n  - `reindex-status stage`: `aws lambda list-durable-executions-by-function --function-name \u003calias ARN\u003e --max-items 1`, then `aws lambda get-durable-execution` on its ARN, printing the status and the result.\n  - Both use the caller's `AWS_PROFILE` and region as set in their shell.\n- Decision log (today's date), added to `docs/planning-handoff.md`:\n  - Plans 4, 6 and 7: catalog items as listed in Task 1.\n  - Plans 4 and 7: reindex loads datasets, versions and files from manifests only; projects join once Plan 7 decides where project records live in the archive bucket.\n  - Plans 4, 7 and 10a: `pythonFunction` takes `durableConfig`; durable functions are invoked through a `live` alias, never unqualified. `ARCHIVE_CONFIG` points the default app at another config file.\n\nTests in `test/reindex.test.ts` (with `testApp()`):\n\n- `the reindex function is durable with a 12-hour execution timeout`.\n- `it is invoked through a live alias, which the ReindexFunction output names`.\n- `it may start bulk operations and bulk-load both catalog tables`.\n- `its environment names both catalog tables, the active-catalog parameter, both buckets and the alert topic`.\n\nIn `test/app.test.ts`: `ARCHIVE_CONFIG points the default app at another config file` (a temp file with stage `test` gives stack `ResearchArchive-test`).\n\nCommit: `Add the reindex to the construct with its just recipes`\n\nAfter Task 2's commit, the implementer stops. The Plan 4 planning session runs the final review, pushes, opens the PR and merges it once CI passes, before Task 3.\n\n### Task 3: The test deploy\n\n**Does:** Deploys a `test` stage from main to your AWS account and walks every check in the spec's \"How we'll know it works\" against it. Fixes what the live run shows, then destroys the stack. This is one walkthrough step for you, STEP1, with the agent's actions between yours.\n**Files:** a test config at `~/.local/state/plans/plan4-3-reindex-and-test-deploy/test.yaml`, outside the repo. Repo files change only if a check fails, through a fix PR.\n**Checks:** each walkthrough action records its result. `cdk destroy` exits 0, and `aws cloudformation describe-stacks --stack-name ResearchArchive-test` then reports that the stack does not exist.\n**Serves:** DCSN1, DCSN2, DCSN3, DCSN4 (rests on calls AGNT8, AGNT10)\n\nThe test config is `archive.yaml`'s catalog settings, with `infrastructure.alertEmail` set to the address you give, `stages: [{name: test, account: \u003cyour account id\u003e, region: \u003cregion\u003e}]`, and no modules.\n\nSTEP1's actions, in order:\n\n1. You: name the AWS profile and the alert address (Ready).\n2. Agent: `aws sts get-caller-identity` under that profile, then `cdk bootstrap` if the account and region have no `CDKToolkit` stack. STEP1's how says that a bootstrap leaves the `CDKToolkit` stack and its bucket in the account after the teardown, which is normal and shared by any CDK app there.\n3. You: Go for the deploy.\n4. Agent: `just lambda-assets`, then `ARCHIVE_CONFIG=\u003ctest.yaml\u003e npx cdk deploy ResearchArchive-test --require-approval never`.\n5. You: confirm the SNS subscription email (Done).\n6. Agent:\n   - `curl` of `https://\u003cdistribution\u003e/api/health` returns 200 with `{\"status\": \"ok\"}`.\n   - A burst of 400 concurrent requests shows at least one 429.\n   - An object put with `aws s3 cp --checksum-algorithm SHA256` under `open/sample/1/` downloads from `/data/sample/1/...` with the same bytes.\n   - A put under `restricted/` returns 403 from `/data/...`.\n7. You: open the authorize URL the agent gives, for the `cli` client with a PKCE challenge. Sign up with email, then paste back the `http://localhost:8765/callback?code=...` URL from the address bar. The page there won't load; that's expected.\n8. Agent: exchanges the code at `/oauth2/token`, and `curl` of `/api/whoami` with the ID token returns your email and `groups: []`.\n9. Agent:\n   - Uploads the sample package as `open/stream-temperature-sample/1/`, and a copy with a second id as `open/second-sample/1/`, every object with `--checksum-algorithm SHA256`.\n   - Runs `just reindex test`, then `just reindex-status test` until it ends.\n   - Expects `COMPLETED`, the active-catalog parameter flipped to `B`, and two dataset items in catalog table B.\n10. Agent:\n    - Invokes the integrity function by hand: `problems: 0`.\n    - Overwrites one archived file with different bytes and invokes it again: one `mismatch`, and the alert email arrives.\n11. You: Go for the teardown.\n12. Agent: `ARCHIVE_CONFIG=\u003ctest.yaml\u003e npx cdk destroy ResearchArchive-test --force`, then confirms the stack, its buckets and its tables are gone.\n\nA failing check stops the walk. The fix is a new commit on a branch, with a test that reproduces it where one can, merged by PR. Then the agent redeploys and repeats that action.\n"
+      }
     }
   ],
   "messages": [
@@ -915,6 +983,15 @@
       "at": "2026-11-13T16:00:56.021094-06:00",
       "state": "answered",
       "claim": "155933ba8433e9ad"
+    },
+    {
+      "id": 17,
+      "card": "PLAN3",
+      "from": "user",
+      "action": "approve-plan",
+      "at": "2026-11-13T16:31:09.112828-06:00",
+      "state": "answered",
+      "claim": "132207de13339506"
     }
   ],
   "planned_history": [

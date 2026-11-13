@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/archive-infrastructure-cdk-construct` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 wait** → **Build · 4 of 8** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 8 of 11** → Sign off
 
-PLAN1 built · PLAN2 building · 0 of 4 done · PLAN3 waits on PLAN2 being built
+PLAN1 built · PLAN2 built · PLAN3 building · 0 of 3 done
 
 ## Pick up next
 
@@ -15,6 +15,8 @@ PLAN1 built · PLAN2 building · 0 of 4 done · PLAN3 waits on PLAN2 being built
 - **PARK3 ORCID sign-in:** Optional ORCID sign-in as a Cognito OIDC identity provider, with the client secret in an SSM SecureString the config names. Left out of Plan 4 at the coordinating session's review: nobody has an ORCID client to test it with yet.
 - **PARK4 University sign-in:** Optional university single sign-on as a Cognito SAML identity provider from a metadata URL in the config. Left out of Plan 4 at the coordinating session's review until an adopter has SAML metadata to test with.
 - **PARK5 Reindex catch-up:** Before flipping the active catalog, re-put every package published after the reindex's snapshot time, so a publish during a run isn't lost from the new table. Needed once Plan 7 publishes; until then a reindex runs while publishing is quiet.
+- **PARK6 Projects in reindex:** Load project records into the catalog on reindex once Plan 7 decides where a project.json lives in the archive bucket. Until then reindex loads datasets, versions and files only.
+- **PARK7 Reserved stage names:** A stage name containing a Cognito reserved word (aws, amazon, cognito) makes the user pool domain prefix fail at deploy. Refuse such names in the Stage model, or encode the prefix, if an adopter ever hits it.
 
 ## What was asked
 
@@ -68,12 +70,15 @@ PLAN1 built · PLAN2 building · 0 of 4 done · PLAN3 waits on PLAN2 being built
   - TASK2 Task 2: Generated config type and the default app: done. 6cbe86d; infra tests and typecheck exit 0; drift check fails (exit 1) on an unregenerated field, passes once regenerated
   - TASK3 Task 3: Storage: done. ab49b4b; infra tests exit 0
   - TASK4 Task 4: Tables and the active-catalog parameter: done. 99e5b52; just check exit 0; review approved, no findings; research-in-a-box#10 CI green, merged as 213f95c
-- [PLAN2](plans/2-auth-api-web-and-operations.md) Auth, API, web and operations: building · 0 of 4 done
-  - TASK5 Task 1: Lambda packaging, pythonFunction and operations: not started
-  - TASK6 Task 2: The health and whoami handlers, and the integrity check code: not started
-  - TASK7 Task 3: Auth, the API shell and the integrity schedule: not started
-  - TASK8 Task 4: CloudFront: not started
-- PLAN3 Reindex and test deploy: waits on PLAN2 being built
+- [PLAN2](plans/2-auth-api-web-and-operations.md) Auth, API, web and operations: built
+  - TASK5 Task 1: Lambda packaging, pythonFunction and operations: done. 878a540; just lambda-assets exit 0 (aarch64 pydantic_core .so present); infra tests exit 0
+  - TASK6 Task 2: The health and whoami handlers, and the integrity check code: done. 52169bf; pytest packages/backend exit 0 (7 passed); just check-python exit 0
+  - TASK7 Task 3: Auth, the API shell and the integrity schedule: done. 0ae57d1; infra tests exit 0
+  - TASK8 Task 4: CloudFront: done. 2f63c81 + review fixes; just check exit 0; research-in-a-box#12 CI green (infra files 4-7 s each on CI), merged as 15596b4
+- [PLAN3](plans/3-reindex-and-test-deploy.md) Reindex and the test deploy: building · 0 of 3 done
+  - TASK9 Task 1: The reindex function: not started
+  - TASK10 Task 2: The reindex in the construct, the just recipes and a test-stage config: not started
+  - TASK11 Task 3: The test deploy: not started
 
 ## Files
 
