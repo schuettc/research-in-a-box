@@ -16,7 +16,7 @@ def test_core_profile_holds_only_the_core_fields() -> None:
     assert core.required == list(CORE_FIELDS)
 
 
-def test_ecology_profile_promotes_coverage_and_methods_and_names_rules() -> None:
+def test_ecology_profile_promotes_coverage_and_methods_and_switches_on_no_rules() -> None:
     ecology = load_profile("ecology")
 
     assert ecology.required == [
@@ -24,8 +24,7 @@ def test_ecology_profile_promotes_coverage_and_methods_and_names_rules() -> None
         "archive:spatialCoverage",
         "archive:methods",
     ]
-    assert ecology.rules
-    assert all(rule.startswith("ecology.") for rule in ecology.rules)
+    assert ecology.rules == []
 
 
 def test_unknown_profile_is_refused() -> None:

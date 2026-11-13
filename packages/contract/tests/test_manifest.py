@@ -1,9 +1,18 @@
+from pathlib import Path
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
-from archive_contract.manifest import CORE_FIELDS, Manifest, missing_core_fields
+from archive_contract.manifest import (
+    CORE_FIELDS,
+    CheckCount,
+    Manifest,
+    QualityVerdict,
+    missing_core_fields,
+)
+
+SAMPLE = Path(__file__).parents[3] / "examples" / "sample-package"
 
 LONG_DESCRIPTION = "Hourly water temperature at three invented stream sites, 2024 onward."
 
@@ -281,3 +290,58 @@ def test_citation_and_purpose_parse_and_dump() -> None:
     assert manifest.citation == "Researcher, A. (2026). Streams."
     assert manifest.purpose == "To track."
     assert manifest.dump()["archive:purpose"] == "To track."
+
+
+def test_quality_verdict_carries_the_score_and_its_three_parts() -> None:
+    verdict = QualityVerdict.model_validate(
+        {
+            "errors": 0,
+            "warnings": 3,
+            "notes": 0,
+            "auditedAt": "2026-11-13T10:00:00Z",
+            "score": 61,
+            "find": {"passed": 4, "applicable": 7},
+            "understand": {"passed": 21, "applicable": 51},
+            "trust": {"passed": 30, "applicable": 34},
+        }
+    )
+
+    assert verdict.score == 61
+    assert verdict.understand == CheckCount(passed=21, applicable=51)
+    assert QualityVerdict.model_validate(verdict.dump()) == verdict
+
+
+def test_quality_verdict_without_a_score_still_parses() -> None:
+    verdict = QualityVerdict.model_validate(
+        {"errors": 1, "warnings": 0, "notes": 0, "auditedAt": "2026-11-13T10:00:00Z"}
+    )
+
+    assert verdict.score is None and verdict.find is None
+
+
+@pytest.mark.parametrize("score", [-1, 101])
+def test_score_is_a_percent(score: int) -> None:
+    with pytest.raises(ValidationError):
+        QualityVerdict.model_validate(
+            {
+                "errors": 0,
+                "warnings": 0,
+                "notes": 0,
+                "auditedAt": "2026-11-13T10:00:00Z",
+                "score": score,
+            }
+        )
+
+
+@pytest.mark.parametrize(("passed", "applicable"), [(5, 4), (-1, 3), (0, -1)])
+def test_check_count_passes_at_most_what_applies(passed: int, applicable: int) -> None:
+    with pytest.raises(ValidationError):
+        CheckCount(passed=passed, applicable=applicable)
+
+
+def test_sample_package_manifest_still_loads() -> None:
+    manifest = Manifest.model_validate_json(
+        (SAMPLE / "datapackage.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest.quality is None

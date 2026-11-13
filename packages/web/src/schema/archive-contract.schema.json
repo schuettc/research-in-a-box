@@ -181,6 +181,28 @@
       "title": "Change",
       "type": "object"
     },
+    "CheckCount": {
+      "additionalProperties": true,
+      "description": "How many of the checks that applied passed.",
+      "properties": {
+        "applicable": {
+          "minimum": 0,
+          "title": "Applicable",
+          "type": "integer"
+        },
+        "passed": {
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "passed",
+        "applicable"
+      ],
+      "title": "CheckCount",
+      "type": "object"
+    },
     "Contributor": {
       "additionalProperties": true,
       "description": "A Frictionless v2 contributor. A creator is a contributor with the `creator` role.",
@@ -278,8 +300,21 @@
     },
     "Evidence": {
       "additionalProperties": true,
-      "description": "The rows or values that show the problem or justify the change.",
+      "description": "The rows or values that show the problem or justify the change.\n\n`count` is how many rows show it, since a problem on thousands of rows can't list them all.",
       "properties": {
+        "count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Count"
+        },
         "rows": {
           "anyOf": [
             {
@@ -952,7 +987,7 @@
     },
     "QualityVerdict": {
       "additionalProperties": true,
-      "description": "The counts of findings by severity from the last audit.",
+      "description": "The counts of findings by severity from the last audit, and the completeness score.\n\n`score` is the share of checks passed, as a whole percent rounded down; `find`,\n`understand` and `trust` count the checks for each of the three questions.",
       "properties": {
         "auditedAt": {
           "format": "date-time",
@@ -964,10 +999,57 @@
           "title": "Errors",
           "type": "integer"
         },
+        "find": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckCount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "notes": {
           "minimum": 0,
           "title": "Notes",
           "type": "integer"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "trust": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckCount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "understand": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckCount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "warnings": {
           "minimum": 0,

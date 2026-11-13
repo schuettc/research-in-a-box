@@ -9,8 +9,5 @@ vocabularies:
   - field: keywords
     name: LTER Controlled Vocabulary
     url: https://vocab.lternet.edu/
-# Placeholder rule ids: the audit (Plan 3) owns the rules and may rename these.
-rules:
-  - ecology.units-on-measurements
-  - ecology.coordinates-in-range
-  - ecology.dates-within-coverage
+# Units, dates within coverage and coordinates in range are core rules, not ecology's.
+rules: []

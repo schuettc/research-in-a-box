@@ -3,6 +3,7 @@
 from typing import Any, Literal
 
 from pydantic import Field as PydanticField
+from pydantic import NonNegativeInt
 
 from archive_contract._base import ArchiveModel
 
@@ -18,10 +19,14 @@ class Target(ArchiveModel):
 
 
 class Evidence(ArchiveModel):
-    """The rows or values that show the problem or justify the change."""
+    """The rows or values that show the problem or justify the change.
+
+    `count` is how many rows show it, since a problem on thousands of rows can't list them all.
+    """
 
     rows: list[int] | None = None
     values: list[Any] | None = None
+    count: NonNegativeInt | None = None
 
 
 class Finding(ArchiveModel):

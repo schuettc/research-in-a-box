@@ -130,13 +130,34 @@ class ValidationVerdict(ArchiveModel):
     checked_at: datetime = PydanticField(alias="checkedAt")
 
 
+class CheckCount(ArchiveModel):
+    """How many of the checks that applied passed."""
+
+    passed: NonNegativeInt
+    applicable: NonNegativeInt
+
+    @model_validator(mode="after")
+    def _passed_within_applicable(self) -> Self:
+        if self.passed > self.applicable:
+            raise ValueError("more checks passed than applied")
+        return self
+
+
 class QualityVerdict(ArchiveModel):
-    """The counts of findings by severity from the last audit."""
+    """The counts of findings by severity from the last audit, and the completeness score.
+
+    `score` is the share of checks passed, as a whole percent rounded down; `find`,
+    `understand` and `trust` count the checks for each of the three questions.
+    """
 
     errors: NonNegativeInt
     warnings: NonNegativeInt
     notes: NonNegativeInt
     audited_at: datetime = PydanticField(alias="auditedAt")
+    score: int | None = PydanticField(default=None, ge=0, le=100)
+    find: CheckCount | None = None
+    understand: CheckCount | None = None
+    trust: CheckCount | None = None
 
 
 class Manifest(ArchiveModel):
