@@ -4,9 +4,33 @@
 
 `research-archive-in-a-box/repo-layout-and-conventions` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 5 of 6 · watching** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → ✓ Build → ✓ Sign off
 
-PLAN1 building · 5 of 6 done
+Signed off 2026-11-13 08:52.
+
+PLAN1 built
+
+## Wrap-up
+
+### research-in-a-box now exists as one public repo with an empty, passing skeleton that every other plan builds on.
+
+#### How it works now
+
+The repo is public at https://github.com/schuettc/research-in-a-box. It holds a uv workspace with three Python packages (`archive-contract`, `cruise` and the backend) and an npm workspace with the `ResearchArchive` CDK construct and the web app. One command, `just check`, runs every lint, type check and test plus the schema drift check, and CI runs the same recipes on every push. Anyone can install the local tool straight from GitHub with `uv tool install "git+https://github.com/schuettc/research-in-a-box#subdirectory=packages/tool"`, with nothing published to PyPI. Plan 2 is already building the contract inside this layout.
+
+#### Results
+
+- The empty skeleton, its checks and the CI and release workflows: PLAN1, pushed as 712dcca to schuettc/research-in-a-box, CI run 43445991147 green.
+
+#### Different from the plan
+
+The sample package moved to Plan 2 during planning, so the skeleton commits no data. The note to Plan 2 after the first commit was skipped, because this session owns Plan 2's folder too.
+
+## Pick up next
+
+- **PARK2 Bump TypeScript to 7:** TypeScript is pinned to ~6.0 because typescript-eslint 8.72 supports only TypeScript below 6.1; bump it once typescript-eslint supports 7.
+- **PARK3 minimatch audit advisory:** npm audit reports a moderate minimatch advisory via eslint 10, typescript-eslint and aws-cdk-lib; the only offered fix downgrades eslint. Revisit when upstream releases a fix.
+- **PARK4 Rename the local folder:** The local folder is still research-archive-in-a-box (call AGNT10); rename it to research-in-a-box once no planning session holds a folder under it.
 
 ## What was asked
 
@@ -48,13 +72,13 @@ PLAN1 building · 5 of 6 done
 
 ## Plans
 
-- [PLAN1](plans/1-empty-skeleton.md) An empty, passing skeleton of research-in-a-box: building · 5 of 6 done
+- [PLAN1](plans/1-empty-skeleton.md) An empty, passing skeleton of research-in-a-box: built
   - TASK1 Task 1: Initialise the repo and root files: done. 8eb5734 · on main, practice-data ignored (exit 0)
   - TASK2 Task 2: Python workspace with three empty packages: done. 8e6cd50 · uv sync, ruff, mypy, pytest exit 0 · cruise --version prints cruise 0.1.0
   - TASK3 Task 3: TypeScript workspace with the empty construct and web app: done. 41e471b · npm ci, prettier, eslint, typecheck, tests, web build exit 0 · TypeScript pinned ~6.0 for typescript-eslint
   - TASK4 Task 4: Schema generator and drift check: done. f02ac36 · schema regenerate-and-diff exit 0 · contract tests exit 0
   - TASK5 Task 5: justfile, CI and release workflows: done. bbfa8bf · just check exit 0 (rechecked) · six breakages each exit 1, reverted
-  - TASK6 Task 6: Publish to GitHub and confirm CI and the install: waiting on [research-in-a-box CI run 43445991147 on 712dcca, queued](https://github.com/schuettc/research-in-a-box/actions/runs/43445991147)
+  - TASK6 Task 6: Publish to GitHub and confirm CI and the install: done. Pushed 712dcca to public schuettc/research-in-a-box · CI run 43445991147 success (python, typescript) · uv tool install from GitHub exit 0 · cruise --version prints cruise 0.1.0
 
 ## Steps
 
@@ -68,6 +92,7 @@ PLAN1 building · 5 of 6 done
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `wrap-up.md` | the agent, header by diazo | What was built, how it works now, and what went differently from the plan. |
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |

@@ -1,7 +1,7 @@
 ---
 diazo: research-archive-in-a-box/generic-package-format-and-contract
 file: PLAN1
-status: approved
+status: done
 approved: 2026-11-13T08:46:29-06:00
 hash: daafc8ef92d405db2ee99ac79d9d0d8440ee0e89b034693abf5895a761c2e465
 rests_on: [AGNT1, AGNT10, AGNT11, AGNT2, AGNT3, AGNT4, AGNT5, AGNT6, AGNT8, AGNT9, DCSN1, DCSN2, DCSN3, DCSN4, DCSN5, DCSN6]

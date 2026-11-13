@@ -3,7 +3,11 @@
   "schema": 4,
   "title": "Package format and contract (Plan 2)",
   "expect": 6,
-  "agent_at": "2026-11-13T06:17:19.742161Z",
+  "working": {
+    "text": "Watching CI on main after PR #1 merged",
+    "since": "2026-11-13T09:08:54.715078-06:00"
+  },
+  "agent_at": "2026-11-13T15:08:54.715078Z",
   "start": {
     "opening": {
       "text": "i think we got started incorrectly here.\n\nthe goal here is to build a research in abox.  we'll use the FEMC data as an example, but we want to build this generically.  once we have the correct format, we can work on a process to migrate FEMC data\n\n[...]\n\nyes, let's do that.  we can delete that plan 2 and restart fresh\n\n(Brief: Plan 2 in docs/planning-handoff.md, revised 2026-11-12 to be generic first. Read the handoff, including the Decision log, before continuing.)"
@@ -674,6 +678,15 @@
       "instead": "A flat models.py with everything in one file, splitting later.",
       "why": "Plans 3, 4, 6 and 7 each import a different slice; separate modules keep those imports narrow, and exports and imports are the code that grows.",
       "state": "standing"
+    },
+    {
+      "id": "AGNT12",
+      "name": "Branch from local main",
+      "question": "Which commit does the build branch start from?",
+      "took": "The local main at 7789d37: origin/main plus one commit of planning records, which the PR then carries.",
+      "instead": "Branch from origin/main and push the records commit to main separately.",
+      "why": "The records commit only touches docs/ and needs a PR anyway; one PR carries both.",
+      "state": "standing"
     }
   ],
   "principles": [
@@ -684,7 +697,14 @@
       "struck": false
     }
   ],
-  "follow_ups": [],
+  "follow_ups": [
+    {
+      "id": "PARK1",
+      "name": "Protect main on GitHub",
+      "text": "main has no branch protection, so auto-merge merged PR #1 at once instead of waiting for CI. Require the python and typescript checks on main so auto-merge waits.",
+      "kind": "improvement"
+    }
+  ],
   "spec": {
     "hash": "9f91f0ead574b154211e012ddc9c055f592f5382998f730a3818cdd6c87aadd1",
     "sections": [
@@ -843,7 +863,10 @@
             "DCSN3",
             "DCSN6"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "6c1fac9 + 03cf2b6 (null extras kept, type/kind enforced) · just check exit 0",
+          "build_at": "2026-11-13T09:08:54.715078-06:00"
         },
         {
           "id": "TASK2",
@@ -854,7 +877,10 @@
             "DCSN4",
             "DCSN5"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "a6d3803 + 03cf2b6 (coverage needs end or ongoing) · just check exit 0",
+          "build_at": "2026-11-13T09:08:54.715078-06:00"
         },
         {
           "id": "TASK3",
@@ -864,7 +890,10 @@
           "serves": [
             "DCSN2"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "6d94716 · contract tests exit 0 · just check exit 0 · uv lock --check exit 0",
+          "build_at": "2026-11-13T09:02:29.119669-06:00"
         },
         {
           "id": "TASK4",
@@ -875,7 +904,10 @@
             "DCSN3",
             "DCSN6"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "37b3cf9 + 03cf2b6 (symlinks refused, checksums all but _build, hash allowlist) · 158 tests pass",
+          "build_at": "2026-11-13T09:08:54.715078-06:00"
         },
         {
           "id": "TASK5",
@@ -883,7 +915,10 @@
           "does": "The schema generator points at the manifest model and emits the other records under $defs; the committed schema is regenerated",
           "pulls_in": "Nothing new",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "0a38fa1 · just schema exit 0 · just check (with drift check) exit 0",
+          "build_at": "2026-11-13T09:02:29.119669-06:00"
         },
         {
           "id": "TASK6",
@@ -894,7 +929,19 @@
             "DCSN3",
             "DCSN6"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "1064ecf · merged in PR #1 as c7ba8fc · CI on main pending",
+          "build_at": "2026-11-13T09:02:29.119669-06:00",
+          "waits": [
+            {
+              "link": "https://github.com/schuettc/research-in-a-box/actions/runs/43449582602",
+              "text": "research-in-a-box CI run 43449582602 on main c7ba8fc",
+              "who": "agent",
+              "check_by": "2026-11-13T09:16:00-06:00",
+              "since": "2026-11-13T09:08:54.715078-06:00"
+            }
+          ]
         }
       ],
       "approved": {
