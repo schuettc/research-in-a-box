@@ -1,0 +1,19 @@
+[project]
+name = "cruise"
+version = "0.1.0"
+description = "The research-in-a-box local tool."
+requires-python = ">=3.12"
+dependencies = ["archive-contract"]
+
+[project.scripts]
+cruise = "cruise.cli:main"
+
+[tool.uv.sources]
+archive-contract = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cruise"]
