@@ -1,0 +1,870 @@
+{
+  "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
+  "schema": 4,
+  "title": "Quality rules and local tool (Plan 3)",
+  "expect": 2,
+  "agent_at": "2026-11-13T21:11:35.013741Z",
+  "start": {
+    "opening": {
+      "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\nBrief: Plan 3 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the quality rules engine and the local tool (Plan 3), generic first. Design the rules from what makes any dataset hard to use, then check them against the sample package from Plan 2 and the hand-made Ozone findings in `practice-data/packages/ozone-bioindicators/datapackage.json` under `archive:quality`. Then plan the commands. Take the open questions with me one at a time."
+    },
+    "findings": [
+      {
+        "text": "Plan 2 is merged on origin/main (#1, #3, #4, #5). The local main checkout is 4 behind origin, so I read everything at origin/main.",
+        "source": "git log --oneline origin/main",
+        "output": "c6a969a Wrap up Plan 2 ... (#5)\nea2636d Fields from the FEMC paper test (Plan 2, PLAN3) (#4)\n90e1a0b Exports, EML import and the FEMC paper test (Plan 2, PLAN2) (#3)\nc7ba8fc Contract models, validation, schema and sample package (Plan 2, PLAN1) (#1)",
+        "cases": "1 of 1 repo"
+      },
+      {
+        "text": "cruise is an empty shell: argparse with --version only. Every command is still to build.",
+        "source": "packages/tool/src/cruise/cli.py (origin/main)",
+        "cases": "1 of 1 file"
+      },
+      {
+        "text": "Finding has ruleId, severity (error, warning, note), message, target (resource, field, path), evidence (rows, values) and suggestedFix. Change has id, when, madeBy, acceptedBy, kind, target, before, after, reason, evidence.",
+        "source": "packages/contract/src/archive_contract/findings.py, changes.py (origin/main)",
+        "cases": "2 of 2 models"
+      },
+      {
+        "text": "Structure checks already exist and report error findings with ids under structure.*: manifest, files, sizes, hashes, checksums, foreign keys, shapefile attributes, symlinks. Plan 3's rules are about quality only.",
+        "source": "packages/contract/src/archive_contract/validate.py (origin/main)",
+        "cases": "1 of 1 module"
+      },
+      {
+        "text": "A profile is a YAML file listing required fields and rule ids. Core lists no rules. Ecology names three placeholder rule ids: ecology.units-on-measurements, ecology.coordinates-in-range, ecology.dates-within-coverage.",
+        "source": "packages/contract/src/archive_contract/profiles/core.yaml, ecology.yaml (origin/main)",
+        "cases": "2 of 2 profiles"
+      },
+      {
+        "text": "The sample package has 4 planted gaps, all about column metadata or a constant column: battery_v has no description, depth_cm's description repeats its name, qc_flag codes are undocumented, logger_model is constant. None of the value problems the handoff lists (placeholders like -999, mixed date formats, swapped coordinates, merged headers, unit mix-ups) is planted.",
+        "source": "examples/sample-package/_build/GAPS.md and data/logger.csv (origin/main)",
+        "cases": "4 of 4 planted gaps"
+      },
+      {
+        "text": "The hand-made Ozone audit has 36 findings: 11 unit missing, 4 description missing, 3 description repeats the name, 4 type not declared, 2 type narrower than declared, 3 constant columns, 1 undocumented codes, 1 location identifier with no grid, 1 temporal gap (no 1998 rows), license, methods and spatial coverage missing, taxonomic coverage missing, plus 2 about the source EML (the distibution tag, a trailing space in the title).",
+        "source": "practice-data/packages/ozone-bioindicators/datapackage.json, archive:quality.findings",
+        "cases": "36 of 36 findings"
+      },
+      {
+        "text": "The Ozone findings used dotted codes such as column.description.missing and evidence shapes the contract's Evidence can't hold (distinctCount, inferredType, yearsPresent, value with a row count).",
+        "source": "practice-data/packages/ozone-bioindicators/datapackage.json, archive:quality.findings",
+        "cases": "5 of 36 findings carry such evidence"
+      },
+      {
+        "text": "The contract has no taxonomic coverage field, so Ozone's 'taxonomic coverage missing' finding has nothing to check yet.",
+        "source": "packages/contract/src/archive_contract/manifest.py (origin/main): RECOMMENDED_FIELDS",
+        "cases": "1 of 1 manifest model"
+      },
+      {
+        "text": "Every species column in the practice data holds numeric codes, not names: Ozone SPECIES (6 codes), FIA SPCD (76 codes), aerial survey HOST1 (536 values).",
+        "source": "python csv.DictReader counts over practice-data/femc",
+        "output": "FIA SPCD: 76 distinct, top 318, 316, 12, 531, 261\nAerial HOST1: 536 distinct, top -1 (18104 rows), 802, 129, 318",
+        "cases": "3 of 3 species columns"
+      },
+      {
+        "text": "A real placeholder case: the aerial survey's HOST1 holds -1 in 18,104 rows, so values.placeholder has a FEMC case beyond the messy fixture.",
+        "source": "unzip -p ...CombinedAerialSurvey...zip '*.csv', HOST1 counts",
+        "output": "('-1', 18104)",
+        "cases": "1 of 1 column checked"
+      }
+    ],
+    "rounds": [
+      {
+        "take": "**Where Plan 3 starts.** Plan 2 left a contract with Finding and Change models, structure checks under `structure.*`, profiles that switch rules on by id, and a sample package with four planted gaps. `cruise` itself is empty. So Plan 3 builds the quality rules, then the commands on top of them.\n\n**My take on the rules: organise them by the question a reader can't answer.** A dataset is hard to use when you can't tell what it is, can't tell what a column means, or can't trust the values. That gives three groups, each a set of small deterministic checks:\n\n1. **Can I find, cite and reuse it?** (the package): core fields missing (already `missing_core_fields`), fields a profile requires missing (methods, coverage), rights.\n2. **Can I understand each column?** (the schema): no description, a description that only repeats the name, a measurement with no unit, codes with no code list, a type guessed rather than declared.\n3. **Can I trust the values?** (the data, read with DuckDB): constant columns, placeholder values such as -999 that aren't declared missing, mixed date formats, dates outside the stated coverage or gaps in it, coordinates out of range or swapped, duplicate keys.\n\nEach rule is a Python function in `cruise` with a stable dotted id (`field.description-missing`, `values.placeholder`), a default severity, and what it looks at (package, column, or table rows). A profile switches rules on by id, as the ecology profile already does; I'd rename its three placeholders into this scheme. Structure stays in the contract as Plan 2 built it.\n\n**Checked against the two tests** (table below): the first two groups and the constant-column rule catch all 4 planted gaps in the sample and 26 of Ozone's 36. Of the other 10, 6 are about types guessed at import and 2 about FEMC's EML (both belong to import, Plan 5), 1 needs a taxonomic coverage field the contract lacks, and 1 is a judgement call (a column that looks like a grid id). **The gap:** neither test holds a single value problem, so the third group, the one the handoff's rule list is mostly about, would have nothing to prove itself on. I'd add a small messy fixture with planted value problems.\n\n**Build order.** The commands split cleanly into three plans, each usable on its own:\n\n1. Rules engine, the first rule set, and `cruise diagnose` (one package) and `cruise audit` (many, ranked), proven on the sample, the messy fixture and Ozone.\n2. `cruise tidy` (proposals written to `changes.jsonl`, originals untouched) and `cruise package` (build the folder, checksums, README).\n3. `cruise inventory` and `cruise profile` for a messy folder before it is a package.\n\nOpen questions for later, one at a time: what blocks versus warns, how the completeness score works, offline species lookups, and how far inventory goes without an agent.",
+        "visuals": [
+          {
+            "kind": "table",
+            "caption": "The proposed first rules against the sample package's planted gaps and the hand-made Ozone findings",
+            "table": {
+              "columns": [
+                "Group",
+                "Rule",
+                "Sample package",
+                "Ozone (hand-made)"
+              ],
+              "rows": [
+                [
+                  "Find and cite",
+                  "package.core-missing (title, description, creator, rights, resources)",
+                  "0",
+                  "1 (license)"
+                ],
+                [
+                  "Find and cite",
+                  "package.profile-field-missing (methods, coverage)",
+                  "0",
+                  "2 (methods, spatial coverage)"
+                ],
+                [
+                  "Understand",
+                  "field.description-missing",
+                  "1 (battery_v)",
+                  "4"
+                ],
+                [
+                  "Understand",
+                  "field.description-repeats-name",
+                  "1 (depth_cm)",
+                  "3"
+                ],
+                [
+                  "Understand",
+                  "field.unit-missing (ecology.units-on-measurements)",
+                  "0",
+                  "11"
+                ],
+                [
+                  "Understand",
+                  "field.codes-undocumented",
+                  "1 (qc_flag)",
+                  "1 (SPECIES)"
+                ],
+                [
+                  "Trust",
+                  "values.constant",
+                  "1 (logger_model)",
+                  "3"
+                ],
+                [
+                  "Trust",
+                  "values.coverage-gap / outside coverage (ecology.dates-within-coverage)",
+                  "0",
+                  "1 (no 1998)"
+                ],
+                [
+                  "Trust",
+                  "values.placeholder, values.mixed-dates, values.coordinates (ecology.coordinates-in-range), values.duplicate-key",
+                  "0",
+                  "0"
+                ],
+                [
+                  "Import (Plan 5)",
+                  "type guessed or narrower, EML quirks",
+                  "0",
+                  "8"
+                ],
+                [
+                  "Not covered",
+                  "taxonomic coverage (no field yet), grid id with no grid (judgement)",
+                  "0",
+                  "2"
+                ],
+                [
+                  "Total caught",
+                  "",
+                  "4 of 4",
+                  "26 of 36"
+                ]
+              ],
+              "sample": "n = 4 planted gaps, 36 Ozone findings"
+            }
+          },
+          {
+            "kind": "mermaid",
+            "caption": "The three plans and what each command reads and writes",
+            "mermaid": "flowchart LR\n  F[messy folder] --\u003e|inventory, profile| P3[PLAN 3]\n  P3 --\u003e T[tidy proposals]\n  T --\u003e|tidy, package| P2[PLAN 2]\n  P2 --\u003e K[package folder]\n  K --\u003e|diagnose, audit| P1[PLAN 1]\n  P1 --\u003e R[findings and ranking]"
+          }
+        ],
+        "recommendation": "Rules grouped by the three reader questions (find and cite, understand each column, trust the values), each a Python function in cruise with a dotted id, default severity and scope, value checks in DuckDB, profiles switching them on by id; a small messy fixture added so the value rules have cases; built as three plans: rules plus diagnose and audit first, then tidy and package, then inventory and profile."
+      }
+    ],
+    "direction": {
+      "round": 1,
+      "at": "2026-11-13T12:35:12.786552-06:00",
+      "by": "user"
+    }
+  },
+  "understanding": {
+    "points": [
+      {
+        "kind": "outcome",
+        "text": "A local-first command line tool, cruise, that cleans, organizes and packages data, built on a rules engine that produces graded findings with evidence.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "Rules designed generically from what makes any dataset hard to use: can I find and cite it, can I understand each column, can I trust the values. Nothing in the core is specific to FEMC or ecology; ecology adds rules through its profile.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "The commands: inventory, profile, diagnose, tidy, package and audit. Audit runs over many packages and ranks them by what needs fixing.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "Built as three plans, each usable on its own: rules plus diagnose and audit; then tidy and package; then inventory and profile.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Local-first, state on disk, no network needed, no phoning home. Checks are deterministic code; an agent is optional and handles judgement calls only.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Tidy is a proposal with a reviewable change log in changes.jsonl. Originals are never modified.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "DuckDB reads tables, CSV now and Parquet later, through one interface.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Plan 2's Finding and Change models are confirmed or changed here, as an edit to the contract. Structure checks stay in the contract as Plan 2 built them.",
+        "source": "said"
+      },
+      {
+        "kind": "success",
+        "text": "The rules produce the sample package's 4 planted findings, and Ozone's hand-made findings are a second test.",
+        "source": "said"
+      },
+      {
+        "kind": "success",
+        "text": "A small messy fixture with planted value problems (placeholders, mixed dates, bad coordinates, duplicate keys) gives each value rule a case it must catch.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "Every check runs with the network off.",
+        "source": "assumed"
+      }
+    ],
+    "confirmed": true
+  },
+  "decisions": [
+    {
+      "id": "DCSN1",
+      "name": "What blocks publishing",
+      "question": "Which findings stop a package from being published, and which only warn?",
+      "example": "Ozone Bioindicators (one of the FEMC practice datasets, converted by hand) has 4 columns with no description. If a missing description blocks, Ozone can't be published until someone writes 4 definitions FEMC never recorded; if it only warns, Ozone publishes with the warning shown on its page and in review.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Only required fields and structure block",
+          "includes": "Severity gets a fixed meaning: error = blocks publishing (structure errors, core fields missing, a field the deployment's profiles require missing, rights undetermined); warning = makes the data hard to use (column and value rules); note = worth knowing. No column or value rule is ever an error.",
+          "pulls_in": "Nothing new: the blockers are exactly what the contract and profiles already call required."
+        },
+        {
+          "id": "B",
+          "title": "Every error-severity finding blocks",
+          "includes": "Rules carry their own severity, as in the Ozone draft, and some column rules (description missing, undocumented codes) are errors that block.",
+          "pulls_in": "Most legacy data can't publish until its gaps are filled; Plan 5's migration would stall on gaps the source never recorded."
+        },
+        {
+          "id": "C",
+          "title": "Nothing blocks automatically",
+          "includes": "Findings are advice only; the curator in review (Plan 7) decides every package.",
+          "pulls_in": "A package with no license or no title could reach review and be approved by mistake, against Plan 2's rights decision."
+        },
+        {
+          "id": "D",
+          "title": "A, plus one list of blocking rules per archive",
+          "includes": "A as the default, and the archive config can name rule ids that block everything that archive receives (for example field.description-missing). Old and new packages in the same archive get the same list.",
+          "pulls_in": "A blocking-rules list in the archive config model (a contract edit) and in Plan 7's ingest. FEMC's migrated records would be blocked by the same list as new submissions."
+        },
+        {
+          "id": "E",
+          "title": "A, plus rules that block new submissions only",
+          "includes": "A as the default, and the archive config can name rule ids that block new submissions. A package migrated from an earlier system, which carries archive:legacyIdentifiers, gets those rules as warnings. Review shows the curator which treatment a package got.",
+          "pulls_in": "The same config list and ingest check as D, plus the legacy test. Anyone could add a legacy identifier to dodge the stricter rules, so the curator checks it in review."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "It gives severity one meaning everyone can predict, keeps Plan 2's rule that undetermined rights can't publish, and lets real legacy data in with its gaps visible rather than stuck: blocking can't recover a definition nobody recorded. No archive has asked for a stricter list yet; if FEMC wants new submissions held to more, E is the one that fits an archive holding both old and new data, and it can be added later on top of A."
+      },
+      "state": "decided",
+      "choice": "A",
+      "note": "yes, let's do that",
+      "via": "terminal",
+      "revisions": [
+        {
+          "at": "2026-11-13T14:31:52.361353-06:00",
+          "text": "Added option D after your note: each deployment can list in its archive config which rules block, such as requiring every column described for new submissions",
+          "because": "note:DCSN1"
+        },
+        {
+          "at": "2026-11-13T14:39:44.661724-06:00",
+          "text": "Added option E after your note: stricter rules block new submissions only, and packages migrated from an earlier system (they carry archive:legacyIdentifiers) get them as warnings; D clarified as one list per archive",
+          "because": "note:DCSN1"
+        },
+        {
+          "at": "2026-11-13T14:56:26.090235-06:00",
+          "text": "Recorded your choice of A from the terminal",
+          "because": "note:DCSN1"
+        }
+      ]
+    },
+    {
+      "id": "DCSN2",
+      "name": "Completeness score",
+      "question": "How is the completeness score calculated and shown?",
+      "example": "Ozone has 17 columns, 10 with a usable description and 0 with a unit, plus a missing license. One number like 61% ranks it in an audit; a breakdown says where to work.",
+      "options": [
+        {
+          "id": "A",
+          "title": "No score: counts and checklists",
+          "includes": "Errors, warnings and notes counted, plus a checklist per reader question (10 of 17 columns described). Audit ranks by errors, then warnings.",
+          "pulls_in": "Nothing; the manifest's archive:quality already holds the counts."
+        },
+        {
+          "id": "B",
+          "title": "One unweighted percent, with its three parts",
+          "includes": "Each check that applies (a rule on each column, each package field) passes or fails; the score is the share passed, overall and per reader question (find and cite, understand, trust), with no weights. Shown as '61% (find 4 of 7, understand 21 of 51, trust 30 of 34)'. Audit ranks by errors, then lowest score.",
+          "pulls_in": "A contract edit: archive:quality gains the score and its three parts."
+        },
+        {
+          "id": "C",
+          "title": "Three part scores, no total",
+          "includes": "The same three shares as B, without an overall number.",
+          "pulls_in": "The same contract edit; an audit has no single number to sort or report."
+        }
+      ],
+      "recommendation": {
+        "option": "B",
+        "why": "The handoff asks for a score and what it is made of; one number sorts the audit and goes in the FEMC report, and with no weights anyone can recount it from the parts.",
+        "evidence": [
+          {
+            "text": "The handoff puts a score in scope",
+            "source": "docs/planning-handoff.md, Plan 3 In scope",
+            "output": "A completeness score, and what it is made of."
+          },
+          {
+            "text": "The manifest holds counts only today",
+            "source": "packages/contract/src/archive_contract/manifest.py (origin/main)",
+            "output": "class QualityVerdict: errors, warnings, notes, audited_at"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "B"
+    },
+    {
+      "id": "DCSN3",
+      "name": "Species names offline",
+      "question": "Do we build species-name matching against ITIS now, and if so how does it work offline?",
+      "example": "A table spelling 'Acer saccharum' and 'Acer sacharum' would be flagged as variants of one ITIS name. But every species column in the practice data holds numeric codes, not names.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Not yet",
+          "includes": "Leave species matching out of the first rule set and record it as a follow-up; species codes are handled by the undocumented-codes rule and code lists.",
+          "pulls_in": "Nothing now. When a dataset with names arrives, B is the shape."
+        },
+        {
+          "id": "B",
+          "title": "Local ITIS snapshot",
+          "includes": "cruise taxa update downloads ITIS once into a local cache; the rule runs offline against it and reports itself skipped when there is no cache.",
+          "pulls_in": "A download step, a cache format, and a snapshot of several hundred MB to keep current."
+        },
+        {
+          "id": "C",
+          "title": "Look up online when there is a network",
+          "includes": "The rule calls ITIS's web service and is skipped offline.",
+          "pulls_in": "Breaks local-first and no-network as a default; results differ by connection."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "No dataset we hold has a species-name column to test it on: all three species columns are numeric codes, which the code-list rules already cover."
+      },
+      "state": "decided",
+      "choice": "A",
+      "note": "yes, let's do that",
+      "via": "terminal",
+      "revisions": [
+        {
+          "at": "2026-11-13T14:56:26.090235-06:00",
+          "text": "Recorded your choice of A from the terminal",
+          "because": "note:DCSN1"
+        }
+      ]
+    }
+  ],
+  "calls": [
+    {
+      "id": "AGNT1",
+      "name": "Rules live in cruise",
+      "question": "Which package holds the rules?",
+      "took": "A cruise.rules module that imports without the CLI, so the backend (Plan 7) and the MCP server (Plan 9) can depend on cruise as a library and run the same rules.",
+      "instead": "A separate archive-rules package in the uv workspace that cruise and the backend both depend on.",
+      "why": "Plan 2 put rules outside the contract ('The rules themselves are code in the audit, not in the contract'), and one more package is something to maintain with no second user yet.",
+      "evidence": [
+        {
+          "text": "The contract leaves rules to the audit",
+          "source": "packages/contract/src/archive_contract/profile.py (origin/main)",
+          "output": "The rules themselves are code in the audit, not in the contract."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT2",
+      "name": "Dotted rule ids",
+      "question": "How are rule ids named, and what happens to the ecology profile's three placeholder rules?",
+      "took": "\u003cgroup\u003e.\u003cwhat\u003e: package.*, field.*, values.*, beside Plan 2's structure.*. The ecology profile's three placeholders turn out to be generic (any measurement needs a unit, any dated table can fall outside its coverage, any coordinates can be out of range), so they become core rules field.unit-missing, values.dates-outside-coverage and values.coordinates-out-of-range, and ecology.yaml's rules list is emptied. Profiles keep the rules mechanism for real domain rules later.",
+      "instead": "Keep them as ecology-only rules under ecology.*, so a package checked against core alone gets no unit, date or coordinate checks.",
+      "why": "Generic first: nothing in the core may be specific to ecology, and nothing in these three checks is.",
+      "evidence": [
+        {
+          "text": "Plan 2 emits structure.\u003crule\u003e",
+          "source": "packages/contract/src/archive_contract/validate.py (origin/main)",
+          "output": "rule_id=f\"structure.{rule}\""
+        },
+        {
+          "text": "The placeholders say Plan 3 may rename them",
+          "source": "packages/contract/src/archive_contract/profiles/ecology.yaml (origin/main)",
+          "output": "# Placeholder rule ids: the audit (Plan 3) owns the rules and may rename these."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT3",
+      "name": "Evidence gets a count",
+      "question": "Do Finding and Change need changing?",
+      "took": "Both confirmed as drafted, with one addition to Evidence: count (how many rows show it), since a rule like values.placeholder must say '18,104 rows' without listing them. Distinct values, inferred types and years present fit in values.",
+      "instead": "Keep Evidence as it is and put counts in the message text.",
+      "why": "5 of Ozone's 36 findings carried evidence the model can't hold; all but the row count fit in values.",
+      "evidence": [
+        {
+          "text": "Ozone evidence shapes",
+          "source": "practice-data/packages/ozone-bioindicators/datapackage.json archive:quality",
+          "output": "{\"value\": \"D\", \"rows\": 165}, {\"distinctCount\": 21}, {\"inferredType\": \"string\"}, {\"yearsPresent\": [...]}"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT4",
+      "name": "A messy fixture",
+      "question": "What do the value rules test against?",
+      "took": "A small invented messy fixture package beside the sample, with each value problem planted once and listed in its GAPS.md.",
+      "instead": "Plant the value problems in the sample package itself.",
+      "why": "The sample package is the clean demonstration of the format; its 4 gaps are metadata-only, and neither it nor Ozone holds a single value problem.",
+      "evidence": [
+        {
+          "text": "The sample's planted gaps",
+          "source": "examples/sample-package/_build/GAPS.md (origin/main)",
+          "output": "battery_v no description; depth_cm repeats name; qc_flag undocumented codes; logger_model constant"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT5",
+      "name": "Types inferred at packaging",
+      "question": "Where do 'type guessed' findings come from?",
+      "took": "cruise package and profile infer a type only where the source is silent and record field.type-inferred or field.type-narrower findings then (the second plan), rather than the audit re-guessing later.",
+      "instead": "Leave these to the FEMC import in Plan 5.",
+      "why": "The handoff says keep the declared type, infer only where the source is silent and record the inference as a finding; inference happens when the package is built, which is cruise's job. (My take put these under Plan 5; this corrects it.)",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT6",
+      "name": "Tidy proposals outside the package",
+      "question": "Where do tidy's proposals wait before they are accepted?",
+      "took": "In _build/proposals.jsonl, as Change lines with no acceptedBy; accepting one moves it into changes.jsonl and applies it to the tidy table. _build/ is already outside package content.",
+      "instead": "Write proposals straight into changes.jsonl with acceptedBy empty.",
+      "why": "changes.jsonl then holds only what a person accepted, and the structure checks already skip _build/.",
+      "evidence": [
+        {
+          "text": "_build is not package content",
+          "source": "packages/contract/src/archive_contract/validate.py (origin/main)",
+          "output": "Everything is package content except the top-level `_build/` folder."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT7",
+      "name": "Diagnose and audit first",
+      "question": "What does this spec cover?",
+      "took": "Only the rules, cruise diagnose and cruise audit. Tidy, package, inventory and profile are planned later in this folder, once diagnose has been used on real data (follow-ups PARK3 and PARK4).",
+      "instead": "Spec all six commands now as three plans.",
+      "why": "You chose this in the terminal: get the first useful piece working, then plan the rest from using it.",
+      "evidence": [
+        {
+          "text": "Your words",
+          "source": "terminal, 2026-11-13",
+          "output": "yes, let's do that (to: write the spec around the checks plus diagnose and audit; plan fixing and folder-sorting after using diagnose)"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT8",
+      "name": "Ozone checked on paper",
+      "question": "How is Ozone used as a test, given it can't be read yet?",
+      "took": "The rules are checked against Ozone's 36 hand-made findings on paper (the first take's table). A real diagnose run on Ozone waits on Plan 5 converting it into the contract format.",
+      "instead": "Convert the draft Ozone package to the contract format inside this plan, as a local-only test (practice-data is never committed, so it can't run in CI).",
+      "why": "The hand-made Ozone package was written in an early draft of the format, and the standard EML importer reads FEMC's Ozone record as no title and no tables; fixing either is migration, which is Plan 5's job.",
+      "evidence": [
+        {
+          "text": "The draft package fails the contract",
+          "source": "Manifest.model_validate(ozone datapackage.json) at origin/main",
+          "output": "8 validation errors for Manifest: version '1.0.0', archive:project is an object, archive:access is an object, archive:legacyIdentifiers is an object, archive:quality.errors missing, ..."
+        },
+        {
+          "text": "The standard importer reads nothing",
+          "source": "from_eml(practice-data/femc/ozone-bioindicators/eml.xml) at origin/main",
+          "output": "title None, 0 resources; skipped: dataset/dataTable/title: not standard EML, ..."
+        }
+      ],
+      "state": "standing"
+    }
+  ],
+  "principles": [],
+  "follow_ups": [
+    {
+      "id": "PARK1",
+      "name": "Taxonomic coverage field",
+      "text": "The contract has no taxonomic coverage field, so Ozone's 'taxonomic coverage missing' finding can't be checked. Add the field (an edit to the contract) when a profile needs it.",
+      "from": "start",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK2",
+      "name": "Grid ids with no grid",
+      "text": "Ozone's HEXAGONNUMBER looks like a location id with no grid described. Spotting that is a judgement call for the agent layer (Plan 9), not a deterministic rule.",
+      "from": "start",
+      "kind": "idea"
+    },
+    {
+      "id": "PARK3",
+      "name": "Tidy and package commands",
+      "text": "cruise tidy (proposals into changes.jsonl, originals untouched) and cruise package (build the folder, infer types where the source is silent, checksums, README). Plan it as this folder's next plan once diagnose and audit have been used on real data. Calls AGNT5 and AGNT6 are its starting point.",
+      "from": "the user, in the terminal: plan the fixing parts after diagnose has been used",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK4",
+      "name": "Inventory and profile commands",
+      "text": "cruise inventory and cruise profile for a messy folder before it is a package, including how far inventory groups files without an agent (the handoff's open question; the aerial survey zip is the real case: shapefile sidecars plus CSV and XLSX copies under one base name). Plan after tidy and package.",
+      "from": "the user, in the terminal: move the inventory question to its own plan",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK5",
+      "name": "Species names against ITIS",
+      "text": "Species-name matching against ITIS, with a local snapshot so it works offline (DCSN3 option B), when a dataset with a species-name column arrives.",
+      "from": "DCSN3",
+      "kind": "idea"
+    }
+  ],
+  "spec": {
+    "hash": "684b0f9dd5c66ebc800f1822a2129b7a0ec813cd11c1b98c82b917e7b94aa4c9",
+    "sections": [
+      {
+        "id": "SPEC1",
+        "heading": "Goal",
+        "decisions": []
+      },
+      {
+        "id": "SPEC2",
+        "heading": "What diagnose and audit do",
+        "decisions": [
+          "AGNT7",
+          "DCSN1",
+          "DCSN2"
+        ]
+      },
+      {
+        "id": "SPEC3",
+        "heading": "The rules",
+        "decisions": [
+          "AGNT2",
+          "DCSN1",
+          "DCSN3"
+        ]
+      },
+      {
+        "id": "SPEC4",
+        "heading": "What blocks publishing",
+        "decisions": [
+          "DCSN1"
+        ]
+      },
+      {
+        "id": "SPEC5",
+        "heading": "The completeness score",
+        "decisions": [
+          "DCSN2"
+        ]
+      },
+      {
+        "id": "SPEC6",
+        "heading": "How the rules are built",
+        "decisions": [
+          "AGNT1",
+          "AGNT2"
+        ]
+      },
+      {
+        "id": "SPEC7",
+        "heading": "Changes to the contract",
+        "decisions": [
+          "AGNT2",
+          "AGNT3",
+          "DCSN2"
+        ]
+      },
+      {
+        "id": "SPEC8",
+        "heading": "Test data",
+        "decisions": [
+          "AGNT4",
+          "AGNT8"
+        ]
+      },
+      {
+        "id": "SPEC9",
+        "heading": "Left out",
+        "decisions": [
+          "AGNT5",
+          "AGNT6",
+          "AGNT7",
+          "DCSN1",
+          "DCSN3"
+        ]
+      },
+      {
+        "id": "SPEC10",
+        "heading": "How we'll know it works",
+        "decisions": [
+          "AGNT4",
+          "AGNT8"
+        ]
+      }
+    ],
+    "approved": {
+      "hash": "684b0f9dd5c66ebc800f1822a2129b7a0ec813cd11c1b98c82b917e7b94aa4c9",
+      "at": "2026-11-13T15:09:15.408932-06:00",
+      "body": "# Quality rules, cruise diagnose and cruise audit\n\n## Goal\n\nA researcher or curator runs `cruise diagnose` on a package folder and gets a clear list of what makes the data hard to use, each problem backed by evidence (which column, which rows, which values), plus a completeness score and whether anything blocks publishing. `cruise audit` runs the same checks over many packages and ranks them by what needs fixing. Everything runs on the user's own machine with no network.\n\nThis is the first useful piece of the local tool. Fixing problems (`tidy`), building packages (`package`) and sorting a messy folder (`inventory`, `profile`) are planned later in this folder, once diagnose has been used on real data.\n\n**Risk.** Low. diagnose and audit only read: they never change a package, so a wrong rule produces a wrong finding, never lost data. A mistake is undone by fixing the rule. The two contract edits add optional fields, so existing packages still parse.\n\n**Cost.** No new programs for the user and no steps they must do. One new Python dependency, DuckDB, in cruise.\n\n## What diagnose and audit do\n\n`cruise diagnose \u003cpackage-folder\u003e`:\n\n1. Runs Plan 2's structure check (`validate_package`). If the manifest can't be read, it stops there and reports why.\n2. Runs every quality rule that applies, skipping the data rules on any resource whose files failed the structure check.\n3. Prints the findings grouped by the three questions below, each with its evidence and, where there is one, a suggested fix; then the score with its three parts; then a one-line verdict: \"blocks publishing (3)\" or \"publishable, with 12 warnings\".\n4. With `--json`, prints the same as one JSON object: the structure verdict, the quality verdict with the score, and every finding in the contract's `Finding` shape.\n5. Exits 1 when any finding blocks publishing, else 0, so scripts and CI can use it.\n\nWhich profiles apply comes from `--config \u003carchive.yaml\u003e` (the archive config, which names profiles and extra required fields) or from `--profile \u003cname\u003e`, repeatable. With neither, only core applies.\n\n`cruise audit \u003cfolder\u003e`:\n\n1. Finds every `datapackage.json` under the folder and runs diagnose on each.\n2. Prints one row per package, ranked by blockers (most first), then by score (lowest first): package, blockers, warnings, notes, score and its three parts, and the rule that fired most.\n3. With `--json`, prints the rows plus every package's findings.\n\nNeither command writes anything. Recording the verdict in a package's manifest belongs to `cruise package`, later.\n\nRests on: AGNT7, DCSN1, DCSN2\n\n## The rules\n\nThe rules are grouped by the question a reader can't answer. Each is small, deterministic code with a stable id.\n\n**Can I find, cite and reuse it?** (the package)\n\n| Rule | Catches | Severity |\n| --- | --- | --- |\n| `package.core-missing` | A core field missing: title, a description of at least 50 characters, a creator, rights (a license or a stated rights status other than undetermined), a described resource. One finding per field, from Plan 2's `missing_core_fields`. | error |\n| `package.profile-field-missing` | A field the selected profiles or the archive config require, such as methods or coverage under ecology. One finding per field. | error |\n\n**Can I understand each column?** (every column of a table, and every attribute of a vector resource)\n\n| Rule | Catches | Severity |\n| --- | --- | --- |\n| `field.description-missing` | No description. | warning |\n| `field.description-repeats-name` | A description that only repeats the column's name or source name, ignoring case, spaces and punctuation. | warning |\n| `field.unit-missing` | A number or integer column on an interval or ratio scale, or with no scale stated, that has no `archive:unit`. | warning |\n| `field.codes-undocumented` | A column marked `archive:codeList: \"undocumented\"`. The evidence lists its distinct values, up to 20. | warning |\n\n**Can I trust the values?** (table resources, read with DuckDB)\n\n| Rule | Catches | Severity |\n| --- | --- | --- |\n| `values.not-declared-type` | Values that don't read as the column's declared type and aren't declared missing, such as `n/a` in an integer column. | warning |\n| `values.placeholder` | A number column holding a placeholder that isn't declared missing: one of -9999, -999, -99, 9999, 99999, or a negative value that repeats in a column whose other values are all zero or more (the aerial survey's `-1` in HOST1). | warning |\n| `values.constant` | A column with one value in every row (more than one row). | warning |\n| `values.mixed-date-formats` | A string column whose values parse as dates in more than one pattern, such as `2024-06-01` and `06/01/2024`. | warning |\n| `values.dates-outside-coverage` | Values in a date, datetime or year column outside the package's temporal coverage. | warning |\n| `values.coverage-gap` | A whole year inside the temporal coverage with no rows (Ozone's 1998). | note |\n| `values.coordinates-out-of-range` | Latitudes beyond ±90 or longitudes beyond ±180, in a geopoint column or in columns named for latitude and longitude; when the values fit the other axis's range, the finding says they look swapped. Also values outside the package's spatial coverage box. | warning |\n| `values.duplicate-key` | Rows that repeat the table's primary key. | warning |\n\nEvery finding names its target (resource and column) and carries evidence: row numbers (up to 20), the values, and how many rows show it.\n\nSpecies-name matching against ITIS is not in this set: every species column in the practice data holds numeric codes, which the code-list rule covers.\n\nRests on: AGNT2, DCSN1, DCSN3\n\n## What blocks publishing\n\nSeverity has one meaning everywhere:\n\n- **error** blocks publishing: Plan 2's structure errors, `package.core-missing` and `package.profile-field-missing`.\n- **warning** makes the data hard to use: every column and value rule.\n- **note** is worth knowing: `values.coverage-gap`.\n\nNo column or value rule is ever an error, so legacy data with gaps it can't fill can still be published, with the gaps shown. diagnose's verdict and exit code follow from this; Plan 7's ingest uses the same rule.\n\nRests on: DCSN1\n\n## The completeness score\n\nA check is one rule applied to one target: `field.description-missing` on a 17-column table is 17 checks; `package.core-missing` is 5 checks, one per core field. A check passes when the rule finds nothing on that target. Value rules count one check per column they look at.\n\nThe score is the share of checks passed, as a whole percent rounded down, with no weights, overall and for each of the three questions. diagnose shows it as `61% (find 4 of 7, understand 21 of 51, trust 30 of 34)`, so anyone can recount it. Structure errors are not in the score: they block, and are shown on their own.\n\naudit ranks by blockers first, then by lowest score, so packages of different sizes compare fairly: a 207-column table isn't ranked worse just for having more columns.\n\nRests on: DCSN2\n\n## How the rules are built\n\n- The rules live in a `cruise.rules` module that imports without the command line, so the archive's ingest (Plan 7) and the MCP server (Plan 9) can run the same rules by depending on cruise as a library.\n- A rule is a Python function registered with its id, its question (find, understand or trust), what it looks at (the package, each column, or each table's rows) and its severity. It returns findings.\n- Core rules always run. A profile can switch on extra rules by id through its `rules` list; no profile has any yet.\n- Tables are read through one function backed by DuckDB, given a resource. It is the only place a file format appears, so Parquet later is one more branch there. CSV files are read as text and each value rule tests casts in SQL, so a bad value becomes a finding rather than a failed read.\n- No rule touches the network. A test runs diagnose with network access disabled.\n\nRests on: AGNT1, AGNT2\n\n## Changes to the contract\n\n- `Evidence` gains `count`: how many rows show the problem, since a finding like \"18,104 rows hold -1\" can't list them all. `Finding` and `Change` are otherwise confirmed as Plan 2 drafted them.\n- `QualityVerdict` gains the score: `score` (0 to 100) and, for each of find, understand and trust, the checks passed and applicable. All optional, so manifests without them still parse.\n- `ecology.yaml`'s three placeholder rules become core rules (`field.unit-missing`, `values.dates-outside-coverage`, `values.coordinates-out-of-range`), since none is specific to ecology, and its `rules` list is emptied.\n- The web app's JSON Schema is regenerated from the changed models, as Plan 2's check requires.\n\nRests on: AGNT2, AGNT3, DCSN2\n\n## Test data\n\n- **The sample package** (Plan 2) must give exactly its 4 planted findings and no others: `field.description-missing` on battery_v, `field.description-repeats-name` on depth_cm, `field.codes-undocumented` on qc_flag, `values.constant` on logger_model.\n- **A messy test package**, new, beside cruise's tests: small, invented, structurally valid, with each value problem planted once and listed in its GAPS.md (a placeholder, a value of the wrong type, two date formats, a date outside coverage, a missing year, swapped and out-of-range coordinates, a duplicate key, a measurement with no unit), plus a missing license and missing methods under ecology so the blockers show.\n- **Ozone** is checked on paper: the rule list catches 26 of its 36 hand-made findings; the other 10 are about building the package or FEMC's EML (8), a field the contract lacks (1) and a judgement call (1). A real diagnose run on Ozone waits on Plan 5 converting it, since the hand-made package uses an early draft of the format.\n\nRests on: AGNT4, AGNT8\n\n## Left out\n\n- `cruise tidy` and `cruise package`: the next plan in this folder, planned after diagnose has been used (follow-up PARK3). Calls AGNT5 (types inferred when packaging) and AGNT6 (tidy proposals wait in `_build/`) are its starting point.\n- `cruise inventory` and `cruise profile`, and how far inventory groups files without an agent: after that (PARK4).\n- Species-name matching against ITIS (PARK5).\n- A taxonomic coverage field in the contract (PARK1), and spotting a grid id with no grid described, which is a judgement call for the agent layer (PARK2).\n- Writing the verdict into a package's manifest: `cruise package` does it later.\n- A per-archive or new-submissions-only list of extra blocking rules (options D and E of DCSN1): addable later on top of this.\n- Running on Ozone and the other FEMC data: Plan 5.\n\nRests on: AGNT5, AGNT6, AGNT7, DCSN1, DCSN3\n\n## How we'll know it works\n\n1. `cruise diagnose examples/sample-package` prints exactly the 4 planted findings, no blockers, a score, and exits 0.\n2. `cruise diagnose` on the messy test package prints one finding for each planted problem in its GAPS.md and no others, reports 2 blockers, and exits 1.\n3. `cruise audit` over a folder holding both packages ranks the messy package first.\n4. `--json` output from both commands validates against the contract's `Finding` model.\n5. The diagnose tests pass with network access disabled.\n6. The repo's existing checks (`just check`, as CI runs it) pass, including the regenerated JSON Schema.\n\nRests on: AGNT4, AGNT8\n"
+    }
+  },
+  "plans": [
+    {
+      "id": "PLAN1",
+      "topic": "rules-diagnose-and-audit",
+      "covers": "The contract edits, the 14 rules, cruise diagnose and cruise audit, tested on the sample package and a new messy test package",
+      "hash": "bbb773b99849ed95fe270dfb6cdc9fc7f92cde32befda46de4040925a57e616d",
+      "tasks": [
+        {
+          "id": "TASK1",
+          "heading": "Task 1: Contract edits",
+          "does": "Adds Evidence.count and the score on QualityVerdict, moves the ecology profile's placeholder rules into core, and regenerates the web app's JSON Schema.",
+          "pulls_in": "Edits to findings.py, manifest.py, ecology.yaml and their tests; the regenerated schema file.",
+          "serves": [
+            "DCSN2"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK2",
+          "heading": "Task 2: Rules engine, package and column rules, cruise diagnose",
+          "does": "Builds the rule registry, the DuckDB table reader, the 6 package and column rules, the score and cruise diagnose, proven on the sample package.",
+          "pulls_in": "The duckdb dependency; cruise.rules, tables.py, score.py, diagnose.py and the CLI command, with tests including one with the network disabled.",
+          "serves": [
+            "DCSN1",
+            "DCSN2"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK3",
+          "heading": "Task 3: The messy test package and the value rules",
+          "does": "Adds a small invented messy package with each value problem planted once, and the 8 value rules, so diagnose gives exactly the planted findings on both test packages.",
+          "pulls_in": "A fixture folder with its make script and GAPS.md; rules/values.py and tests.",
+          "serves": [
+            "DCSN1"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK4",
+          "heading": "Task 4: cruise audit",
+          "does": "Builds cruise audit: diagnose over every package under a folder, ranked by errors then lowest score, with --json.",
+          "pulls_in": "audit.py, the CLI command and tests.",
+          "serves": [
+            "DCSN2"
+          ],
+          "state": "keep"
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "id": 1,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 2 (package format and contract), built and merged on main in schuettc/research-in-a-box (#1, #3, #4). Two things for you. (1) The Change and Finding models are drafted in packages/contract/src/archive_contract/changes.py and findings.py (spec section \"The change log and findings\"); Plan 2's call AGNT10 says you confirm or change them when you start, as an edit to the contract. (2) Hooks for rules: missing_core_fields(manifest) in manifest.py; validate_package(path) returns structure.* error Findings; the ecology profile names three placeholder rule ids that are yours to define; new optional fields you may want rules for are archive:unit, archive:measurementScale, archive:codeList \"undocumented\", archive:ancillaryOf and archive:attributes. The sample package's seeded gaps are listed in examples/sample-package/_build/GAPS.md.",
+      "at": "2026-11-13T12:05:42.506203-06:00",
+      "state": "answered",
+      "claim": "a71cfb7b9cc6eb8a",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 2,
+      "card": "plan",
+      "from": "user",
+      "action": "start-planning",
+      "at": "2026-11-13T12:17:14.893178-06:00",
+      "state": "answered",
+      "claim": "94327eb273537600"
+    },
+    {
+      "id": 3,
+      "card": "DIRN",
+      "from": "user",
+      "action": "direction",
+      "at": "2026-11-13T12:35:12.786552-06:00",
+      "state": "answered",
+      "claim": "8f94f71afe9fcd7b"
+    },
+    {
+      "id": 4,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-13T14:28:15.930433-06:00",
+      "state": "answered",
+      "claim": "f7d6bb2604fbb540"
+    },
+    {
+      "id": 5,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "note",
+      "text": "what is \"ozone\"?",
+      "at": "2026-11-13T14:30:26.181299-06:00",
+      "state": "answered",
+      "claim": "7ef83d257f45d2e5"
+    },
+    {
+      "id": 6,
+      "card": "DCSN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "\"Ozone\" is short for Ozone Bioindicators, one of the six FEMC datasets downloaded into practice-data/. It's a small table: 165 rows and 17 columns of plant-injury scores from ozone exposure, 1997 to 2001. It was converted by hand into our package format before Plan 2, and that conversion came with a hand-made quality check of 36 findings (in practice-data/packages/ozone-bioindicators/datapackage.json under archive:quality). That's why I use it as the second test for the rules, after the sample package.\n\nFor this card: Ozone has 4 columns with no description at all. Under A (my recommendation), those are warnings and Ozone can still be published with them showing. Only its missing license, missing methods and missing spatial coverage would block it.",
+      "at": "2026-11-13T14:30:33.75326-06:00",
+      "answers": [
+        5
+      ]
+    },
+    {
+      "id": 7,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "note",
+      "text": "is the data useful if the columns don't have descriptions?  or are they generally optional?",
+      "at": "2026-11-13T14:31:22.139039-06:00",
+      "state": "answered",
+      "claim": "d0f2639304902cb8"
+    },
+    {
+      "id": 8,
+      "card": "DCSN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Good question. In the standards, column descriptions are optional in Frictionless but required in EML: every EML attribute needs an attributeDefinition. Plan 2's EML export writes a NO_DEFINITION placeholder when one is missing, so the export stays valid but says nothing.\n\nHow much a missing description hurts depends on the column. Ozone's four undescribed columns: ID and PROJECT hold the same value in every row, so they tell you almost nothing either way. HEXAGONNUMBER is a location id that's useless until someone says which grid it belongs to. PLOTNUMBER you can mostly guess. So the data is still usable but weaker, and the knowledge to fill the gap is often gone for legacy data.\n\nThat's why I lean to warnings: blocking wouldn't produce descriptions for old data, it would only keep the data unpublished. But your question points at a real middle ground, so I've added option D: each deployment lists in its archive config which rules block. An archive taking new submissions could require every column described, while a migration of old records leaves it a warning. I still recommend A because no deployment has asked for D yet, and it can be added later without changing anything in A.",
+      "at": "2026-11-13T14:31:52.361353-06:00",
+      "answers": [
+        7
+      ]
+    },
+    {
+      "id": 9,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "note",
+      "text": "is D block for new data and warn for old data?",
+      "at": "2026-11-13T14:39:23.818639-06:00",
+      "state": "answered",
+      "claim": "7aac4fa63d62970d"
+    },
+    {
+      "id": 10,
+      "card": "DCSN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Not quite. D as I wrote it is per archive: one list of blocking rules for everything that archive receives. FEMC is a single archive holding both its old records and any new submissions, so under D both would get the same list: block both or warn on both.\n\n\"Block for new, warn for old\" needs each package to say whether it's old. The contract already has a fair signal for that: a package migrated from an earlier system carries archive:legacyIdentifiers (its EML package id and so on), and a fresh submission doesn't. I've added that as option E: the archive config names the rules that block new submissions, and a package with legacy identifiers gets those rules as warnings only. The catch is that anyone could add a legacy identifier to dodge the rules, so the curator sees it in review.\n\nMy recommendation is still A for now, since no archive has a stricter list yet. If you expect FEMC to want \"describe every column\" for new submissions, E fits better than D.",
+      "at": "2026-11-13T14:39:44.661724-06:00",
+      "answers": [
+        9
+      ]
+    },
+    {
+      "id": 11,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "note",
+      "text": "what is the completelness score used for?",
+      "at": "2026-11-13T14:46:51.105384-06:00",
+      "state": "answered",
+      "claim": "374e0b894414336e"
+    },
+    {
+      "id": 12,
+      "card": "DCSN2",
+      "from": "agent",
+      "action": "reply",
+      "text": "The handoff puts a score in scope without saying who uses it, so here are the uses I can see in the plans:\n\n1. **Audit ranking** (this plan): `cruise audit` runs over many packages and ranks them by what needs fixing.\n2. **The FEMC report** (Plan 10b): its rule is that counts come from the audit tool, so a line like \"the median package is 58% complete; 3 of 6 have no license\" would come from here.\n3. **Progress while cleaning**: `cruise diagnose` before and after tidying shows 61% → 84%, and the same findings show on the web app's submission screen (Plan 8).\n\nRaw counts handle most of this. The score adds one thing counts can't: a fair comparison between packages of different sizes. FIA has 207 columns and Ozone has 17, so FIA will always have more warnings even if it's better described. A share of checks passed takes size out of it. That's why I recommend B over A.\n\nIf you don't see yourself or FEMC using a single number, A (counts plus per-question checklists like \"10 of 17 columns described\") is the smaller option and loses only that size-fair comparison.",
+      "at": "2026-11-13T14:47:07.105761-06:00",
+      "answers": [
+        11
+      ]
+    },
+    {
+      "id": 13,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "choose",
+      "option": "B",
+      "at": "2026-11-13T14:48:46.080118-06:00",
+      "state": "answered",
+      "claim": "fe7b52b8da544448"
+    },
+    {
+      "id": 14,
+      "card": "spec",
+      "from": "user",
+      "action": "approve-spec",
+      "at": "2026-11-13T15:09:15.408932-06:00",
+      "state": "answered",
+      "claim": "9dd01ff43239dddd"
+    },
+    {
+      "id": 15,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session for research-in-a-box. Court asked that every planning session know this. Muster alias: personal-personal/generic-package-format-and-contract (the name is left over from Plan 2; this session now coordinates all the plans).\n\n1. Send cross-plan questions here first: anything that touches another plan's interface, ownership or order, or the overall direction. Ask over muster or with diazo_note to this alias. Questions only Court can answer still go on your own page as decision cards.\n2. Send a one-line muster message here when your understanding is confirmed, your spec is printed, each plan is printed, and the build is done. I check each spec and plan for scope before Court approves it.\n3. Record anything other plans rely on in the Decision log of docs/planning-handoff.md.\n4. Keep it small. Plans 1 and 2 are built: the repo, the uv and npm workspaces, archive_contract, the exports and the sample package. Build on them and don't rebuild. Plan only what your brief needs to work end to end now, and put everything else in follow-ups. Size checks to the risk. Question every option, config field and fallback that no real case needs yet.\n5. FEMC is the test afterwards, never the source of the design (Plan 2's PRIN1).",
+      "at": "2026-11-13T15:11:08.971421-06:00",
+      "state": "answered",
+      "claim": "af2433ee544e43b7",
+      "sender": {
+        "project": "personal"
+      }
+    }
+  ],
+  "planned_history": [
+    {
+      "action": "planned",
+      "by": "agent",
+      "at": "2026-11-13T08:47:58.898171-06:00"
+    },
+    {
+      "action": "started",
+      "by": "user",
+      "at": "2026-11-13T12:17:14.893178-06:00"
+    }
+  ]
+}
