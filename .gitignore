@@ -6,6 +6,7 @@ practice-data/
 node_modules/
 dist/
 cdk.out/
+packages/infra/assets/
 __pycache__/
 .pytest_cache/
 .mypy_cache/

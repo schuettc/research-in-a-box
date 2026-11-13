@@ -13,12 +13,23 @@ check-python:
     uv run pytest
 
 # TypeScript: format check, lint, type check, tests, web build
-check-ts:
+check-ts: lambda-assets
     npx prettier --check .
     npx eslint .
     npm run typecheck --workspaces
     npm test --workspaces
     npm run build -w packages/web
+
+# Install archive-backend and its locked dependencies as arm64 Lambda wheels, without Docker
+lambda-assets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    rm -rf packages/infra/assets/python
+    uv export --package archive-backend --no-dev --no-hashes --frozen --no-emit-workspace -o "$tmp/requirements.txt"
+    uv pip install --python-platform aarch64-manylinux2014 --python-version 3.13 --only-binary :all: --target packages/infra/assets/python -r "$tmp/requirements.txt"
+    uv pip install --no-deps --python-version 3.13 --target packages/infra/assets/python packages/contract packages/backend
 
 # Fail when the committed JSON Schema or the construct's config type differs from the contract
 check-schema:
