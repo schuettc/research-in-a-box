@@ -38,7 +38,7 @@ reindex-status stage:
         --query "Stacks[0].Outputs[?OutputKey=='ReindexFunction'].OutputValue" --output text)"
     # Listing executions can't filter by alias, so list by the function's unqualified ARN.
     arn="$(aws lambda list-durable-executions-by-function --function-name "${fn%:live}" --max-items 1 \
-        --query "DurableExecutions[0].DurableExecutionArn" --output text)"
+        --query "DurableExecutions[0].DurableExecutionArn" --output text | head -n 1)"
     if [ -z "$arn" ] || [ "$arn" = "None" ]; then
         echo "no reindex has run on {{stage}}"
         exit 1
