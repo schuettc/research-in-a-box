@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- An invented EML 2.1.1 record: every name, place and value in it is made up. -->
+<eml:eml xmlns:eml="eml://ecoinformatics.org/eml-2.1.1" packageId="knb-lter-inv.7.2" system="knb">
+  <dataset>
+    <alternateIdentifier system="local-catalogue">INV-0007</alternateIdentifier>
+    <title>Snow depth at two invented plots</title>
+    <creator>
+      <individualName>
+        <givenName>Cora</givenName>
+        <surName>Madeup</surName>
+      </individualName>
+      <organizationName>Invented Field Station</organizationName>
+      <electronicMailAddress>cora@example.org</electronicMailAddress>
+    </creator>
+    <creator>
+      <organizationName>Invented Snow Survey</organizationName>
+    </creator>
+    <associatedParty>
+      <individualName>
+        <surName>Fictional</surName>
+      </individualName>
+      <role>fieldTechnician</role>
+    </associatedParty>
+    <pubDate>2019</pubDate>
+    <abstract>
+      <para>Weekly snow depth measured with a graduated stake at two invented plots over one winter.</para>
+      <para>Every value is invented.</para>
+    </abstract>
+    <keywordSet>
+      <keyword>snow depth</keyword>
+      <keyword>winter</keyword>
+    </keywordSet>
+    <intellectualRights>
+      <para>Copyright Invented Field Station. All rights reserved.</para>
+    </intellectualRights>
+    <distribution>
+      <online>
+        <url>https://example.org/snow</url>
+      </online>
+    </distribution>
+    <coverage>
+      <geographicCoverage>
+        <geographicDescription>Two plots on an invented hillside</geographicDescription>
+        <boundingCoordinates>
+          <westBoundingCoordinate>-71.5</westBoundingCoordinate>
+          <eastBoundingCoordinate>-71.4</eastBoundingCoordinate>
+          <northBoundingCoordinate>44.1</northBoundingCoordinate>
+          <southBoundingCoordinate>44.0</southBoundingCoordinate>
+        </boundingCoordinates>
+      </geographicCoverage>
+      <temporalCoverage>
+        <rangeOfDates>
+          <beginDate><calendarDate>2018-11-01</calendarDate></beginDate>
+          <endDate><calendarDate>2019-04-30</calendarDate></endDate>
+        </rangeOfDates>
+      </temporalCoverage>
+    </coverage>
+    <contact>
+      <individualName>
+        <givenName>Cora</givenName>
+        <surName>Madeup</surName>
+      </individualName>
+    </contact>
+    <methods>
+      <methodStep>
+        <description>
+          <para>Depth was read from a graduated stake each week.</para>
+        </description>
+      </methodStep>
+    </methods>
+    <project>
+      <title>Invented winter monitoring</title>
+      <personnel>
+        <individualName>
+          <givenName>Dee</givenName>
+          <surName>Notreal</surName>
+        </individualName>
+        <role>principalInvestigator</role>
+      </personnel>
+      <abstract>
+        <para>A made-up program that watches winters.</para>
+      </abstract>
+    </project>
+    <dataTable>
+      <entityName>snow</entityName>
+      <entityDescription>Weekly snow depth</entityDescription>
+      <physical>
+        <objectName>snow.csv</objectName>
+        <size unit="byte">512</size>
+        <authentication method="MD5">0123456789abcdef0123456789abcdef</authentication>
+        <dataFormat>
+          <textFormat>
+            <numHeaderLines>1</numHeaderLines>
+            <attributeOrientation>column</attributeOrientation>
+            <simpleDelimited>
+              <fieldDelimiter>,</fieldDelimiter>
+            </simpleDelimited>
+          </textFormat>
+        </dataFormat>
+      </physical>
+      <attributeList>
+        <attribute>
+          <attributeName>date</attributeName>
+          <attributeDefinition>Day of the reading</attributeDefinition>
+          <storageType>date</storageType>
+          <measurementScale>
+            <dateTime>
+              <formatString>YYYY-MM-DD</formatString>
+            </dateTime>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>plot</attributeName>
+          <attributeLabel>Plot</attributeLabel>
+          <attributeDefinition>Which plot</attributeDefinition>
+          <storageType>string</storageType>
+          <measurementScale>
+            <nominal>
+              <nonNumericDomain>
+                <enumeratedDomain>
+                  <codeDefinition>
+                    <code>N</code>
+                    <definition>North plot: under conifers</definition>
+                  </codeDefinition>
+                  <codeDefinition>
+                    <code>S</code>
+                    <definition>South plot</definition>
+                  </codeDefinition>
+                </enumeratedDomain>
+              </nonNumericDomain>
+            </nominal>
+          </measurementScale>
+        </attribute>
+        <attribute>
+          <attributeName>depth</attributeName>
+          <attributeDefinition>Snow depth</attributeDefinition>
+          <storageType>float</storageType>
+          <measurementScale>
+            <ratio>
+              <unit><standardUnit>centimeter</standardUnit></unit>
+              <numericDomain><numberType>real</numberType></numericDomain>
+            </ratio>
+          </measurementScale>
+          <missingValueCode>
+            <code>-999</code>
+            <codeExplanation>Not read</codeExplanation>
+          </missingValueCode>
+          <stakeColour>red</stakeColour>
+        </attribute>
+      </attributeList>
+    </dataTable>
+    <fieldNotebook>Kept in a drawer.</fieldNotebook>
+  </dataset>
+</eml:eml>

@@ -6,13 +6,15 @@ script leaves `git diff` empty.
 
 Usage: uv run python examples/sample-package/_build/make.py
 
-README.md is written by hand and left alone; everything else under the package is rebuilt.
+Everything under the package is rebuilt, README.md included: it is generated from the manifest.
+The seeded gaps the audit should find are listed in `_build/GAPS.md`.
 """
 
 import hashlib
 import io
 import json
 import math
+import os
 import re
 import shutil
 import struct
@@ -21,10 +23,15 @@ import zlib
 from pathlib import Path
 from typing import Any
 
-import openpyxl
-import shapefile
+# openpyxl serialises XML with lxml when lxml is installed and with the standard library
+# otherwise, and the bytes differ. lxml is a dev dependency, so pin the standard library.
+os.environ["OPENPYXL_LXML"] = "False"
+
+import openpyxl  # noqa: E402
+import shapefile  # noqa: E402
 
 from archive_contract.changes import Change, write_changes
+from archive_contract.exports.readme import render_readme
 from archive_contract.manifest import Manifest
 from archive_contract.validate import CHECKSUMS, MANIFEST, package_files
 
@@ -504,7 +511,9 @@ def main() -> None:
     write_raster()
     write("docs/methods.md", METHODS)
     write("docs/site-photo.png", png(16, 12))
-    write(MANIFEST, to_json(manifest(site_members)) + "\n")
+    built = manifest(site_members)
+    write(MANIFEST, to_json(built) + "\n")
+    write("README.md", render_readme(Manifest.model_validate(built)))
     write_changes(ROOT / "changes.jsonl", [rename()])
     write_checksums()
 
