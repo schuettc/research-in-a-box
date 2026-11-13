@@ -12,7 +12,8 @@ How the manifest maps where EML has no direct equivalent:
   (`guessed_scale`). An interval or ratio column's unit is its `archive:unit` as a custom
   unit, or `UNKNOWN_UNIT` when it has none. A code-list column whose scale is set to interval,
   ratio or dateTime is refused, since EML holds codes only under a nominal or ordinal scale.
-- A column with `archive:ancillaryOf` ends its `attributeDefinition` with `related_note`.
+- A column with `archive:ancillaryOf` carries an attribute `annotation` (`ancillary_annotation`):
+  property `ANCILLARY_OF_URI` labelled `ancillaryOf`, value labelled `<role>:<field>`.
 - Ongoing coverage, which EML can't write as a range, is the start date as a single date plus
   a `maintenance` element with update frequency `continually`. Coverage whose end is unknown
   is the same, with frequency `unknown` and `END_UNKNOWN` as the description.
@@ -49,6 +50,8 @@ ONGOING = "Data collection is ongoing."
 END_UNKNOWN = "The end of data collection is unknown."
 PROJECT_KEYWORDS = "keywords"
 UNKNOWN_GEOMETRY = "MultiGeometry"
+ANCILLARY_OF = "ancillaryOf"
+ANCILLARY_OF_URI = "https://research-in-a-box.org/terms/ancillaryOf"
 
 SHAPE_GEOMETRIES: dict[int, str] = {
     1: "Point", 11: "Point", 21: "Point",
@@ -100,9 +103,12 @@ def guessed_scale(field_type: str | None, coded: bool) -> MeasurementScale:
     return "nominal"
 
 
-def related_note(ancillary: AncillaryOf) -> str:
-    """The sentence an ancillary column's attributeDefinition ends with."""
-    return f"Related column: {ancillary.field} ({ancillary.role})."
+def ancillary_annotation(parent: ET.Element, ancillary: AncillaryOf) -> None:
+    """An ancillary column's relationship, as an EML attribute annotation."""
+    annotation = _sub(parent, "annotation")
+    _sub(annotation, "propertyURI", ANCILLARY_OF_URI, label=ANCILLARY_OF)
+    value = f"{ANCILLARY_OF_URI}/{ancillary.role}"
+    _sub(annotation, "valueURI", value, label=f"{ancillary.role}:{ancillary.field}")
 
 
 def strptime_format(format_string: str) -> str:
@@ -216,8 +222,6 @@ def _attributes(
         if field.title:
             _sub(attribute, "attributeLabel", field.title)
         definition = field.description or NO_DEFINITION
-        if field.ancillary_of is not None:
-            definition = f"{definition} {related_note(field.ancillary_of)}"
         _sub(attribute, "attributeDefinition", definition)
         if field.type:
             _sub(attribute, "storageType", field.type, typeSystem=TABLE_SCHEMA_TYPES)
@@ -228,6 +232,8 @@ def _attributes(
             code = _sub(attribute, "missingValueCode")
             _sub(code, "code", value)
             _sub(code, "codeExplanation", "Missing value")
+        if field.ancillary_of is not None:
+            ancillary_annotation(attribute, field.ancillary_of)
 
 
 def _physical(parent: ET.Element, resource: Resource, member: MemberFile | None) -> None:

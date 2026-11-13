@@ -162,11 +162,18 @@ def test_a_coded_column_with_an_explicit_ordinal_scale_keeps_it() -> None:
     assert attr.find("measurementScale/ordinal/nonNumericDomain/enumeratedDomain") is not None
 
 
-def test_a_related_column_is_noted_in_the_attribute_definition() -> None:
+def test_a_related_column_is_an_attribute_annotation() -> None:
     attr = attribute(to_eml(sample(), root=SAMPLE), "logger", "water_temp_unc_c")
 
-    definition = attr.findtext("attributeDefinition") or ""
-    assert definition.endswith("Related column: water_temp_c (uncertainty).")
+    assert "Related column" not in (attr.findtext("attributeDefinition") or "")
+    [annotation] = attr.findall("annotation")
+    prop, value = annotation.find("propertyURI"), annotation.find("valueURI")
+    assert prop is not None and value is not None
+    assert (prop.get("label"), prop.text) == (
+        "ancillaryOf",
+        "https://research-in-a-box.org/terms/ancillaryOf",
+    )
+    assert value.get("label") == "uncertainty:water_temp_c"
 
 
 def test_purpose_is_written() -> None:

@@ -381,3 +381,38 @@ def test_a_definition_naming_a_missing_column_keeps_its_text() -> None:
 
     assert sd.ancillary_of is None
     assert sd.description == "Spread. Related column: gone (uncertainty)."
+
+
+def test_a_related_column_with_a_space_in_its_name_round_trips() -> None:
+    manifest = sample()
+    logger = manifest.resource("logger")
+    assert logger is not None and logger.table_schema is not None
+    for field in logger.table_schema.fields:
+        if field.name == "water_temp_c":
+            field.name = "water temp"
+        if field.ancillary_of is not None:
+            field.ancillary_of.field = "water temp"
+    back = from_eml(to_eml(manifest, root=SAMPLE)).manifest
+
+    ancillary = fields(back, "logger")["water_temp_unc_c"].ancillary_of
+    assert ancillary is not None
+    assert (ancillary.field, ancillary.role) == ("water temp", "uncertainty")
+
+
+def test_a_definition_that_reads_like_a_related_column_stays_a_description() -> None:
+    xml = """<eml:eml xmlns:eml="https://eml.ecoinformatics.org/eml-2.2.0">
+      <dataset><title>Invented</title>
+        <dataTable><entityName>plots</entityName><attributeList>
+          <attribute><attributeName>x</attributeName><attributeDefinition>Value</attributeDefinition>
+            <measurementScale><nominal><nonNumericDomain><textDomain><definition>x</definition>
+            </textDomain></nonNumericDomain></nominal></measurementScale></attribute>
+          <attribute><attributeName>sd</attributeName>
+            <attributeDefinition>Spread. Related column: x (uncertainty).</attributeDefinition>
+            <measurementScale><nominal><nonNumericDomain><textDomain><definition>x</definition>
+            </textDomain></nonNumericDomain></nominal></measurementScale></attribute>
+        </attributeList></dataTable>
+      </dataset></eml:eml>"""
+    sd = fields(from_eml(xml).manifest, "plots")["sd"]
+
+    assert sd.ancillary_of is None
+    assert sd.description == "Spread. Related column: x (uncertainty)."

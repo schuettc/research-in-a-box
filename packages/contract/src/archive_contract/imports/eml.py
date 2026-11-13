@@ -21,6 +21,7 @@ from xml.etree import ElementTree as ET
 from xml.parsers import expat
 
 from archive_contract.exports.eml import (
+    ANCILLARY_OF_URI,
     DATE_FORMATS,
     END_UNKNOWN,
     NO_DEFINITION,
@@ -32,7 +33,7 @@ from archive_contract.exports.eml import (
     CodeRow,
     strptime_format,
 )
-from archive_contract.fields import FieldType
+from archive_contract.fields import AncillaryRole, FieldType
 from archive_contract.manifest import Manifest
 from archive_contract.project import Person, Project
 from archive_contract.resources import ResourceKind
@@ -122,7 +123,7 @@ READ: dict[str, frozenset[str]] = {
     "attribute": frozenset(
         {
             "attributeName", "attributeLabel", "attributeDefinition", "storageType",
-            "measurementScale", "missingValueCode",
+            "measurementScale", "missingValueCode", "annotation",
         }
     ),
 }  # fmt: skip
@@ -166,12 +167,7 @@ FIELD_TYPES: frozenset[str] = frozenset(get_args(FieldType))
 ONGOING_FREQUENCY = "continually"
 END_UNKNOWN_FREQUENCY = "unknown"
 SCALES = ("nominal", "ordinal", "interval", "ratio", "dateTime")
-RELATED = re.compile(
-    r"(?P<text>.*?)\s*Related column: (?P<field>\S+) "
-    r"\((?P<role>uncertainty|detection-limit|quality-flag)\)\.",
-    re.DOTALL,
-)
-"""The note `related_note` ends an ancillary column's attributeDefinition with."""
+ANCILLARY_ROLES: frozenset[str] = frozenset(get_args(AncillaryRole))
 
 
 @dataclass
@@ -481,6 +477,7 @@ def _attributes(
     fields: list[dict[str, Any]] = []
     codes: dict[str, list[CodeRow]] = {}
     missing: list[str] = []
+    related: dict[str, list[tuple[str, str]]] = {}
     for attribute in _kids(_kid(entity, "attributeList"), "attribute"):
         skips.check(attribute, "attribute", f"{path}/attributeList/attribute")
         name = _kid_text(attribute, "attributeName")
@@ -524,24 +521,40 @@ def _attributes(
             value = _kid_text(code, "code")
             if value and value not in missing:
                 missing.append(value)
+        related[name] = []
+        for annotation in _kids(attribute, "annotation"):
+            pair = _ancillary(annotation)
+            if pair is None:
+                skips.add(f"{path}/attributeList/attribute/annotation: not read")
+            else:
+                related[name].append(pair)
         fields.append(out)
-    _related_columns(fields)
+    _related_columns(fields, related)
     return fields, codes, missing
 
 
-def _related_columns(fields: list[dict[str, Any]]) -> None:
-    """Read back the export's related-column note, when it names another column here."""
+def _ancillary(annotation: ET.Element) -> tuple[str, str] | None:
+    """The (field, role) of the export's ancillaryOf annotation, or None for any other."""
+    if (_kid_text(annotation, "propertyURI") or "").strip() != ANCILLARY_OF_URI:
+        return None
+    value = _kid(annotation, "valueURI")
+    label = value.get("label", "") if value is not None else ""
+    role, sep, target = label.partition(":")
+    if not sep or role not in ANCILLARY_ROLES or not target:
+        return None
+    return target, role
+
+
+def _related_columns(
+    fields: list[dict[str, Any]], related: dict[str, list[tuple[str, str]]]
+) -> None:
+    """Each column's ancillaryOf annotation, when it names another column here."""
     names = {f["name"] for f in fields}
     for out in fields:
-        match = RELATED.fullmatch(out.get("description") or "")
-        if match is None or match["field"] == out["name"] or match["field"] not in names:
-            continue
-        out["archive:ancillaryOf"] = {"field": match["field"], "role": match["role"]}
-        text = match["text"].strip()
-        if text and text != NO_DEFINITION:
-            out["description"] = text
-        else:
-            del out["description"]
+        for target, role in related.get(out["name"], []):
+            if target != out["name"] and target in names:
+                out["archive:ancillaryOf"] = {"field": target, "role": role}
+                break
 
 
 def _physical(entity: ET.Element, path: str, skips: _Skips) -> list[dict[str, Any]]:
