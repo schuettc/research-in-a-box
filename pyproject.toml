@@ -36,8 +36,8 @@ strict = true
 plugins = ["pydantic.mypy"]
 mypy_path = ["packages/contract/src", "packages/tool/src", "packages/backend/src"]
 explicit_package_bases = true
-# just lambda-assets installs third-party code here for the Lambda bundle
-exclude = ["^packages/infra/assets/"]
+# Third-party code for the Lambda bundle: installed by just lambda-assets, staged by cdk synth
+exclude = ["^packages/infra/assets/", "^packages/infra/cdk\\.out/"]
 
 [tool.pytest.ini_options]
 testpaths = ["packages"]

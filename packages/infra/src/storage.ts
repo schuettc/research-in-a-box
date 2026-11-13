@@ -42,6 +42,10 @@ export class Storage extends Construct {
         ),
       }),
     });
-    this.derivedBucket = new s3.Bucket(this, "Derived", common);
+    // CloudFront delivers standard logs with an ACL, which a bucket enforcing the owner refuses.
+    this.derivedBucket = new s3.Bucket(this, "Derived", {
+      ...common,
+      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_PREFERRED,
+    });
   }
 }

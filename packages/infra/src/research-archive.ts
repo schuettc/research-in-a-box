@@ -1,4 +1,5 @@
 import type * as apigateway from "aws-cdk-lib/aws-apigateway";
+import type * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import type * as cognito from "aws-cdk-lib/aws-cognito";
 import type * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import type * as lambda from "aws-cdk-lib/aws-lambda";
@@ -15,6 +16,7 @@ import { Operations } from "./operations";
 import { makePythonFunction, type PythonFunctionProps } from "./python-function";
 import { Storage } from "./storage";
 import { Tables } from "./tables";
+import { Web } from "./web";
 
 export interface ResearchArchiveProps {
   readonly config: ArchiveConfig;
@@ -35,8 +37,13 @@ export class ResearchArchive extends Construct {
   readonly downloadCounts: dynamodb.Table;
   readonly alertTopic: sns.Topic;
   readonly userPool: cognito.UserPool;
+  readonly userPoolClients: {
+    readonly web: cognito.UserPoolClient;
+    readonly cli: cognito.UserPoolClient;
+  };
   readonly api: apigateway.RestApi;
   readonly authorizer: apigateway.CognitoUserPoolsAuthorizer;
+  readonly distribution: cloudfront.Distribution;
   private readonly operations: Operations;
 
   constructor(scope: Construct, id: string, props: ResearchArchiveProps) {
@@ -84,6 +91,13 @@ export class ResearchArchive extends Construct {
     this.api = api.restApi;
     this.operations.addApi(this.api);
     this.authorizer = api.authorizer;
+
+    this.distribution = new Web(this, "Web", {
+      derivedBucket: this.derivedBucket,
+      archiveBucket: this.archiveBucket,
+      restApi: this.api,
+    }).distribution;
+    this.userPoolClients = auth.addAppClients(this.distribution.distributionDomainName);
 
     new IntegrityCheck(this, "IntegrityCheck", {
       archive: this,
