@@ -3,7 +3,7 @@
 Importing this module registers every rule in `REGISTRY`.
 """
 
-from cruise.rules import fields, package
+from cruise.rules import fields, package, values
 from cruise.rules.registry import (
     QUESTIONS,
     REGISTRY,
@@ -30,4 +30,5 @@ __all__ = [
     "fields",
     "package",
     "required_fields",
+    "values",
 ]

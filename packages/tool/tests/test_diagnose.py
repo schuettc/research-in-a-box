@@ -1,3 +1,4 @@
+import re
 import shutil
 import socket
 from pathlib import Path
@@ -5,7 +6,9 @@ from typing import Any
 
 import pytest
 
+from archive_contract.findings import Finding
 from archive_contract.manifest import CheckCount, Manifest
+from archive_contract.profile import load_profile
 from archive_contract.resources import Resource
 from cruise.diagnose import diagnose
 from cruise.rules import Context, Outcome, Problem, Registry
@@ -15,26 +18,44 @@ from cruise.tables import UnreadableTable, read_table, select
 SAMPLE = Path(__file__).parents[3] / "examples" / "sample-package"
 
 
-def targets(findings: list[Any]) -> set[tuple[str, str | None, str | None]]:
-    return {
-        (f.rule_id, f.target.resource if f.target else None, f.target.field if f.target else None)
-        for f in findings
-    }
+MESSY = Path(__file__).parent / "fixtures" / "messy-package"
 
 
-def test_sample_package_gives_its_three_column_findings() -> None:
+def targets(findings: list[Finding]) -> list[tuple[str, str]]:
+    """Each finding as its rule id and target, written `resource.field` or `package`."""
+    named = []
+    for f in findings:
+        target = f.target
+        where = f"{target.resource}.{target.field}" if target and target.field else "package"
+        named.append((f.rule_id, where))
+    return sorted(named)
+
+
+def planted(gaps: Path) -> list[tuple[str, str]]:
+    """The rule and target of each row of a GAPS.md table, once each."""
+    rows = re.findall(r"^\|[^|]*\| `([^`]+)` +\| `([^`]+)` +\|$", gaps.read_text(), re.M)
+    return sorted(set(rows))
+
+
+def test_sample_package_gives_exactly_its_four_planted_findings() -> None:
     result = diagnose(SAMPLE)
 
-    column_rules = {"package", "field"}
-    found = {t for t in targets(result.findings) if t[0].split(".")[0] in column_rules}
-    assert found == {
-        ("field.description-missing", "logger", "battery_v"),
-        ("field.description-repeats-name", "logger", "depth_cm"),
-        ("field.codes-undocumented", "logger", "qc_flag"),
-    }
-    assert result.structure == []
+    assert targets(result.findings) == [
+        ("field.codes-undocumented", "logger.qc_flag"),
+        ("field.description-missing", "logger.battery_v"),
+        ("field.description-repeats-name", "logger.depth_cm"),
+        ("values.constant", "logger.logger_model"),
+    ]
     assert result.quality is not None and result.quality.errors == 0
     assert result.quality.score is not None
+
+
+def test_messy_package_gives_exactly_the_findings_its_gaps_list_names() -> None:
+    result = diagnose(MESSY, [load_profile("ecology")])
+
+    assert result.structure == []
+    assert targets(result.findings) == planted(MESSY / "_build" / "GAPS.md")
+    assert result.blocking == 2
 
 
 def test_diagnose_runs_with_the_network_disabled(monkeypatch: pytest.MonkeyPatch) -> None:

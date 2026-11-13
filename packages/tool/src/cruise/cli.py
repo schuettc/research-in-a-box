@@ -69,7 +69,7 @@ def _evidence(finding: Finding) -> str | None:
     if evidence.values:
         parts.append("values " + ", ".join(json.dumps(v) for v in evidence.values))
     if evidence.count is not None:
-        parts.append(f"{evidence.count} rows in all")
+        parts.append(f"{evidence.count} row{'' if evidence.count == 1 else 's'} in all")
     return "; ".join(parts) or None
 
 
