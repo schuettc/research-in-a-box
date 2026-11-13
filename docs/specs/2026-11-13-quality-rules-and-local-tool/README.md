@@ -4,7 +4,9 @@
 
 `research-archive-in-a-box/quality-rules-and-local-tool` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · approve PLAN1** → Build → Sign off
+
+PLAN1 waiting for your approval
 
 ## Pick up next
 
@@ -51,7 +53,11 @@
 
 ## Plans
 
-None yet.
+- [PLAN1](plans/1-rules-diagnose-and-audit.md) The rules, cruise diagnose and cruise audit: waiting for your approval
+  - TASK1 Task 1: Contract edits: not started
+  - TASK2 Task 2: Rules engine, package and column rules, cruise diagnose: not started
+  - TASK3 Task 3: The messy test package and the value rules: not started
+  - TASK4 Task 4: cruise audit: not started
 
 ## Files
 
@@ -61,6 +67,7 @@ None yet.
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |
 
