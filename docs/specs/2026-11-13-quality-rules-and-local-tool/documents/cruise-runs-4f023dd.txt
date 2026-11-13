@@ -1,0 +1,91 @@
+Runs of cruise at commit 4f023dd on branch plan3/diagnose-and-audit, 2026-11-13T21:49Z
+
+$ uv run cruise diagnose examples/sample-package
+examples/sample-package
+
+Can I understand each column?
+  warning  field.description-missing  logger.battery_v
+    Column battery_v has no description.
+    fix: Describe what battery_v holds and how it was measured.
+  warning  field.description-repeats-name  logger.depth_cm
+    Column depth_cm's description only repeats its name.
+    evidence: values "depth_cm"
+    fix: Say what depth_cm holds, not just its name.
+  warning  field.codes-undocumented  logger.qc_flag
+    Column qc_flag holds codes with no code list.
+    evidence: values "A", "B"
+    fix: Add a code list for qc_flag and link it with a foreign key.
+
+Can I trust the values?
+  warning  values.constant  logger.logger_model
+    Column logger_model holds the same value in every row.
+    evidence: rows 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20; values "TL-100"; 60 rows in all
+    fix: Move logger_model into the description, or drop it.
+
+Score: 95% (find 5 of 5, understand 42 of 45, trust 30 of 31)
+Verdict: publishable, with 4 warnings
+[exit 0]
+
+$ uv run cruise diagnose packages/tool/tests/fixtures/messy-package --profile ecology
+packages/tool/tests/fixtures/messy-package
+
+Can I find, cite and reuse it?
+  error  package.core-missing  package
+    The package has no rights, which every published package needs.
+    evidence: values "rights"
+    fix: Add a license, or state the rights status if no license can be given.
+  error  package.profile-field-missing  package
+    The package has no archive:methods, which the selected profiles or archive config require.
+    evidence: values "archive:methods"
+    fix: Add archive:methods to the manifest.
+
+Can I understand each column?
+  warning  field.unit-missing  observations.canopy_cover
+    Column canopy_cover is a measurement with no unit.
+    fix: Set archive:unit on canopy_cover, or mark it nominal or ordinal.
+
+Can I trust the values?
+  warning  values.not-declared-type  observations.fish_count
+    Column fish_count has 1 value that does not read as integer and is not declared missing.
+    evidence: rows 26; values "n/a"; 1 row in all
+    fix: Correct the values, or declare them in the schema's missingValues.
+  warning  values.placeholder  observations.depth_m
+    Column depth_m has 1 value that looks like a placeholder for no value.
+    evidence: rows 12; values "-999"; 1 row in all
+    fix: Declare the placeholder in the schema's missingValues, or replace it.
+  warning  values.mixed-date-formats  observations.entered
+    Column entered holds dates in more than one format: YYYY-MM-DD (39 rows), MM/DD/YYYY (1 row).
+    evidence: rows 18; values "06/18/2023"; 1 row in all
+    fix: Write every date in entered as YYYY-MM-DD and type it as a date.
+  warning  values.dates-outside-coverage  observations.date
+    Column date has 1 date outside the package's temporal coverage (2018-01-01 to 2022-12-31).
+    evidence: rows 1; values "2017-12-15"; 1 row in all
+    fix: Correct the dates, or widen archive:temporalCoverage.
+  note  values.coverage-gap  observations.date
+    Column date has no rows in 2020, inside the temporal coverage.
+    evidence: values 2020
+    fix: Say in the description or methods why those years have no data.
+  warning  values.coordinates-out-of-range  observations.latitude
+    Column latitude has 2 coordinates out of the coverage box; row 21 looks swapped with longitude.
+    evidence: rows 21, 30; values "-149.9900", "95.0000"; 2 rows in all
+    fix: Correct the coordinates; swap latitude and longitude where they look swapped.
+  warning  values.duplicate-key  observations.obs_id
+    2 rows repeat the primary key obs_id.
+    evidence: rows 39, 40; values "39", "39"; 2 rows in all
+    fix: Make obs_id unique in every row.
+
+Score: 88% (find 6 of 8, understand 40 of 41, trust 29 of 36)
+Verdict: blocks publishing (2)
+[exit 1]
+
+$ uv run cruise audit packages/tool/tests/fixtures examples
+path                                        errors  warnings  notes  score                                                   most fired
+packages/tool/tests/fixtures/messy-package  1       7         1      89% (find 4 of 5, understand 40 of 41, trust 29 of 36)  package.core-missing
+examples/sample-package                     0       4         0      95% (find 5 of 5, understand 42 of 45, trust 30 of 31)  field.description-missing
+[exit 0]
+
+$ uv run cruise audit packages/tool/tests/fixtures examples --profile ecology
+path                                        errors  warnings  notes  score                                                   most fired
+packages/tool/tests/fixtures/messy-package  2       7         1      88% (find 6 of 8, understand 40 of 41, trust 29 of 36)  package.core-missing
+examples/sample-package                     0       4         0      95% (find 8 of 8, understand 42 of 45, trust 30 of 31)  field.description-missing
+[exit 0]

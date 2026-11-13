@@ -1,9 +1,9 @@
 ---
 diazo: research-archive-in-a-box/quality-rules-and-local-tool
 file: PLAN1
-status: approved
+status: done
 approved: 2026-11-13T15:19:29-06:00
-hash: bbb773b99849ed95fe270dfb6cdc9fc7f92cde32befda46de4040925a57e616d
+hash: e2a6dcc6162d53c12be673e1579c9c43c82692041224046fd16bac402459ea45
 rests_on: [AGNT1, AGNT2, AGNT3, AGNT4, AGNT7, DCSN1, DCSN2]
 record: README.md
 ---
@@ -116,3 +116,14 @@ record: README.md
 - `--json` prints the rows and each package's findings. Exit 0 unless a folder doesn't exist.
 - A package whose manifest can't be read is listed first, with its structure error.
 - Tests: the ranking order on the two packages plus a broken copy made in a temp folder; `--json` round-trips through `Finding`.
+
+### Task 5: Show the runs
+
+**Does:** Records the real output of the three sign-off runs, so the user can see how they worked without running them: in this folder's `documents/cruise-runs-4f023dd.txt` and in PR #9's description. Added at sign-off, after the user asked to see the runs.
+**Files:** `docs/specs/2026-11-13-quality-rules-and-local-tool/documents/cruise-runs-4f023dd.txt`, PR #9's body
+**Checks:** `uv run cruise diagnose examples/sample-package` exits 0; `uv run cruise diagnose packages/tool/tests/fixtures/messy-package --profile ecology` exits 1; `uv run cruise audit packages/tool/tests/fixtures examples` exits 0
+**Serves:** none (rests on call AGNT4)
+
+- Run the three commands from the worktree at the PR's head and save their output, each with its command and exit code.
+- Run the audit a second time with `--profile ecology`, so its row for the messy package matches the diagnose run (2 errors).
+- Put the same output in PR #9's description.
