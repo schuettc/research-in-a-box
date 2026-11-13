@@ -329,8 +329,9 @@ record has no attributes.
 
 ## What the format can't express
 
-Each item is something one of these datasets holds that has no place in the format. None of
-them changes the contract here; each is for the user to decide.
+Each item is something one of these datasets held that had no place in the format when this
+test was run. All eight were added to the format afterwards (decision DCSN7, PLAN3); the line
+under each item names the field that closes it.
 
 1. **A start date with no known end.** The format's temporal coverage needs an end date or
    `ongoing`. `fia-tree-level` (begins 1983, the citation says "Ongoing", the file stops at
