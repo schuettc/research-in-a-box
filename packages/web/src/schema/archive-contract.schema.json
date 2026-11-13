@@ -1,6 +1,1780 @@
 {
-  "description": "The root model of an archive package. Empty until Plan 2 defines the format.",
-  "properties": {},
-  "title": "ArchiveContract",
+  "$defs": {
+    "Actor": {
+      "additionalProperties": true,
+      "properties": {
+        "kind": {
+          "enum": [
+            "person",
+            "tool",
+            "agent"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ],
+      "title": "Actor",
+      "type": "object"
+    },
+    "ArchiveConfig": {
+      "additionalProperties": true,
+      "description": "Which profiles apply, extra required fields, vocabularies, themes, the licenses and\naccess levels offered, and the publisher the archive fills in at publish.",
+      "properties": {
+        "access": {
+          "items": {
+            "enum": [
+              "open",
+              "restricted",
+              "by-request",
+              "description-only"
+            ],
+            "type": "string"
+          },
+          "title": "Access",
+          "type": "array"
+        },
+        "licenses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Licenses",
+          "type": "array"
+        },
+        "profiles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Profiles",
+          "type": "array"
+        },
+        "publisher": {
+          "title": "Publisher",
+          "type": "string"
+        },
+        "required": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required",
+          "type": "array"
+        },
+        "themes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Themes",
+          "type": "array"
+        },
+        "vocabularies": {
+          "items": {
+            "$ref": "#/$defs/Vocabulary"
+          },
+          "title": "Vocabularies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "publisher"
+      ],
+      "title": "ArchiveConfig",
+      "type": "object"
+    },
+    "Change": {
+      "additionalProperties": true,
+      "description": "One cleaning step: what changed, who made and accepted it, why, and the evidence.\n\n`before` and `after` keep an explicit null (a value filled in from nothing has\n`\"before\": null`); when never set they are left out.",
+      "properties": {
+        "acceptedBy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Actor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "after": {
+          "default": null,
+          "title": "After"
+        },
+        "before": {
+          "default": null,
+          "title": "Before"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "madeBy": {
+          "$ref": "#/$defs/Actor"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        },
+        "when": {
+          "format": "date-time",
+          "title": "When",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "when",
+        "madeBy",
+        "kind",
+        "target",
+        "reason"
+      ],
+      "title": "Change",
+      "type": "object"
+    },
+    "Contributor": {
+      "additionalProperties": true,
+      "description": "A Frictionless v2 contributor. A creator is a contributor with the `creator` role.",
+      "properties": {
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email"
+        },
+        "familyName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Familyname"
+        },
+        "givenName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Givenname"
+        },
+        "organization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Organization"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "roles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Roles"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "title": "Contributor",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": true,
+      "description": "The rows or values that show the problem or justify the change.",
+      "properties": {
+        "rows": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rows"
+        },
+        "values": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Values"
+        }
+      },
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Field": {
+      "additionalProperties": true,
+      "description": "One column of a table, described by logical type rather than file format.\n\n`name` is the column's name in the tidy table. When a rename was accepted, the column's\nname in the source file is kept in `archive:sourceName`.",
+      "properties": {
+        "archive:codeList": {
+          "anyOf": [
+            {
+              "const": "undocumented",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archive:Codelist"
+        },
+        "archive:sensitivity": {
+          "anyOf": [
+            {
+              "enum": [
+                "personal",
+                "sensitive-location",
+                "confidential"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archive:Sensitivity"
+        },
+        "archive:sourceName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archive:Sourcename"
+        },
+        "constraints": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Constraints"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "example": {
+          "default": null,
+          "title": "Example"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Format"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "string",
+                "number",
+                "integer",
+                "boolean",
+                "object",
+                "array",
+                "list",
+                "datetime",
+                "date",
+                "time",
+                "year",
+                "yearmonth",
+                "duration",
+                "geopoint",
+                "geojson",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Field",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": true,
+      "description": "One problem found in a package, by the rule with id `ruleId`.",
+      "properties": {
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "ruleId": {
+          "title": "Ruleid",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning",
+            "note"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "suggestedFix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggestedfix"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Target"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "ruleId",
+        "severity",
+        "message"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "ForeignKey": {
+      "additionalProperties": true,
+      "description": "A link from columns of this table to columns of another, such as a code list.",
+      "properties": {
+        "fields": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Fields"
+        },
+        "reference": {
+          "$ref": "#/$defs/ForeignKeyReference"
+        }
+      },
+      "required": [
+        "fields",
+        "reference"
+      ],
+      "title": "ForeignKey",
+      "type": "object"
+    },
+    "ForeignKeyReference": {
+      "additionalProperties": true,
+      "description": "What a foreign key points at. With no `resource` it points into the same table.",
+      "properties": {
+        "fields": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Fields"
+        },
+        "resource": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resource"
+        }
+      },
+      "required": [
+        "fields"
+      ],
+      "title": "ForeignKeyReference",
+      "type": "object"
+    },
+    "Funding": {
+      "additionalProperties": true,
+      "properties": {
+        "awardNumber": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Awardnumber"
+        },
+        "awardTitle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Awardtitle"
+        },
+        "awardUri": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Awarduri"
+        },
+        "funder": {
+          "title": "Funder",
+          "type": "string"
+        }
+      },
+      "required": [
+        "funder"
+      ],
+      "title": "Funding",
+      "type": "object"
+    },
+    "LegacyIdentifier": {
+      "additionalProperties": true,
+      "description": "An identifier the data had elsewhere, such as an EML package id.",
+      "properties": {
+        "scheme": {
+          "title": "Scheme",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scheme",
+        "value"
+      ],
+      "title": "LegacyIdentifier",
+      "type": "object"
+    },
+    "License": {
+      "additionalProperties": true,
+      "description": "A Frictionless license: an SPDX id in `name`, a license URL in `path`, or both.",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "title": "License",
+      "type": "object"
+    },
+    "Link": {
+      "additionalProperties": true,
+      "properties": {
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "Link",
+      "type": "object"
+    },
+    "MemberFile": {
+      "additionalProperties": true,
+      "description": "One file of a resource made of several files that only work together.",
+      "properties": {
+        "bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bytes"
+        },
+        "hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hash"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "MemberFile",
+      "type": "object"
+    },
+    "MetadataEdit": {
+      "additionalProperties": true,
+      "description": "One in-place metadata edit of the current version.",
+      "properties": {
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "when": {
+          "format": "date-time",
+          "title": "When",
+          "type": "string"
+        },
+        "who": {
+          "title": "Who",
+          "type": "string"
+        }
+      },
+      "required": [
+        "when",
+        "who",
+        "fields"
+      ],
+      "title": "MetadataEdit",
+      "type": "object"
+    },
+    "Person": {
+      "additionalProperties": true,
+      "properties": {
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "orcid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Orcid"
+        },
+        "organization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Organization"
+        },
+        "roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Roles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Person",
+      "type": "object"
+    },
+    "Project": {
+      "additionalProperties": true,
+      "description": "A monitoring program, a grant or a long-term study.\n\nA package names its project with `archive:project: <id>` and never copies its text.",
+      "properties": {
+        "abstract": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Abstract"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "title": "Links",
+          "type": "array"
+        },
+        "people": {
+          "items": {
+            "$ref": "#/$defs/Person"
+          },
+          "title": "People",
+          "type": "array"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "Project",
+      "type": "object"
+    },
+    "QualityVerdict": {
+      "additionalProperties": true,
+      "description": "The counts of findings by severity from the last audit.",
+      "properties": {
+        "auditedAt": {
+          "format": "date-time",
+          "title": "Auditedat",
+          "type": "string"
+        },
+        "errors": {
+          "minimum": 0,
+          "title": "Errors",
+          "type": "integer"
+        },
+        "notes": {
+          "minimum": 0,
+          "title": "Notes",
+          "type": "integer"
+        },
+        "warnings": {
+          "minimum": 0,
+          "title": "Warnings",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "errors",
+        "warnings",
+        "notes",
+        "auditedAt"
+      ],
+      "title": "QualityVerdict",
+      "type": "object"
+    },
+    "RelatedIdentifier": {
+      "additionalProperties": true,
+      "description": "A DataCite related identifier, such as a paper the data supplements.",
+      "properties": {
+        "identifier": {
+          "title": "Identifier",
+          "type": "string"
+        },
+        "identifierType": {
+          "title": "Identifiertype",
+          "type": "string"
+        },
+        "relationType": {
+          "title": "Relationtype",
+          "type": "string"
+        }
+      },
+      "required": [
+        "identifier",
+        "identifierType",
+        "relationType"
+      ],
+      "title": "RelatedIdentifier",
+      "type": "object"
+    },
+    "Resource": {
+      "additionalProperties": true,
+      "description": "A Frictionless resource with the archive's additions.\n\n- `archive:kind` says what the resource is; with none it reads as `table` when `type` is\n  `table`, and as `file` otherwise. Frictionless's `type` is `table` for a table (written\n  when absent) and is refused on any other kind.\n- `archive:files` lists every member file of a multi-file resource (a shapefile set),\n  with `path` naming the main file.\n- `archive:alternateOf` names the primary when this is the same data in another format;\n  only the primary carries the schema.\n- A `linked` resource is held elsewhere: `path` is its URL and it has no hash or size.",
+      "properties": {
+        "archive:alternateOf": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archive:Alternateof"
+        },
+        "archive:files": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/MemberFile"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archive:Files"
+        },
+        "archive:kind": {
+          "default": "file",
+          "enum": [
+            "table",
+            "vector",
+            "raster",
+            "document",
+            "media",
+            "file",
+            "linked"
+          ],
+          "title": "Archive:Kind",
+          "type": "string"
+        },
+        "bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bytes"
+        },
+        "data": {
+          "default": null,
+          "title": "Data"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "dialect": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dialect"
+        },
+        "encoding": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Encoding"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Format"
+        },
+        "hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hash"
+        },
+        "licenses": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/License"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Licenses"
+        },
+        "mediatype": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mediatype"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TableSchema"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sources": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sources"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "const": "table",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Resource",
+      "type": "object"
+    },
+    "RightsStatus": {
+      "additionalProperties": true,
+      "description": "`archive:rightsStatus`: the rights of a package that has no license.\n\n`third-party` needs a statement of where the terms are set, `all-rights-reserved` the\nrights statement itself.",
+      "properties": {
+        "statement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Statement"
+        },
+        "status": {
+          "enum": [
+            "public-domain",
+            "third-party",
+            "all-rights-reserved",
+            "undetermined"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "RightsStatus",
+      "type": "object"
+    },
+    "SpatialCoverage": {
+      "additionalProperties": true,
+      "description": "Where the data covers, as a WGS 84 bounding box: west, south, east, north.\n\nWest may be greater than east for a box that crosses the antimeridian.",
+      "properties": {
+        "bbox": {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Bbox",
+          "type": "array"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "bbox"
+      ],
+      "title": "SpatialCoverage",
+      "type": "object"
+    },
+    "TableSchema": {
+      "additionalProperties": true,
+      "description": "A Frictionless Table Schema.",
+      "properties": {
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/Field"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "foreignKeys": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ForeignKey"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Foreignkeys"
+        },
+        "missingValues": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missingvalues"
+        },
+        "primaryKey": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Primarykey"
+        }
+      },
+      "title": "TableSchema",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": true,
+      "description": "What a finding or a change is about: a resource and field, or a file in the package.",
+      "properties": {
+        "field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "resource": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resource"
+        }
+      },
+      "title": "Target",
+      "type": "object"
+    },
+    "TemporalCoverage": {
+      "additionalProperties": true,
+      "description": "When the data covers: a start, and an end date or `ongoing`.",
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "ongoing": {
+          "default": false,
+          "title": "Ongoing",
+          "type": "boolean"
+        },
+        "start": {
+          "format": "date",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start"
+      ],
+      "title": "TemporalCoverage",
+      "type": "object"
+    },
+    "ValidationVerdict": {
+      "additionalProperties": true,
+      "description": "Whether the package is structurally valid, by which contract version, and when.",
+      "properties": {
+        "checkedAt": {
+          "format": "date-time",
+          "title": "Checkedat",
+          "type": "string"
+        },
+        "contractVersion": {
+          "title": "Contractversion",
+          "type": "string"
+        },
+        "valid": {
+          "title": "Valid",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "valid",
+        "contractVersion",
+        "checkedAt"
+      ],
+      "title": "ValidationVerdict",
+      "type": "object"
+    },
+    "Vocabulary": {
+      "additionalProperties": true,
+      "description": "A vocabulary for a manifest field, named by URL or given as terms.",
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "terms": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Terms",
+          "type": "array"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "field",
+        "name"
+      ],
+      "title": "Vocabulary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "description": "A package's `datapackage.json`: a Frictionless v2 Data Package with `archive:` additions.\n\nThe core fields are optional here so a package can be built and audited before it is\ncomplete; `missing_core_fields` lists the ones still absent.",
+  "properties": {
+    "$schema": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "$Schema"
+    },
+    "archive:access": {
+      "anyOf": [
+        {
+          "enum": [
+            "open",
+            "restricted",
+            "by-request",
+            "description-only"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archive:Access"
+    },
+    "archive:funding": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Funding"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archive:Funding"
+    },
+    "archive:legacyIdentifiers": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/LegacyIdentifier"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archive:Legacyidentifiers"
+    },
+    "archive:metadataHistory": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/MetadataEdit"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archive:Metadatahistory"
+    },
+    "archive:methods": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archive:Methods"
+    },
+    "archive:project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archive:Project"
+    },
+    "archive:quality": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QualityVerdict"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "archive:relatedIdentifiers": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/RelatedIdentifier"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archive:Relatedidentifiers"
+    },
+    "archive:rightsStatus": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RightsStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "archive:spatialCoverage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SpatialCoverage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "archive:temporalCoverage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TemporalCoverage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "archive:validation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ValidationVerdict"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "contributors": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Contributor"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Contributors"
+    },
+    "created": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "homepage": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Homepage"
+    },
+    "id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Id"
+    },
+    "image": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Image"
+    },
+    "keywords": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Keywords"
+    },
+    "licenses": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/License"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Licenses"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Name"
+    },
+    "resources": {
+      "items": {
+        "$ref": "#/$defs/Resource"
+      },
+      "title": "Resources",
+      "type": "array"
+    },
+    "sources": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sources"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Title"
+    },
+    "version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Version"
+    }
+  },
+  "title": "Manifest",
   "type": "object"
 }

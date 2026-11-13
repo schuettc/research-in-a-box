@@ -1,0 +1,16 @@
+# The ecology profile: ecological data also states where, when and how it was collected.
+name: ecology
+description: Ecological field data, which also states its coverage and methods.
+required:
+  - archive:temporalCoverage
+  - archive:spatialCoverage
+  - archive:methods
+vocabularies:
+  - field: keywords
+    name: LTER Controlled Vocabulary
+    url: https://vocab.lternet.edu/
+# Placeholder rule ids: the audit (Plan 3) owns the rules and may rename these.
+rules:
+  - ecology.units-on-measurements
+  - ecology.coordinates-in-range
+  - ecology.dates-within-coverage

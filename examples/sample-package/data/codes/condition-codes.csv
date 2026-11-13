@@ -1,0 +1,5 @@
+code,label,description
+ok,OK,The logger was submerged and reading normally.
+drift,Drift,The reading drifted from the field check by more than 0.5 C.
+buried,Buried,The logger was found buried in sediment.
+dry,Out of water,The logger was above the water line.

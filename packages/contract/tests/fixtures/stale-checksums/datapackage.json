@@ -1,0 +1,87 @@
+{
+  "$schema": "https://datapackage.org/profiles/2.0/datapackage.json",
+  "name": "fixture",
+  "resources": [
+    {
+      "name": "condition-codes",
+      "path": "data/codes/condition-codes.csv",
+      "type": "table",
+      "archive:kind": "table",
+      "bytes": 75,
+      "hash": "sha256:251901345f6711ec10508dc096afbbc11c1b25491e714a6a5682d892d13b08ca",
+      "schema": {
+        "fields": [
+          {
+            "name": "code",
+            "type": "string"
+          },
+          {
+            "name": "label",
+            "type": "string"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "readings",
+      "path": "data/readings.csv",
+      "type": "table",
+      "archive:kind": "table",
+      "bytes": 43,
+      "hash": "sha256:0d41a9398da7d2e51a18c529f80a13a4e76e2cd5d38b4729d4131b0007084eb9",
+      "schema": {
+        "fields": [
+          {
+            "name": "site",
+            "type": "string"
+          },
+          {
+            "name": "temp_c",
+            "type": "number"
+          },
+          {
+            "name": "condition",
+            "type": "string"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "fields": ["condition"],
+            "reference": {
+              "resource": "condition-codes",
+              "fields": ["code"]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "sites",
+      "path": "data/sites/sites.shp",
+      "archive:kind": "vector",
+      "archive:files": [
+        {
+          "path": "data/sites/sites.shp",
+          "bytes": 48,
+          "hash": "sha256:59f4bf49ca8a1ada10555b48b0697232a320e9a7bf5262f6ca374a33b8a36cd1"
+        },
+        {
+          "path": "data/sites/sites.dbf",
+          "bytes": 22,
+          "hash": "sha256:e91eba2edf797ae85a607c45015d5cd72440b83e1fb246da06be7a32d93d4ce2"
+        }
+      ]
+    },
+    {
+      "name": "methods",
+      "path": "docs/methods.md",
+      "archive:kind": "document",
+      "bytes": 21,
+      "hash": "sha256:ad12d9d51f7cfe1968421cf2dc34b0c70fe940cc698cbd9024a8b3560d792338"
+    }
+  ]
+}

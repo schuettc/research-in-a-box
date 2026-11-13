@@ -10,7 +10,16 @@ package = false
 members = ["packages/contract", "packages/tool", "packages/backend"]
 
 [dependency-groups]
-dev = ["ruff", "mypy", "pytest", "pydantic"]
+dev = [
+    "ruff",
+    "mypy",
+    "pytest",
+    "pydantic",
+    "types-pyyaml>=6.0.12.20261113",
+    "frictionless>=5.21.0",
+    "pyshp>=3.1.8",
+    "openpyxl>=3.1.5",
+]
 
 [tool.ruff]
 target-version = "py312"
