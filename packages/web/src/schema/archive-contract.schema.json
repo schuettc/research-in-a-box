@@ -1,0 +1,6 @@
+{
+  "description": "The root model of an archive package. Empty until Plan 2 defines the format.",
+  "properties": {},
+  "title": "ArchiveContract",
+  "type": "object"
+}
