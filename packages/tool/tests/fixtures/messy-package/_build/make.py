@@ -7,7 +7,9 @@ and listed, with the rule each must trigger, in `_build/GAPS.md`.
 Usage: uv run python packages/tool/tests/fixtures/messy-package/_build/make.py
 """
 
+import csv
 import hashlib
+import io
 import json
 import shutil
 from pathlib import Path
@@ -90,7 +92,11 @@ def file_meta(relative: str) -> dict[str, Any]:
 
 
 def csv_text(header: list[str], rows: list[list[str]]) -> str:
-    return "".join(",".join(cells) + "\n" for cells in [header, *rows])
+    """CSV with a value quoted only when it holds a comma, quote or line break."""
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\n")
+    writer.writerows([header, *rows])
+    return out.getvalue()
 
 
 def observation(i: int) -> dict[str, str]:

@@ -16,6 +16,9 @@ from archive_contract.validate import readable_member
 ROW = "cruise:row"
 """The column holding each row's 1-based number among the data rows."""
 
+GLOB_CHARACTERS = frozenset("*?[{}")
+"""Characters DuckDB would expand in a path, reading files the resource doesn't list."""
+
 DEFAULT_MISSING_VALUES = [""]
 """Table Schema's missing values when a schema states none."""
 
@@ -61,6 +64,11 @@ def read_table(
         raise UnreadableTable(f"{resource.name} is {resource.format!r}; only csv tables are read")
     if not isinstance(resource.path, str) or not readable_member(root, resource.path):
         raise UnreadableTable(f"{resource.name} has no single file inside the package to read")
+    if GLOB_CHARACTERS & set(resource.path):
+        raise UnreadableTable(
+            f"{resource.name}'s path {resource.path} holds a glob character (* ? [ {{ }}), "
+            "which the reader would expand"
+        )
     schema = resource.table_schema
     if schema is None or not schema.fields:
         raise UnreadableTable(f"{resource.name} has no schema to read it by")

@@ -168,3 +168,32 @@ def test_duplicate_key_flags_every_row_sharing_a_key(tmp_path: Path) -> None:
 
     assert only(result) == ("id", [1, 3], ["1", "1"], 2)
     assert result.checks == 1
+
+
+def test_wrong_type_message_says_the_value_does_not_read_as_the_type(tmp_path: Path) -> None:
+    result = run(
+        "values.not-declared-type", tmp_path, "n\n1\nn/a\n", [{"name": "n", "type": "integer"}]
+    )
+
+    assert "1 value that does not read as integer" in result.findings[0].message
+
+
+def test_mixed_date_formats_tells_month_first_from_day_first(tmp_path: Path) -> None:
+    csv = "a,b,c\n06/18/2024,06/07/2024,06/07/2024\n19/06/2024,05/04/2024,06/18/2024\n"
+    fields = [{"name": n, "type": "string"} for n in "abc"]
+
+    result = run("values.mixed-date-formats", tmp_path, csv, fields)
+
+    assert only(result)[:2] == ("a", [2])
+
+
+def test_an_unreadable_table_is_a_note_and_a_failed_check(tmp_path: Path) -> None:
+    csv = "code,name\nNR1,North Run, lower pool\n"
+    fields = [{"name": "code", "type": "string"}, {"name": "name", "type": "string"}]
+
+    result = run("values.unreadable", tmp_path, csv, fields)
+
+    finding = result.findings[0]
+    assert (finding.severity, finding.target and finding.target.resource) == ("note", "t")
+    assert "can't be read" in finding.message and finding.suggested_fix
+    assert (len(result.findings), result.checks, result.passed) == (1, 1, 0)

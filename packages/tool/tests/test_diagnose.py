@@ -88,6 +88,7 @@ def test_diagnose_reads_no_table_whose_files_failed_the_structure_check(tmp_path
     assert result.findings[: len(result.structure)] == result.structure
     codes = next(f for f in result.findings if f.rule_id == "field.codes-undocumented")
     assert codes.evidence is None
+    assert not [f for f in result.findings if f.rule_id == "values.unreadable"]
 
 
 def test_score_is_the_share_of_checks_passed_rounded_down_per_question() -> None:
@@ -111,6 +112,30 @@ def test_score_is_the_share_of_checks_passed_rounded_down_per_question() -> None
         "trust": CheckCount(passed=0, applicable=0),
     }
     assert score.line() == "66% (find 2 of 3, understand 0 of 0, trust 0 of 0)"
+
+
+def test_messy_package_tables_are_all_readable() -> None:
+    manifest = Manifest.model_validate_json((MESSY / "datapackage.json").read_text())
+
+    for resource in manifest.resources:
+        read_table(MESSY, resource)
+
+
+@pytest.mark.parametrize("name", ["t*.csv", "t?.csv", "t[1].csv", "t{1}.csv"])
+def test_table_reader_refuses_glob_characters_in_the_path(tmp_path: Path, name: str) -> None:
+    (tmp_path / name).write_text("n\n1\n", encoding="utf-8")
+    resource = Resource.model_validate(
+        {
+            "name": "t",
+            "path": name,
+            "type": "table",
+            "format": "csv",
+            "schema": {"fields": [{"name": "n"}]},
+        }
+    )
+
+    with pytest.raises(UnreadableTable, match="glob"):
+        read_table(tmp_path, resource)
 
 
 def test_table_reader_refuses_formats_other_than_csv() -> None:

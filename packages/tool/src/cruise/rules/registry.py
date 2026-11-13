@@ -65,7 +65,9 @@ class Context:
                         yield resource, column
 
     def read(self, resource: Resource) -> duckdb.DuckDBPyRelation | None:
-        """The resource's rows, or None when it is skipped, not a table or can't be read."""
+        """The resource's rows, or None when it is skipped, not a table or can't be read.
+
+        A table that can't be read is reported once, by `values.unreadable`."""
         if resource.name in self.skip or resource.table_schema is None:
             return None
         try:
@@ -73,14 +75,30 @@ class Context:
         except UnreadableTable:
             return None
 
+    def _tables(self) -> Iterator[Resource]:
+        """Every table resource with a schema whose files passed the structure check."""
+        for resource in self.manifest.resources:
+            if resource.kind == "table" and resource.table_schema is not None:
+                if resource.name not in self.skip:
+                    yield resource
+
     def tables(self) -> Iterator[tuple[Resource, TableSchema, duckdb.DuckDBPyRelation]]:
         """Every table resource that can be read, with its schema and rows."""
-        for resource in self.manifest.resources:
-            if resource.kind != "table" or resource.table_schema is None:
-                continue
+        for resource in self._tables():
             relation = self.read(resource)
-            if relation is not None:
+            if relation is not None and resource.table_schema is not None:
                 yield resource, resource.table_schema, relation
+
+    def unreadable(self) -> Iterator[tuple[Resource, str]]:
+        """Every table resource the value rules can't read, with the reason.
+
+        A resource whose files failed the structure check is not listed: its structure
+        finding already says why."""
+        for resource in self._tables():
+            try:
+                self.reader(resource)
+            except UnreadableTable as exc:
+                yield resource, str(exc)
 
 
 @dataclass(frozen=True)

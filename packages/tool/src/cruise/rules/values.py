@@ -3,6 +3,13 @@
 Every value arrives as text, with the schema's missing values already null, so each rule
 tests casts with `TRY_CAST` and the like: a value that doesn't fit is a finding, never a
 failed read. Each value rule applies one check per column it looks at.
+
+| Rule | Catches | Severity |
+| --- | --- | --- |
+| `values.unreadable` | A table resource the value rules can't read (a malformed CSV, a format \
+other than CSV, a path with glob characters), naming the reason. One failed check per such \
+table, so skipped data never raises the score. A table whose files failed the structure check \
+is not reported again. | note |
 """
 
 from collections.abc import Iterator
@@ -33,6 +40,19 @@ DATE_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Mon D, YYYY", ("%b %d, %Y", "%B %d, %Y")),
 )
 """The date patterns a string column is sorted into; the first that parses a value wins."""
+
+AMBIGUOUS = "MM/DD/YYYY or DD/MM/YYYY"
+MONTH_FIRST = "MM/DD/YYYY"
+DAY_FIRST = "DD/MM/YYYY"
+"""A slash date is month-first when only %m/%d/%Y parses it, day-first when only %d/%m/%Y
+does, and ambiguous when both do. An ambiguous date reads as whichever of the two the column
+otherwise holds, so ambiguous dates alone never mix formats."""
+
+DATE_LABELS = [
+    label
+    for entry, _ in DATE_PATTERNS
+    for label in ([AMBIGUOUS, MONTH_FIRST, DAY_FIRST] if entry == AMBIGUOUS else [entry])
+]
 
 LATITUDE_NAMES = frozenset({"lat", "latitude"})
 LONGITUDE_NAMES = frozenset({"lon", "long", "longitude"})
@@ -146,7 +166,7 @@ def not_declared_type(ctx: Context) -> Outcome:
             problems.append(
                 Problem(
                     f"Column {column.name} has {_plural(count, 'value')} that "
-                    f"{_agree(count, 'reads', 'read')} as {column.type} and "
+                    f"{_agree(count, 'does', 'do')} not read as {column.type} and "
                     f"{_agree(count, 'is', 'are')} not declared missing.",
                     resource=resource.name,
                     field=column.name,
@@ -223,33 +243,55 @@ def constant(ctx: Context) -> Outcome:
 
 
 def _pattern(value: str) -> str:
-    cases = " ".join(
-        f"WHEN {' OR '.join(f'{_strptime(value, p)} IS NOT NULL' for p in patterns)} "
-        f"THEN {quote_literal(label)}"
-        for label, patterns in DATE_PATTERNS
-    )
-    return f"CASE {cases} END"
+    """SQL for the label of the first date pattern that parses the value, or null."""
+    cases: list[str] = []
+    for label, patterns in DATE_PATTERNS:
+        if label == AMBIGUOUS:
+            month = f"{_strptime(value, '%m/%d/%Y')} IS NOT NULL"
+            day = f"{_strptime(value, '%d/%m/%Y')} IS NOT NULL"
+            cases.append(f"WHEN {month} AND {day} THEN {quote_literal(AMBIGUOUS)}")
+            cases.append(f"WHEN {month} THEN {quote_literal(MONTH_FIRST)}")
+            cases.append(f"WHEN {day} THEN {quote_literal(DAY_FIRST)}")
+            continue
+        parses = " OR ".join(f"{_strptime(value, p)} IS NOT NULL" for p in patterns)
+        cases.append(f"WHEN {parses} THEN {quote_literal(label)}")
+    return f"CASE {' '.join(cases)} END"
+
+
+def _resolve_ambiguous(counts: dict[str, int]) -> str:
+    """The label ambiguous slash dates take: the one slash order the column holds, if one."""
+    orders = [label for label in (MONTH_FIRST, DAY_FIRST) if label in counts]
+    return orders[0] if len(orders) == 1 else AMBIGUOUS
 
 
 @rule("values.mixed-date-formats", question="trust", scope="table", severity="warning")
 def mixed_date_formats(ctx: Context) -> Outcome:
     problems: list[Problem] = []
     checks = 0
-    order = [label for label, _ in DATE_PATTERNS]
     for resource, _, relation, column, value in _columns(ctx):
         if column.type not in (None, "string"):
             continue
         checks += 1
-        pattern = _pattern(value)
-        counts = select(
-            relation,
-            f"SELECT p, count(*) FROM (SELECT {pattern} AS p FROM t) "
-            "WHERE p IS NOT NULL GROUP BY p",
+        found: dict[str, int] = dict(
+            select(
+                relation,
+                f"SELECT p, count(*) FROM (SELECT {_pattern(value)} AS p FROM t) "
+                "WHERE p IS NOT NULL GROUP BY p",
+            )
         )
-        if len(counts) < 2:
+        ambiguous_as = _resolve_ambiguous(found)
+        merged: dict[str, int] = {}
+        for label, n in found.items():
+            key = ambiguous_as if label == AMBIGUOUS else label
+            merged[key] = merged.get(key, 0) + n
+        if len(merged) < 2:
             continue
-        counts.sort(key=lambda c: (-c[1], order.index(c[0])))
+        counts = sorted(merged.items(), key=lambda c: (-c[1], DATE_LABELS.index(c[0])))
         main = counts[0][0]
+        pattern = (
+            f"CASE WHEN ({_pattern(value)}) = {quote_literal(AMBIGUOUS)} "
+            f"THEN {quote_literal(ambiguous_as)} ELSE {_pattern(value)} END"
+        )
         rows, values, count = _evidence(relation, value, f"({pattern}) <> {quote_literal(main)}")
         summary = ", ".join(f"{label} ({_plural(n, 'row')})" for label, n in counts)
         problems.append(
@@ -472,3 +514,18 @@ def duplicate_key(ctx: Context) -> Outcome:
                 )
             )
     return Outcome(problems, checks)
+
+
+@rule("values.unreadable", question="trust", scope="table", severity="note")
+def unreadable(ctx: Context) -> Outcome:
+    """Each unreadable table is one check, and it fails: no rule could look at its values."""
+    problems = [
+        Problem(
+            f"Table {resource.name} can't be read, so no value rule checked it: {reason}",
+            resource=resource.name,
+            path=resource.path if isinstance(resource.path, str) else None,
+            fix="Write the table as a well-formed CSV file and describe it in the schema.",
+        )
+        for resource, reason in ctx.unreadable()
+    ]
+    return Outcome(problems, len(problems))
