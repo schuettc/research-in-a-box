@@ -36,7 +36,8 @@ reindex-status stage:
     set -euo pipefail
     fn="$(aws cloudformation describe-stacks --stack-name "ResearchArchive-{{stage}}" \
         --query "Stacks[0].Outputs[?OutputKey=='ReindexFunction'].OutputValue" --output text)"
-    arn="$(aws lambda list-durable-executions-by-function --function-name "$fn" --max-items 1 \
+    # Listing executions can't filter by alias, so list by the function's unqualified ARN.
+    arn="$(aws lambda list-durable-executions-by-function --function-name "${fn%:live}" --max-items 1 \
         --query "DurableExecutions[0].DurableExecutionArn" --output text)"
     if [ -z "$arn" ] || [ "$arn" = "None" ]; then
         echo "no reindex has run on {{stage}}"

@@ -112,7 +112,12 @@ class FakeDynamoDB:
                 for line in body.decode().splitlines():
                     item = json.loads(line)["Item"]
                     self.tables[kwargs["TableName"]][(item["PK"]["S"], item["SK"]["S"])] = item
-        return {"BulkOperationArn": "arn:bulk/1"}
+        return {
+            "BulkOperationDescription": {
+                "BulkOperationArn": "arn:bulk/1",
+                "BulkOperationStatus": "IN_PROGRESS",
+            }
+        }
 
     def describe_bulk_operation(self, *, BulkOperationArn: str) -> dict[str, Any]:
         assert BulkOperationArn == "arn:bulk/1"
@@ -125,6 +130,29 @@ class FakeDynamoDB:
                 "FailedItemCount": 0 if status == "COMPLETED" else 1,
             }
         }
+
+
+def test_fake_bulk_responses_match_botocore_shapes() -> None:
+    # The live deploy found the start response wraps the ARN; keep the fake honest.
+    import boto3
+
+    model = boto3.client("dynamodb", region_name="us-east-1").meta.service_model
+    fake = FakeDynamoDB(FakeS3(), [], outcome="COMPLETED")
+    fake.tables.setdefault("t", {})
+    started = fake.start_bulk_put_items(
+        TableName="t",
+        InputS3Configuration={"S3Bucket": "b", "S3KeyPrefix": "p/", "InputFormat": "DYNAMODB_JSON"},
+        OutputS3Configuration={"S3Bucket": "b", "S3KeyPrefix": "r/", "OutputType": ["ERROR"]},
+    )
+    described = fake.describe_bulk_operation(BulkOperationArn="arn:bulk/1")
+    for operation, response in (
+        ("StartBulkPutItems", started),
+        ("DescribeBulkOperation", described),
+    ):
+        shape = model.operation_model(operation).output_shape
+        assert set(response) <= set(shape.members), operation
+        inner = shape.members["BulkOperationDescription"]
+        assert set(response["BulkOperationDescription"]) <= set(inner.members), operation
 
 
 class FakeSSM:

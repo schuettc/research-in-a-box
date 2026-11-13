@@ -333,7 +333,7 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
                 PerformanceTier="STANDARD",
                 ClientToken=run_id,
             )
-            arn: str = started["BulkOperationArn"]
+            arn: str = started["BulkOperationDescription"]["BulkOperationArn"]
             return arn
 
         operation = context.step(load, name="load")

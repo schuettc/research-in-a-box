@@ -87,17 +87,16 @@ test("it may start bulk operations and bulk-load both catalog tables", () => {
   );
   const bulk = all.find((s) => actions(s).includes("dynamodb:BulkPutItems"));
   expect(bulk).toBeDefined();
-  expect(actions(bulk!).sort()).toEqual([
-    "dynamodb:BulkPutItems",
-    "dynamodb:DescribeBulkOperation",
-  ]);
+  expect(actions(bulk!)).toEqual(["dynamodb:BulkPutItems"]);
   const resources = bulk!.Resource as unknown[];
   for (const which of ["a", "b"] as const) {
     expect(resources).toContainEqual(tableArn(which));
-    expect(resources).toContainEqual({
-      "Fn::Join": ["", [tableArn(which), "/bulk-operation/*"]],
-    });
   }
+  // A bulk operation's ARN is account-scoped (arn:aws:dynamodb:<region>:<account>:bulk-operation/<id>),
+  // as the test deploy showed, not under the table.
+  const describe = all.find((s) => actions(s).includes("dynamodb:DescribeBulkOperation"));
+  expect(JSON.stringify(describe?.Resource)).toContain(":bulk-operation/*");
+  expect(JSON.stringify(describe?.Resource)).not.toContain("/bulk-operation/*");
   for (const which of ["a", "b"] as const) {
     expect(
       all.some(

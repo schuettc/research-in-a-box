@@ -49,11 +49,21 @@ export class Reindex extends Construct {
     );
     fn.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ["dynamodb:BulkPutItems", "dynamodb:DescribeBulkOperation"],
-        resources: tables.flatMap((table) => [
-          table.tableArn,
-          `${table.tableArn}/bulk-operation/*`,
-        ]),
+        actions: ["dynamodb:BulkPutItems"],
+        resources: tables.map((table) => table.tableArn),
+      }),
+    );
+    // A bulk operation's ARN is account-scoped: arn:aws:dynamodb:<region>:<account>:bulk-operation/<id>.
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["dynamodb:DescribeBulkOperation"],
+        resources: [
+          Stack.of(this).formatArn({
+            service: "dynamodb",
+            resource: "bulk-operation",
+            resourceName: "*",
+          }),
+        ],
       }),
     );
 
