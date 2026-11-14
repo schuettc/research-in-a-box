@@ -32,10 +32,12 @@ from aws_durable_execution_sdk_python.waits import (
     WaitForConditionDecision,
 )
 
-from archive_backend import pages
+from archive_backend import pages, zips
 from archive_backend.catalog_file import _scan, write_catalog_file
 from archive_backend.config import read_archive_config
 from archive_backend.embeddings import Bedrock, with_embedding
+from archive_backend.zips import FOLDER as ZIPS
+from archive_backend.zips import zip_paths
 from archive_contract.manifest import Manifest
 
 if TYPE_CHECKING:
@@ -176,6 +178,11 @@ def catalog_items(
                 files[path] = _file_item(
                     pk, sk, path, name, fmt, member.get("bytes"), member.get("hash")
                 )
+    # The version's zips, beside it under _zips/, as file items the download route accepts;
+    # their size and hash aren't known until the page step writes them.
+    for path in zip_paths(manifest):
+        name = path.removeprefix(ZIPS).removesuffix(".zip")
+        files.setdefault(path, _file_item(pk, sk, path, name, "zip", None, None))
     items.extend(files.values())
     return items
 
@@ -229,7 +236,7 @@ def current_versions(items: list[dict[str, Any]]) -> list[tuple[str, int, str, l
             for key, file in dataset.items()
             if key.startswith(f"{sk}#FILE#")
             for path in [file["path"]["S"]]
-            if "://" not in path
+            if "://" not in path and not path.startswith(ZIPS)
         )
         found.append((meta["id"]["S"], version, current["manifest"]["S"], files))
     return sorted(found)
@@ -249,6 +256,31 @@ def _pages(_: StepContext, c: Clients, table: str, derived: str, domain: str) ->
         )
         pages.write_page(c.s3, derived, html, dataset_id)
     return len(found)
+
+
+def stored_versions(items: list[dict[str, Any]]) -> list[tuple[str, list[tuple[str, int, str]]]]:
+    """Each dataset's `(id, [(prefix, version, manifest text)])` from catalog items, every
+    version in order."""
+    by_dataset: dict[str, list[tuple[str, int, str]]] = {}
+    for item in items:
+        sk = item["SK"]["S"]
+        if sk.startswith("V#") and "#FILE#" not in sk:
+            dataset_id = item["PK"]["S"].removeprefix("DATASET#")
+            entry = (item["prefix"]["S"], int(item["version"]["N"]), item["manifest"]["S"])
+            by_dataset.setdefault(dataset_id, []).append(entry)
+    return [(d, sorted(v, key=lambda e: e[1])) for d, v in sorted(by_dataset.items())]
+
+
+@durable_step
+def _zips(
+    _: StepContext, c: Clients, archive: str, dataset_id: str, versions: list[list[Any]]
+) -> int:
+    """Write the zips of each of one dataset's versions whose members changed."""
+    written = 0
+    for prefix, version, text in versions:
+        root = f"{prefix}/{dataset_id}/{version}/"
+        written += len(zips.write_zips(cast(zips.S3, c.s3), archive, root, json.loads(text)))
+    return written
 
 
 def to_lines(items: list[dict[str, Any]]) -> str:
@@ -489,6 +521,15 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
             context.step(catalog_alert, name="alert")
 
         written_pages = context.step(_pages(c, table, derived, domain), name="pages")
+
+        def datasets(_: object) -> list[Any]:
+            return [
+                [d, [list(v) for v in found]]
+                for d, found in stored_versions(_scan(c.dynamodb, table))
+            ]
+
+        for n, (dataset_id, found) in enumerate(context.step(datasets, name="versions")):
+            context.step(_zips(c, archive, dataset_id, found), name=f"zips-{n}")
     else:
         subject = f"Reindex {run_id} on {target} ended {status}"
 

@@ -7,6 +7,7 @@ from typing import Any, cast
 import pytest
 from aws_durable_execution_sdk_python import DurableContext
 from aws_durable_execution_sdk_python.waits import WaitForConditionConfig
+from botocore.exceptions import ClientError
 from mypy_boto3_s3 import S3Client
 from mypy_boto3_sns import SNSClient
 
@@ -45,6 +46,7 @@ def _manifest(dataset_id: str, **extra: Any) -> dict[str, Any]:
 class FakeS3:
     def __init__(self) -> None:
         self.objects: dict[tuple[str, str], bytes] = {}
+        self.metadata: dict[tuple[str, str], dict[str, str]] = {}
         self.puts: list[str] = []
 
     def put(self, key: str, manifest: dict[str, Any]) -> None:
@@ -60,10 +62,21 @@ class FakeS3:
             yield {"Contents": [{"Key": k} for k in keys[start : start + 2]]}
 
     def get_object(self, *, Bucket: str, Key: str) -> dict[str, Any]:
+        if (Bucket, Key) not in self.objects:
+            raise ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
         return {"Body": io.BytesIO(self.objects[(Bucket, Key)])}
 
-    def put_object(self, *, Bucket: str, Key: str, Body: bytes | str, **_: Any) -> dict[str, Any]:
-        self.objects[(Bucket, Key)] = Body.encode() if isinstance(Body, str) else Body
+    def head_object(self, *, Bucket: str, Key: str) -> dict[str, Any]:
+        if (Bucket, Key) not in self.objects:
+            raise ClientError({"Error": {"Code": "404"}}, "HeadObject")
+        return {"Metadata": self.metadata.get((Bucket, Key), {})}
+
+    def put_object(
+        self, *, Bucket: str, Key: str, Body: Any, Metadata: dict[str, str] | None = None, **_: Any
+    ) -> dict[str, Any]:
+        body = Body.read() if hasattr(Body, "read") else Body
+        self.objects[(Bucket, Key)] = body.encode() if isinstance(body, str) else body
+        self.metadata[(Bucket, Key)] = Metadata or {}
         self.puts.append(Key)
         return {}
 
@@ -306,8 +319,12 @@ def test_catalog_items_for_the_sample_package() -> None:
     expected = {r["path"] for r in manifest["resources"]} | {
         f["path"] for r in manifest["resources"] for f in r["archive:files"] or []
     }
-    assert set(files) == expected
-    assert len(items) == 1 + len(expected)
+    zips = {"_zips/package.zip", "_zips/sites.zip", "_zips/depth.zip"}
+    assert set(files) == expected | zips
+    assert len(items) == 1 + len(expected) + len(zips)
+    assert files["_zips/sites.zip"]["name"] == {"S": "sites"}
+    assert files["_zips/sites.zip"]["format"] == {"S": "zip"}
+    assert files["_zips/package.zip"]["name"] == {"S": "package"}
     for path, item in files.items():
         assert item["PK"] == {"S": "DATASET#stream-temperature-sample"}
         assert item["SK"] == {"S": f"V#000001#FILE#{path}"}
@@ -427,7 +444,7 @@ def test_reindex_loads_the_inactive_table_and_flips_on_completed(
         "run": run,
         "target": "B",
         "status": "COMPLETED",
-        "items": 8,
+        "items": 11,
         "flipped": True,
         "catalog": 2,
         "pages": 2,
@@ -435,7 +452,7 @@ def test_reindex_loads_the_inactive_table_and_flips_on_completed(
     assert len(run) == 16 and run[8] == "T" and run.endswith("Z")
     assert world.ssm.value == "B"
     assert world.dynamodb.tables[TABLE_A] == {}
-    assert len(world.dynamodb.tables[TABLE_B]) == 8
+    assert len(world.dynamodb.tables[TABLE_B]) == 11
     assert ("DATASET#ds-1", "META") in world.dynamodb.tables[TABLE_B]
     assert world.dynamodb.loads == [
         {
@@ -468,6 +485,9 @@ def test_reindex_loads_the_inactive_table_and_flips_on_completed(
         "step:flip",
         "step:catalog",
         "step:pages",
+        "step:versions",
+        "step:zips-0",
+        "step:zips-1",
     ]
     catalog = json.loads(world.s3.objects[(DERIVED, "site/catalog.json")])
     assert [row["id"] for row in catalog] == ["ds-1", "ds-2"]
@@ -527,7 +547,7 @@ def test_reindex_empties_the_target_before_loading(monkeypatch: pytest.MonkeyPat
     world.run()
 
     assert not set(stale) & set(world.dynamodb.tables[TABLE_B])
-    assert len(world.dynamodb.tables[TABLE_B]) == 8
+    assert len(world.dynamodb.tables[TABLE_B]) == 11
     assert ("DATASET#live", "META") in world.dynamodb.tables[TABLE_A]
     assert world.events.index("delete") < world.events.index("load")
     assert world.events.count("step:empty") == 15
@@ -582,7 +602,7 @@ def test_write_batches_never_split_a_dataset(monkeypatch: pytest.MonkeyPatch) ->
 
     result = world.run()
 
-    assert result["items"] == 8
+    assert result["items"] == 11
     assert "step:write-0" in world.events and "step:write-1" in world.events
     run = result["run"]
     first = world.s3.objects[(DERIVED, f"reindex/{run}/data/part-00000.json")].decode()
@@ -617,7 +637,7 @@ def test_a_failed_catalog_file_alerts_and_keeps_the_flip(monkeypatch: pytest.Mon
     assert result["flipped"] is True
     assert result["catalog"] is None
     assert world.ssm.value == "B"
-    assert world.events[-3:] == ["step:catalog", "step:alert", "step:pages"]
+    assert world.events[-6:-3] == ["step:catalog", "step:alert", "step:pages"]
     [alert] = world.sns.published
     assert f"Reindex {result['run']} flipped to B" in alert["Message"]
     assert "no write" in alert["Message"]
@@ -657,3 +677,36 @@ def test_a_replayed_reindex_does_not_write_the_pages_again(
     assert again == first
     pages = [k for k in world.s3.puts if k.startswith("site/datasets/")]
     assert len(pages) == 2
+
+
+def _publish_sample(world: World, root: str) -> None:
+    for path in sorted(SAMPLE.parent.rglob("*")):
+        if path.is_file() and "_build" not in path.parts:
+            world.s3.objects[(ARCHIVE, root + str(path.relative_to(SAMPLE.parent)))] = (
+                path.read_bytes()
+            )
+
+
+def test_reindex_writes_every_versions_zips_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    world = _world(monkeypatch, active="A")
+    _publish_sample(world, "open/stream/1/")
+    _publish_sample(world, "restricted/stream/2/")
+
+    world.run()
+
+    zips = sorted(k for k in world.s3.puts if "/_zips/" in k)
+    assert zips == [
+        "open/stream/1/_zips/depth.zip",
+        "open/stream/1/_zips/package.zip",
+        "open/stream/1/_zips/sites.zip",
+        "restricted/stream/2/_zips/depth.zip",
+        "restricted/stream/2/_zips/package.zip",
+        "restricted/stream/2/_zips/sites.zip",
+    ]
+    table = world.dynamodb.tables[TABLE_B]
+    assert ("DATASET#stream", "V#000002#FILE#_zips/sites.zip") in table
+
+    world.context = FakeContext(world.events)
+    world.run()
+
+    assert sorted(k for k in world.s3.puts if "/_zips/" in k) == zips

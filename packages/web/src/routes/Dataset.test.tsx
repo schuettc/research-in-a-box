@@ -135,6 +135,37 @@ test("every resource is a card with its kind, size and one download button", asy
   expect(linked.getAttribute("href")).toBe("https://example.org/stream-temperature/discharge.csv");
 });
 
+test("Download all and a multi-file row's Download fetch the version's zips", async () => {
+  renderDataset();
+  const files = await filesList();
+
+  const all = within(screen.getByTestId("summary-strip")).getByRole("link", {
+    name: /^Download all/,
+  });
+  expect(all.getAttribute("href")).toBe(`/data/${ID}/1/_zips/package.zip`);
+  const sites = itemOf(files, "Sites");
+  const whole = within(sites).getByRole("link", { name: /^Download Sites/ });
+  expect(whole.getAttribute("href")).toBe(`/data/${ID}/1/_zips/sites.zip`);
+  expect(whole.textContent).toContain("zip");
+  expect(within(sites).getByText("Files in this set (4)").closest("details")).not.toBeNull();
+  const logger = within(files).getByRole("link", { name: LOGGER });
+  expect(logger.getAttribute("href")).toBe(`/data/${ID}/1/data/logger.csv`);
+});
+
+test("signed in on a restricted page, Download all asks the API for the package zip", async () => {
+  vi.mocked(apiToken).mockReturnValue("TOKEN");
+  renderDataset(undefined, RESTRICTED_ID);
+  await filesList();
+
+  fireEvent.click(
+    within(screen.getByTestId("summary-strip")).getByRole("button", { name: /^Download all/ }),
+  );
+
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  const [url] = fetchMock.mock.calls[2] as [string, RequestInit];
+  expect(url).toBe(`/api/datasets/${RESTRICTED_ID}/versions/1/download?path=_zips%2Fpackage.zip`);
+});
+
 test("the page leads with the meta line, then the summary strip, files, columns and about", async () => {
   renderDataset();
   await filesList();

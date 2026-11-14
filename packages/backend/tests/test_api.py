@@ -511,7 +511,7 @@ def test_versions_and_one_version(world: World) -> None:
     assert one_status == 200
     assert one["version"] == 2
     assert one["manifest"]["title"] == "T"
-    assert [f["path"] for f in one["files"]] == []
+    assert [f["path"] for f in one["files"]] == ["_zips/package.zip"]
 
 
 @pytest.mark.parametrize(
@@ -586,6 +586,19 @@ def test_download_of_a_restricted_file_signs_it_for_five_minutes_and_counts_it(
     assert count["datasetId"] == {"S": "ds"}
     assert len(count["month"]["S"]) == 7 and count["month"]["S"][4] == "-"
     assert count["restricted"] == {"N": "1"}
+
+
+def test_a_restricted_zip_is_a_file_the_download_route_signs(world: World) -> None:
+    world.publish("ds", _sample(**{"archive:access": "restricted"}))
+
+    status, body = _download(world, "ds", "_zips/sites.zip")
+
+    assert status == 200
+    assert world.s3.presigned[0]["Params"] == {
+        "Bucket": ARCHIVE,
+        "Key": "restricted/ds/1/_zips/sites.zip",
+    }
+    assert _download(world, "ds", "_zips/package.zip")[0] == 200
 
 
 @pytest.mark.parametrize(

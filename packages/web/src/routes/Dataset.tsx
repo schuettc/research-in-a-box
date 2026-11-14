@@ -209,7 +209,15 @@ interface FileProps {
   label: string;
   bytes: number | null;
   onDownload: () => void;
+  /** The visible words before the label, "Download" unless given. */
+  lead?: string;
+  /** Visible words after the label, before the size. */
+  tail?: string;
 }
+
+/** The archive path of the version's zip of every file, and of one multi-file resource's. */
+const PACKAGE_ZIP = "_zips/package.zip";
+const zipOf = (resource: Resource) => `_zips/${resource.name}.zip`;
 
 /** A file of a dataset that isn't open: signed in, its link comes from the API. */
 function SignedDownload({
@@ -219,6 +227,8 @@ function SignedDownload({
   label,
   bytes,
   onDownload,
+  lead = "Download",
+  tail = "",
 }: Omit<FileProps, "access">) {
   const location = useLocation();
   const [problem, setProblem] = useState<"expired" | "refused" | "failed" | null>(null);
@@ -266,7 +276,8 @@ function SignedDownload({
     <>
       <button type="button" className="button download" onClick={() => void download(token)}>
         <span>
-          Download {hidden}
+          {lead} {hidden}
+          {tail}
           {sized(bytes)}
         </span>
       </button>
@@ -277,7 +288,17 @@ function SignedDownload({
   );
 }
 
-function FileDownload({ id, version, access, path, label, bytes, onDownload }: FileProps) {
+function FileDownload({
+  id,
+  version,
+  access,
+  path,
+  label,
+  bytes,
+  onDownload,
+  lead = "Download",
+  tail = "",
+}: FileProps) {
   if (access !== "open") {
     return (
       <SignedDownload
@@ -287,6 +308,8 @@ function FileDownload({ id, version, access, path, label, bytes, onDownload }: F
         label={label}
         bytes={bytes}
         onDownload={onDownload}
+        lead={lead}
+        tail={tail}
       />
     );
   }
@@ -294,7 +317,8 @@ function FileDownload({ id, version, access, path, label, bytes, onDownload }: F
   return (
     <a className="button download" href={href} download onClick={onDownload}>
       <span>
-        Download <span className="visually-hidden">{label}</span>
+        {lead} <span className="visually-hidden">{label}</span>
+        {tail}
         {sized(bytes)}
       </span>
     </a>
@@ -472,9 +496,26 @@ function DatasetPage({ id, view }: { id: string; view: View }) {
           )}
           {view.access !== "open" && <AccessBanner access={view.access} />}
           {manifest.description && <p className="lede">{manifest.description}</p>}
-          <p className="summary" data-testid="summary">
-            {summary.join(" · ")}
-          </p>
+          <div className="summary-strip" data-testid="summary-strip">
+            <p className="summary" data-testid="summary">
+              {summary.join(" · ")}
+            </p>
+            {storedFiles.length > 0 && view.access !== "description-only" && (
+              <FileDownload
+                id={id}
+                version={view.version}
+                access={view.access}
+                path={PACKAGE_ZIP}
+                label="every file as one zip"
+                bytes={null}
+                lead="Download all"
+                onDownload={downloaded(PACKAGE_ZIP)}
+              />
+            )}
+            {usageFor === PACKAGE_ZIP && (
+              <UsagePanel datasetId={id} onClose={() => setUsageFor(null)} />
+            )}
+          </div>
 
           <section className="block" aria-labelledby="files-heading">
             <h2 id="files-heading">Files</h2>
@@ -505,14 +546,23 @@ function DatasetPage({ id, view }: { id: string; view: View }) {
                           Open link <span className="visually-hidden">{label}</span>
                         </a>
                       ) : (
-                        main && (
+                        main &&
+                        (files.length > 1 ? (
+                          <FileDownload
+                            {...fileProps}
+                            path={zipOf(resource)}
+                            label={label}
+                            bytes={null}
+                            tail=" as a zip"
+                          />
+                        ) : (
                           <FileDownload
                             {...fileProps}
                             path={main.path}
                             label={label}
                             bytes={bytesOf(resource)}
                           />
-                        )
+                        ))
                       )}
                     </div>
                     {resource.description && <p className="file-about">{resource.description}</p>}

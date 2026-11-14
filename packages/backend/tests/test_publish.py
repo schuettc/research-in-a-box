@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import re
+import zipfile
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -84,6 +85,12 @@ class FakeS3:
         self.objects[(Bucket, Key)] = body
         self.puts.append({"Bucket": Bucket, "Key": Key, **extra})
         return {}
+
+    def head_object(self, *, Bucket: str, Key: str) -> dict[str, Any]:
+        if (Bucket, Key) not in self.objects:
+            raise ClientError({"Error": {"Code": "404"}}, "HeadObject")
+        put = next(p for p in reversed(self.puts) if (p["Bucket"], p["Key"]) == (Bucket, Key))
+        return {"Metadata": put.get("Metadata", {})}
 
     def get_paginator(self, name: str) -> "FakeS3":
         assert name == "list_objects_v2"
@@ -310,7 +317,8 @@ def test_a_new_dataset_publishes_version_1_under_a_minted_id(world: World) -> No
     assert manifest["archive:published"] == "2026-11-14T09:30:00Z"
     assert manifest["archive:publisher"] == "Example Archive"
     assert manifest["archive:identifier"] == f"https://{DOMAIN}/datasets/{dataset_id}/v1"
-    assert world.s3.keys(ARCHIVE) == sorted(root + p for p in _package())
+    stored = [k for k in world.s3.keys(ARCHIVE) if "/_zips/" not in k]
+    assert stored == sorted(root + p for p in _package())
     assert world.s3.keys(STAGING, f"held/{SID}/") == []
     [event] = world.reviews.events
     assert (event["type"], event["datasetId"], event["version"], event["rule"]) == (
@@ -354,9 +362,10 @@ def test_every_put_carries_its_checksum_and_the_manifest_goes_last(world: World)
     world.publish()
 
     puts = [p for p in world.s3.puts if p["Bucket"] == ARCHIVE]
-    assert len(puts) == len(_package())
+    files = [p for p in puts if "/_zips/" not in p["Key"]]
+    assert len(files) == len(_package())
     assert all(p.get("ChecksumSHA256") for p in puts)
-    assert puts[-1]["Key"] == "open/stream/1/datapackage.json"
+    assert files[-1]["Key"] == "open/stream/1/datapackage.json"
 
 
 def test_the_published_version_validates(world: World, tmp_path: Path) -> None:
@@ -365,6 +374,8 @@ def test_the_published_version_validates(world: World, tmp_path: Path) -> None:
     world.publish()
 
     for key in world.s3.keys(ARCHIVE, "open/stream/1/"):
+        if "/_zips/" in key:
+            continue
         target = tmp_path / key.removeprefix("open/stream/1/")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(world.s3.objects[(ARCHIVE, key)])
@@ -476,3 +487,19 @@ def test_a_retried_version_step_keeps_its_own_claim(world: World) -> None:
     world.publish()
     meta = world.table()[(f"DATASET#{first['datasetId']}", "META")]
     assert meta["currentVersion"] == {"N": "1"} and "claimedBy" not in meta
+
+
+def test_the_page_step_writes_the_versions_zips_beside_it(world: World) -> None:
+    world.hold(SID, _package(**{"archive:access": "restricted"}), datasetId="secret")
+
+    world.publish()
+
+    root = "restricted/secret/1/"
+    zips = world.s3.keys(ARCHIVE, root + "_zips/")
+    assert zips == [root + "_zips/depth.zip", root + "_zips/package.zip", root + "_zips/sites.zip"]
+    listed = world.s3.objects[(ARCHIVE, root + "checksums.sha256")].decode()
+    with zipfile.ZipFile(io.BytesIO(world.s3.objects[(ARCHIVE, root + "_zips/package.zip")])) as z:
+        for line in listed.splitlines():
+            digest, path = line.split(maxsplit=1)
+            assert hashlib.sha256(z.read(path)).hexdigest() == digest
+    assert ("DATASET#secret", "V#000001#FILE#_zips/package.zip") in world.table()
