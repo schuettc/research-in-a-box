@@ -118,6 +118,10 @@ export class Ingest extends Construct {
     archive.archiveConfigParameter.grantRead(fn);
     archive.alertTopic.grantPublish(fn);
     this.curatorTopic.grantPublish(fn);
+    // Publish embeds the dataset item before its put.
+    if (archive.embeddings) {
+      archive.grantEmbedding(fn);
+    }
 
     const api = archive.pythonFunction("SubmissionsFunction", {
       handler: "archive_backend.submissions.handler",
