@@ -245,6 +245,16 @@ def _catalog_rows() -> list[dict[str, Any]]:
     return rows
 
 
+def _site_domain() -> str:
+    """The CloudFront domain, from a parameter: an environment variable would make the
+    distribution, the API that is its origin and this function depend on each other."""
+    if "domain" not in _active:
+        name = os.environ["SITE_DOMAIN_PARAMETER"]
+        _active["domain"] = clients().ssm.get_parameter(Name=name)["Parameter"]["Value"]
+    domain: str = _active["domain"]
+    return domain
+
+
 def _table() -> str:
     now = _monotonic()
     if "value" not in _active or now - _active["checked"] >= CACHE_SECONDS:
@@ -434,7 +444,7 @@ def download_link(id: str, version: int, path: Annotated[str, Query()]) -> Downl
     if _get(table, f"DATASET#{id}", f"{_sk(version)}#FILE#{path}") is None:
         raise NotFoundError(f"no file {path} in version {version} of {id}")
     if access == "open":
-        return DownloadAnswer(url=f"https://{os.environ['SITE_DOMAIN']}/data/{id}/{version}/{path}")
+        return DownloadAnswer(url=f"https://{_site_domain()}/data/{id}/{version}/{path}")
     c = clients()
     url = c.s3.generate_presigned_url(
         "get_object",

@@ -18,6 +18,7 @@ PARAMETER = "/research-archive/test/catalog-active"
 COUNTS = "download-counts"
 USAGE = "usage-responses"
 DOMAIN = "d123.cloudfront.net"
+DOMAIN_PARAMETER = "/research-archive/test/site-domain"
 CLAIMS = {"sub": "user-1", "email": "a@example.org"}
 ADMIN = CLAIMS | {"cognito:groups": "[admin]"}
 
@@ -133,6 +134,8 @@ class FakeSSM:
         self.calls = 0
 
     def get_parameter(self, *, Name: str) -> dict[str, Any]:
+        if Name == DOMAIN_PARAMETER:
+            return {"Parameter": {"Value": DOMAIN}}
         assert Name == PARAMETER
         self.calls += 1
         return {"Parameter": {"Value": self.value}}
@@ -156,7 +159,7 @@ class World:
             "ACTIVE_CATALOG_PARAMETER": PARAMETER,
             "DOWNLOAD_COUNTS_TABLE": COUNTS,
             "USAGE_TABLE": USAGE,
-            "SITE_DOMAIN": DOMAIN,
+            "SITE_DOMAIN_PARAMETER": DOMAIN_PARAMETER,
         }.items():
             monkeypatch.setenv(name, value)
 

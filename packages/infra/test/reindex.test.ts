@@ -134,3 +134,13 @@ test("its environment names both catalog tables, the active-catalog parameter, b
     },
   });
 });
+
+test("it may write the catalog file and nothing else under site/", () => {
+  const writes = statements().filter(
+    (s) => actions(s).includes("s3:PutObject") && JSON.stringify(s.Resource).includes("/site/"),
+  );
+
+  expect(writes).toHaveLength(1);
+  expect(JSON.stringify(writes[0]!.Resource)).toContain("/site/catalog.json");
+  expect(JSON.stringify(writes[0]!.Resource)).not.toContain("/site/*");
+});

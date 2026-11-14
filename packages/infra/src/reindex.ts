@@ -37,6 +37,7 @@ export class Reindex extends Construct {
 
     archive.archiveBucket.grantRead(fn);
     archive.derivedBucket.grantReadWrite(fn, "reindex/*");
+    archive.derivedBucket.grantPut(fn, "site/catalog.json");
     for (const table of tables) {
       table.grantReadWriteData(fn);
     }
