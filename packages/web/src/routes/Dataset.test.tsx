@@ -316,3 +316,22 @@ test("an axe check of the page finds no violations", async () => {
   const results = await axe.run(container);
   expect(results.violations).toEqual([]);
 });
+
+test("mounted into an empty #app, reaching a dataset page doesn't throw or blank the page", async () => {
+  document.body.innerHTML = '<div id="app"></div>';
+  history.pushState({}, "", `/datasets/${ID}`);
+  const app = document.getElementById("app") as HTMLElement;
+  const errors: unknown[] = [];
+  const onError = (event: ErrorEvent) => errors.push(event.error);
+  window.addEventListener("error", onError);
+
+  let root: Root | undefined;
+  act(() => {
+    root = mount(app);
+  });
+
+  await waitFor(() => expect(app.querySelector("h1")?.textContent).toBe(MANIFEST.title ?? ""));
+  window.removeEventListener("error", onError);
+  expect(errors).toEqual([]);
+  act(() => root?.unmount());
+});

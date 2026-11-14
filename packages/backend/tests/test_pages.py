@@ -170,3 +170,20 @@ def test_write_page_puts_the_html_at_the_dataset_page_key() -> None:
             "CacheControl": "max-age=300",
         }
     ]
+
+
+def test_the_static_style_applies_only_to_the_static_content() -> None:
+    html = render_page(
+        _manifest(id="stream", version="1"),
+        dataset_id="stream",
+        version=1,
+        domain=DOMAIN,
+        files=FILES,
+    )
+    style = html.split("<style>", 1)[1].split("</style>", 1)[0]
+
+    # Once the app renders over #app, its own header and main sit in a div inside #app, so the
+    # static page's rules must reach only #app's direct static children, never body or a bare dl.
+    rules = [rule.split("{", 1)[0] for rule in style.split("}") if "{" in rule]
+    assert rules
+    assert all(selector.startswith("#app>") for rule in rules for selector in rule.split(","))

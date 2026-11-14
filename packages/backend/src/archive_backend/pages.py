@@ -27,10 +27,13 @@ if TYPE_CHECKING:
 
 APP_SCRIPT = '<script type="module" src="/app.js"></script>'
 
+# Scoped to the static <main>, a direct child of #app: once the web app renders over #app, its
+# own markup sits a level deeper, so none of these rules reach it.
 STYLE = (
-    "body{font-family:system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem;"
-    "line-height:1.5;color:#1b1b1b}h1{line-height:1.2}code{font-size:.95em}"
-    "dl{display:grid;grid-template-columns:max-content 1fr;gap:.25rem 1rem}dd{margin:0}"
+    "#app>main{font-family:system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem;"
+    "line-height:1.5;color:#1b1b1b}#app>main h1{line-height:1.2}#app>main code{font-size:.95em}"
+    "#app>main dl{display:grid;grid-template-columns:max-content 1fr;gap:.25rem 1rem}"
+    "#app>main dd{margin:0}"
 )
 
 
