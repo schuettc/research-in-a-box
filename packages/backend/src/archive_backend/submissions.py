@@ -71,6 +71,8 @@ POLICY_SETTING = "review-policy"
 MAX_PUT = 5 * 1024**3
 MAX_FILES = 1000
 URL_SECONDS = 3600
+HELD_URL_SECONDS = 300
+HELD: tuple[Status, ...] = ("in-review", "publishing")
 SHA256 = re.compile(r"[0-9a-fA-F]{64}")
 S3_CONFIG = Config(signature_version="s3v4", s3={"addressing_style": "virtual"})
 
@@ -527,6 +529,37 @@ def read(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, Any
     return _response(200, body)
 
 
+def files(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, Any]:
+    """A curator's five-minute links to the held round's listed files, and only those."""
+    caller.need(CURATOR)
+    submission = _load(c, sid)
+    status = submission.get("status")
+    # held/<id>/ exists only from hold until publish or a closing decision empties it.
+    if status not in HELD:
+        raise Refused(409, f"nothing is held while {status}")
+    round = int(submission["round"])
+    listed = (submission.get("files") or {}).get(str(round)) or []
+    return _response(
+        200,
+        {
+            "round": round,
+            "files": [
+                {
+                    "path": f["path"],
+                    "size": f["size"],
+                    "sha256": f["sha256"],
+                    "url": c.s3.generate_presigned_url(
+                        "get_object",
+                        Params={"Bucket": env.staging_bucket, "Key": f"held/{sid}/{f['path']}"},
+                        ExpiresIn=HELD_URL_SECONDS,
+                    ),
+                }
+                for f in listed
+            ],
+        },
+    )
+
+
 def stored_policy(settings: Table) -> ReviewPolicy:
     """The Settings item `review-policy`, or the defaults when none is set."""
     item = settings.get_item(Key={"name": POLICY_SETTING}).get("Item")
@@ -583,6 +616,8 @@ def handle(event: dict[str, Any], c: Clients, env: Env) -> dict[str, Any]:
                 return submit(c, env, caller, sid)
             case ("GET", "/api/submissions/{id}"):
                 return read(c, env, caller, sid)
+            case ("GET", "/api/submissions/{id}/files"):
+                return files(c, env, caller, sid)
             case ("POST", "/api/submissions/{id}/decision"):
                 return decide(c, caller, sid, body)
         return _response(404, {"error": f"no route {route[0]} {route[1]}"})
