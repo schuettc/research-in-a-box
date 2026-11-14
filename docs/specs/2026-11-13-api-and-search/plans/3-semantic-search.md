@@ -1,9 +1,9 @@
 ---
 diazo: research-archive-in-a-box/api-and-search
 file: PLAN3
-status: approved
+status: done
 approved: 2026-11-14T00:23:08-06:00
-hash: 0cb69533179c64e634fb8e2aae834c93e901549596c38885654aa3fd5a54ab32
+hash: e2d57470bd02fe32a34c0c9ee50133ac308ba0259c514484f2099076d8756b8f
 rests_on: [AGNT11, AGNT12, AGNT13, AGNT14, AGNT15, DCSN6, DCSN7, DCSN8]
 record: README.md
 ---
@@ -35,7 +35,6 @@ Keyword search ranks by how many words match instead of requiring every word. An
 
 - A score cut-off for semantic matches, and any model besides Titan v2 (spec, Left out).
 - Embedding the CLI or MCP server's own searches: they call `/api/search` like the web app.
-- Plan 7's call to the embedding function: whichever of Plan 6 and Plan 7 lands second adds it (muster thread 955).
 - The first search after idle (PARK3) stays its own follow-up; Task 5 measures it again with embeddings on.
 
 ## Where
@@ -117,3 +116,15 @@ STEP2's actions, in order:
 4. Agent: redeploy with the module removed; check `q=air pollution` answers keyword results (none) with no error, and `q=ozone` still finds the ozone dataset.
 5. You: Go for the teardown.
 6. Agent: destroy the stack and confirm the stack, buckets, tables and leftover log groups are gone.
+
+### Task 12: Embeddings on Plan 7's publish
+
+**Does:** Plan 7's publish step (research-in-a-box#29) landed before this plan, so Plan 6 adds the agreed call: when the embeddings setting is on, publish passes the dataset item through `with_embedding` before its put, and the ingest function gets the Bedrock grant. Without it, a dataset published with the module on has no embedding until the next reindex.
+**Files:** `packages/backend/src/archive_backend/ingest.py`, `packages/backend/tests/test_ingest.py`, the infra file that builds the ingest function and its synth test
+**Checks:** `uv run pytest packages/backend` exits 0; `npm test -w packages/infra` exits 0; `just check` exits 0.
+**Serves:** DCSN6, DCSN7 (rests on call AGNT12)
+
+- One call, before the put, only when `read_archive_config(...).infrastructure.modules.embeddings` is set; no later update (muster threads 955 and 979).
+- `archive.grantEmbedding(ingestFn)` only when the module is on; a synth test asserts the grant is absent when it is off.
+- Plan 7 is editing the same area of `ingest.py`; whichever PR merges second rebases.
+- Tests with a fake Bedrock: publish with the setting on writes a META item carrying a 1,024-number `embedding`; with it off Bedrock is never called.
