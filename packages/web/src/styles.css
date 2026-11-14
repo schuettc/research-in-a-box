@@ -32,8 +32,17 @@
   box-sizing: border-box;
 }
 
+/* Every view keeps the same frame: the scrollbar's gutter is always reserved, and the footer sits
+   at the bottom of the window on short pages, so changing views never shifts text. */
 html {
   -webkit-text-size-adjust: 100%;
+  scrollbar-gutter: stable;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 body {
@@ -175,6 +184,8 @@ dd {
 
 main {
   display: block;
+  flex: 1 0 auto;
+  width: 100%;
   max-width: 72rem;
   margin: 0 auto;
   padding: 2.5rem 1.5rem 4rem;
