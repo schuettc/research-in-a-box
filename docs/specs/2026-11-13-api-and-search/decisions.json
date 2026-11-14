@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "API and search (Plan 6)",
   "expect": 5,
-  "agent_at": "2026-11-14T04:38:49.60194Z",
+  "agent_at": "2026-11-14T05:59:37.406548Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 2, folder 8da653f233f9, and Plan 4, the archive infrastructure.)\n\nBrief: Plan 6 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the API and search (Plan 6). There is no relational database. Search is a catalog file filtered in the browser with DuckDB, plus an optional DynamoDB vector index. Plan the endpoints and the search design, and take the open questions with me one at a time."
@@ -131,6 +131,133 @@
       }
     ]
   },
+  "steps": [
+    {
+      "id": "STEP1",
+      "what": "Walk the test deploy of Plan 6's read API and search with me",
+      "why": "TASK5: proves search, reads, restricted links, the usage form and download counts on a real deploy, then tears it down",
+      "how": "One action at a time; the current one opens on its own. Your actions are naming the profile, two Go presses and two browser sign-ins.",
+      "done": true,
+      "done_at": "2026-11-13T23:59:37.406548-06:00",
+      "actions": [
+        {
+          "id": "A1",
+          "who": "user",
+          "what": "Name the AWS profile and the alert email address",
+          "how": "1. Write in the note the AWS profile to deploy the test stage with (the same one as Plan 4's test deploy is fine) and the email address for its alerts.\n2. Press Done.\n\nNothing is deployed until your Go at A3.",
+          "state": "done",
+          "result": "personal court@subaud.io",
+          "answered_at": "2026-11-13T22:41:30.640333-06:00",
+          "via": "page"
+        },
+        {
+          "id": "A2",
+          "who": "agent",
+          "what": "Open the PR for Tasks 1 to 4, merge it once CI's python and typescript checks pass, and check the profile's identity",
+          "state": "done",
+          "result": "research-in-a-box#22 merged as 6608bba after python and typescript passed; profile personal is account 316091283514, us-east-1"
+        },
+        {
+          "id": "A3",
+          "who": "user",
+          "what": "Go for the deploy",
+          "how": "1. Press Go to deploy `ResearchArchive-test` to the profile you named. It costs a few dollars at most while it exists and is destroyed at A10.",
+          "state": "done",
+          "answered_at": "2026-11-13T23:10:24.79156-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "The agent deploys ResearchArchive-test now"
+            },
+            {
+              "id": "NOGO",
+              "label": "No go",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A4",
+          "who": "agent",
+          "what": "Build the Lambda assets, deploy ResearchArchive-test, upload two sample packages (one open, one restricted, each with archive:published), run just reindex test, and check catalog.json, search, reads and a signed-out download refused",
+          "state": "done",
+          "result": "deploy exit 0; reindex SUCCEEDED (B, 30 items, catalog 2 rows); /catalog.json 200 max-age=60, 2 rows; search 'stream temperature' 2 hits, access=restricted 1, facets add up; dataset read returns manifest + 13 files; unknown dataset 404; signed-out download 401"
+        },
+        {
+          "id": "A4B",
+          "who": "agent",
+          "what": "Merge Task 6 (invitation-only accounts, research-in-a-box#26) and update the stack so sign-up is off, then invite you with just invite-user test",
+          "state": "done",
+          "result": "#26 merged as aa90504; stack update exit 0 in 51 s; AllowAdminCreateUserOnly true; just invite-user test court@subaud.io: FORCE_CHANGE_PASSWORD, invitation emailed"
+        },
+        {
+          "id": "A5",
+          "who": "user",
+          "what": "Sign in with the invitation and paste back the URL you land on",
+          "how": "1. Find the invitation email from Cognito sent to court@subaud.io; it has your temporary password.\n2. Open the sign-in link the agent posted.\n3. Sign in with your email and the temporary password, then set your own password.\n4. Your browser lands on a `http://localhost:8765/callback?code=...` page that doesn't load. That's expected.\n5. Copy that whole address into the note and press Done.",
+          "state": "done",
+          "result": "why is this still failing on the callback",
+          "answered_at": "2026-11-13T23:28:21.715681-06:00",
+          "via": "page"
+        },
+        {
+          "id": "A6",
+          "who": "agent",
+          "what": "Exchange the code, fetch the restricted file through its link, post a usage answer, see the admin read refused, then add you to the admin group",
+          "state": "done",
+          "result": "PKCE exchange 200 (1-hour tokens); whoami court@subaud.io, no groups; restricted link 200, file fetched, SHA-256 matches checksums.sha256; ../../ path 404; open link answers its /data URL; DownloadCounts restricted=1 for 2026-11; usage POST 204; admin read 403; added to admin"
+        },
+        {
+          "id": "A7",
+          "who": "user",
+          "what": "Sign in again and paste back the URL",
+          "how": "1. Open the sign-in link the agent posted.\n2. Sign in if asked.\n3. Copy the `http://localhost:8765/callback?code=...` address into the note and press Done.",
+          "state": "done",
+          "answered_at": "2026-11-13T23:34:16.22175-06:00",
+          "via": "page"
+        },
+        {
+          "id": "A8",
+          "who": "agent",
+          "what": "Read the usage answer as admin, count an open download through the rollup, and time searches warm and after idle",
+          "state": "done",
+          "result": "whoami groups [admin]; admin usage read 200 with the posted answer; rollup through today counted the /data download (open=1 for 2026-11), a rerun counted 0; search through CloudFront: warm median 0.14 s (min 0.09, max 0.27, n=10), after 17 idle minutes 2.81 s, then 0.15 s"
+        },
+        {
+          "id": "A9",
+          "who": "user",
+          "what": "Go for the teardown",
+          "how": "1. Press Go to destroy `ResearchArchive-test` and everything in it.",
+          "state": "done",
+          "answered_at": "2026-11-13T23:53:44.707367-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "The agent destroys ResearchArchive-test now"
+            },
+            {
+              "id": "NOGO",
+              "label": "Keep it for now",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A10",
+          "who": "agent",
+          "what": "Destroy ResearchArchive-test and confirm its stack, buckets and tables are gone",
+          "state": "done",
+          "result": "cdk destroy exit 0; stack does not exist; no researcharchive-test buckets, tables or functions; user pool and /research-archive/test parameters gone; the S3 auto-delete helper's leftover log group deleted by hand; nothing left"
+        }
+      ]
+    }
+  ],
   "decisions": [
     {
       "id": "DCSN1",
@@ -578,9 +705,31 @@
     }
   ],
   "principles": [],
-  "follow_ups": [],
+  "follow_ups": [
+    {
+      "id": "PARK1",
+      "name": "Linked resource downloads",
+      "text": "A resource whose path is a URL (data held elsewhere) gets a file item, so the download route answers a /data or presigned link that doesn't resolve. Answer the resource's own URL instead.",
+      "from": "TASK2",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK2",
+      "name": "Expire CloudFront logs",
+      "text": "Nothing expires the derived bucket's logs/, and the daily rollup lists the whole prefix each run, so the listing grows forever. Add a lifecycle rule on logs/ (say 30 days, after the rollup has counted them) or list from the last counted day's key.",
+      "from": "TASK3",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK3",
+      "name": "First search after idle",
+      "text": "On the test deploy the first search after 17 idle minutes took 2.81 s (warm searches 0.14 s median), above the about one second the spec estimated: a cold API Lambda loading Powertools, boto3 and the catalog. Measure the parts and decide whether it matters once Plan 8's search page exists; options are trimming imports, more memory, or SnapStart for Python.",
+      "from": "TASK5",
+      "kind": "improvement"
+    }
+  ],
   "spec": {
-    "hash": "efa1b5a93f7112fe9b6cff14c4cc1080bccf324ed32eb7c081e9c0f985e3eb41",
+    "hash": "789ad2e3e5f47e02424e715ed51234a6f5cd314354c06fdf5602c82d09b0f823",
     "sections": [
       {
         "id": "SPEC1",
@@ -685,14 +834,15 @@
       "hash": "efa1b5a93f7112fe9b6cff14c4cc1080bccf324ed32eb7c081e9c0f985e3eb41",
       "at": "2026-11-13T22:34:38.131542-06:00",
       "body": "# API and search: the read API, server search and downloads\n\n## Goal\n\nAnyone can find a dataset in the archive and fetch it, from the web app, the CLI or an MCP server, with no relational database. A read API open to all answers search, dataset, version and project reads; signed-in users get short-lived links to restricted files; the archive counts downloads and, optionally, asks readers how they use the data. It works today on what Plan 4's reindex loads, and Plan 7's publish step plugs into it later. Semantic search follows as its own plan once there is a real corpus to judge it on.\n\n## The plans\n\nPlan 6 is two plans in this folder. PLAN1 is the read API and search described below, buildable now. PLAN3 is semantic search: the vector index on both catalog tables, the embedding model and its setting, and ranking semantic results with keyword results inside the same search endpoint; it is written once PLAN1 is built and Plan 5's corpus exists. Plan 7 owns everything under `/api/submissions`, including the review-policy setting, so there is no PLAN2.\n\nRests on: DCSN5, DCSN1\n\n## Endpoints\n\nEvery route is served by one Python Lambda, declared in API Gateway one route at a time so the Cognito authorizer sits only on the signed-in ones. Plan 4's `/api/health` and `/api/whoami` stay as they are.\n\n| Route | Sign-in | Answers |\n|---|---|---|\n| `GET /api/search` | no | One page of matching datasets with a count per facet value (below) |\n| `GET /api/datasets/{id}` | no | The dataset, its current version's manifest and its files |\n| `GET /api/datasets/{id}/versions` | no | Every version's number and prefix |\n| `GET /api/datasets/{id}/versions/{version}` | no | That version's manifest and files |\n| `GET /api/projects/{id}` | no | `projects/\u003cid\u003e/project.json` from the archive bucket, and the project's datasets from GSI1 |\n| `GET /api/datasets/{id}/versions/{version}/download?path=` | yes | A five-minute link to one restricted file |\n| `POST /api/datasets/{id}/usage` | no | Stores the optional usage answers |\n| `GET /api/admin/usage?dataset=` | yes, `admin` group | The usage answers for one dataset |\n\nDataset, version and file reads come from the active catalog table, chosen by the `/research-archive/\u003cstage\u003e/catalog-active` parameter, cached for a minute as Plan 4's Lambdas do. The version item already holds the manifest text. Metadata is public at every access level; only files are restricted. A missing dataset, version or project answers 404.\n\nRests on: DCSN4, AGNT1, AGNT8\n\n## Search\n\n**The catalog file.** One function in `archive-backend` builds `catalog.json` from the active catalog table and writes it to the derived bucket's `site/`, so it is also public at `/catalog.json`. The reindex calls it after it flips the active table; Plan 7's publish step calls the same function. One row per published dataset at every access level: `id`, `version`, `title`, `description`, `keywords`, `access`, `licenses` (ids), `rightsStatus`, `project`, `creators`, `formats`, `start`, `end`, `ongoing`, `bbox` (west, south, east, north), `bytes` (the current version's total) and `published`. Theme and species join when the contract holds those fields (Plan 2's PARK5 and PARK6). It is written with Python's standard library; no DuckDB.\n\n**The endpoint.** `GET /api/search` takes `q` (keywords), `access`, `license`, `format`, `project` (each repeatable), `from` and `to` (dates), `bbox` (`west,south,east,north`), `page` and `size` (default 20, at most 100). Each keyword must appear, ignoring case, in the title, description, keywords or creators. Date filters keep a dataset whose coverage overlaps the range; the box keeps a dataset whose box intersects it, including boxes that cross the antimeridian. Results with a keyword in the title come first, then the rest, newest published first. The answer is the page of rows (the same fields as the catalog file, so a result card needs no further call), the total, and a count for each value of `access`, `license`, `format` and `project` under the current filter.\n\n**Freshness.** The search Lambda keeps the parsed catalog in memory and checks the object's ETag at most once a minute, re-reading it when it changed, so a publish or reindex reaches search within a minute. Filtering 10,000 datasets took 9 ms in a measurement on a laptop; past roughly 50,000 datasets, the next step is an index rather than an in-memory list.\n\nRests on: DCSN1, AGNT2, AGNT3, AGNT4\n\n## Restricted downloads\n\nOpen files are fetched straight from CloudFront at `/data/\u003cdatasetId\u003e/\u003cversion\u003e/\u003cpath\u003e`; the API isn't involved. For a restricted dataset, a signed-in user calls the download route and gets an S3 presigned link to `restricted/\u003cdatasetId\u003e/\u003cversion\u003e/\u003cpath\u003e` that lasts five minutes. Anyone signed in qualifies; signing up is self-service with email. The path must be one of the version's file items, so the route can't be used to reach any other key. A by-request dataset answers 403 until Plan 7's request workflow can grant access, which this check will then read. Description-only datasets have no files. An open dataset's download route answers its `/data` URL.\n\nRests on: DCSN2, AGNT9\n\n## Download counts\n\nDownloadCounts keeps, per dataset and month, `open` (downloads through CloudFront) and `restricted` (links issued). The download route adds one to `restricted` when it issues a link. A scheduled function runs daily, reads the previous day's CloudFront standard logs under the derived bucket's `logs/`, and adds one to `open` per `GET` under `/data/` that answered 200; range reads (206) and `HEAD` don't count, so a data preview that reads by range doesn't inflate the numbers. The last day rolled up is kept as a Settings item, `downloads-rolled-up-through`, so a rerun never counts a day twice.\n\nRests on: AGNT7\n\n## Usage form\n\nBefore a download, a reader may answer three optional questions, with no sign-in and no name or email: the kind of organisation (university, government, nonprofit, company, individual, other), what the data is for (research, teaching, policy or management, commercial, personal, other), and a note of up to 500 characters. The question list is a model in the contract. Answers go to a UsageResponses table that Plan 6 adds (`datasetId`, sort key `\u003cmonth\u003e#\u003cuuid\u003e`, on-demand, point-in-time recovery like the other operational tables). Admins read them through `GET /api/admin/usage`.\n\nRests on: DCSN3, AGNT10\n\n## Sign-in for the CLI and MCP server\n\nThe browser signs in through Plan 4's `web` client as built. The CLI and the MCP server use authorization code with PKCE through Plan 4's `cli` client: they open the browser to Cognito's managed login and listen on `http://localhost:8765/callback`. They keep the one-hour access and ID tokens and discard the refresh token, so they hold short-lived tokens only. Plan 6 records this in the handoff's Decision log; the client code is built by its first user, Plan 9.\n\nRests on: AGNT5\n\n## How it is built\n\nThe routes live in one module of `archive-backend` on Powertools' `APIGatewayRestResolver` with validation on, each with Pydantic request and response models. A `just openapi` recipe writes the OpenAPI spec from those routes to a committed file, and CI fails when the committed file and the code disagree, as it already does for the contract's JSON Schema; Plan 8 generates its TypeScript types from it. The CDK side is one internal construct in `packages/infra` that `ResearchArchive` creates: the API Lambda and its routes on Plan 4's `api` and `authorizer`, the UsageResponses table, the daily download rollup on a schedule, and the reindex's call to the catalog writer. Any Lambda that needs the archive config reads it from `/research-archive/\u003cstage\u003e/archive-config`; PLAN1's need nothing from it.\n\nRests on: DCSN4, AGNT6, AGNT11\n\n## Risk and cost\n\n**Risk.** A mistake could hand a restricted file to someone it shouldn't reach, for instance a download route that signs any key it is given. Links last five minutes, the route signs only paths listed in the version's file items, and CloudFront is denied `restricted/*` outright, so a fix and a redeploy close it; tests cover a signed-out call, a path outside the version, and a by-request dataset. Nothing here deletes or rewrites a package: every endpoint reads, and the only writes are counts, usage answers and the derived catalog file, all rebuildable or disposable.\n\n**Cost.** One test deploy to an AWS account you choose and its teardown, each a step for you on the page. No new programs on your machine; `aws-lambda-powertools` joins `archive-backend`. Running cost is one Lambda call per search and per read, a daily rollup and a small table, pennies a month for a small archive.\n\nRests on: DCSN2, DCSN4\n\n## Left out\n\n- Submission, review and review-policy endpoints: Plan 7's.\n- Semantic search, the embedding model and the vector index: PLAN3.\n- Theme and species facets: when Plan 2's PARK5 and PARK6 add the fields.\n- The CLI and MCP sign-in client code: Plan 9, its first user.\n- An admin route to start a reindex: stays Plan 4's follow-up PARK1.\n- Config-defined usage questions, or asking for an email: until an archive asks.\n- A search index for archives past about 50,000 datasets.\n\nRests on: DCSN5, DCSN3, AGNT5\n\n## How we'll know it works\n\n- `just check` passes, including tests for search filters, facet counts, paging and the antimeridian box; for the download route refusing a signed-out call, a path outside the version and a by-request dataset; for the rollup counting 200s only and never counting a day twice; and the OpenAPI drift check.\n- On one test deploy with two datasets loaded by `just reindex` (one open, one restricted): `GET /api/search?q=` finds each by a word in its description and the facet counts add up; `GET /api/datasets/\u003cid\u003e` returns the manifest and files; a signed-in user's download link fetches the restricted file and expires; the same call signed out answers 401; a usage answer posts and an admin reads it back; after an open download through `/data` and a run of the rollup, DownloadCounts shows it.\n- The round trip of a search through CloudFront, warm and after idle, is measured on that deploy and written in the plan's result.\n\nRests on: DCSN1, DCSN2, DCSN3, DCSN4\n"
-    }
+    },
+    "edited": "2026-11-13T23:17:27.684201-06:00"
   },
   "plans": [
     {
       "id": "PLAN1",
       "topic": "read-api-and-catalog-search",
       "covers": "The catalog file and in-browser search, dataset and version reads, restricted links, download counts, CLI and MCP sign-in, the OpenAPI spec",
-      "hash": "956e3fb54d53f8ff986dab28d2b11fb8f75a4d9f202c98d4c41e265cbf771752",
+      "hash": "0ac73b3fa188e4510489aa87a4f43891ef7ad267b3ea1ec41cda244d554aafa6",
       "tasks": [
         {
           "id": "TASK1",
@@ -702,7 +852,10 @@
           "serves": [
             "DCSN1"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "160a71b, fc3b233: catalog writer, publishedAt from Manifest.published, reindex step; pytest backend+contract exit 0, check-python 0, check-schema 0",
+          "build_at": "2026-11-13T22:57:28.362057-06:00"
         },
         {
           "id": "TASK2",
@@ -715,7 +868,10 @@
             "DCSN3",
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "9fb6870: search.py, Powertools api.py with 8 routes, UsageAnswers, openapi.json under check-schema; all checks exit 0",
+          "build_at": "2026-11-13T22:57:28.362057-06:00"
         },
         {
           "id": "TASK3",
@@ -723,7 +879,10 @@
           "does": "Adds a daily function that counts 200 GETs under /data in CloudFront's logs into DownloadCounts per dataset and month, marking each day done so none is counted twice.",
           "pulls_in": "downloads.py and its tests",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "d39cfe3: daily rollup with the rolled-up-through marker; pytest backend exit 0, check-python 0",
+          "build_at": "2026-11-13T22:57:28.362057-06:00"
         },
         {
           "id": "TASK4",
@@ -735,26 +894,46 @@
             "DCSN3",
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "17f937d plus review fixes 8ab0e43, 1e70452, 6fa02b8; merged as research-in-a-box#22 (6608bba), CI python and typescript pass",
+          "build_at": "2026-11-13T22:57:28.362057-06:00"
         },
         {
           "id": "TASK5",
           "heading": "Task 5: The test deploy",
-          "does": "Merges Tasks 1 to 4, deploys ResearchArchive-test, walks every check in the spec with you including two browser sign-ins, measures search round trips, and destroys the stack.",
+          "does": "Merges Tasks 1 to 4 and Task 6, deploys ResearchArchive-test, walks every check in the spec with you including an invited sign-in, measures search round trips, and destroys the stack.",
           "pulls_in": "One walkthrough step for you (STEP1), a test stage in your AWS account for an hour or two",
           "serves": [
             "DCSN1",
             "DCSN2",
             "DCSN3"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "ResearchArchive-test deployed from main and walked: reindex wrote catalog.json, search filters and facets right, reads, restricted link (checksum match, traversal 404, signed-out 401), invited sign-in, usage form and admin read, rollup counted once; search warm median 0.14 s, after idle 2.81 s (PARK3); destroyed with nothing left",
+          "build_at": "2026-11-13T23:59:37.406548-06:00"
+        },
+        {
+          "id": "TASK6",
+          "heading": "Task 6: Invitation-only accounts",
+          "does": "Turns off self-service sign-up and adds just invite-user \u003cstage\u003e \u003cemail\u003e [group], so restricted data reaches only people the archive invited.",
+          "pulls_in": "One line in auth.ts with its synth test, one justfile recipe, one Decision log row",
+          "serves": [
+            "DCSN2"
+          ],
+          "state": "keep",
+          "build": "done",
+          "result": "2989c53: selfSignUpEnabled false (synth test RED then GREEN), just invite-user, Decision log row; just check exit 0; merged as research-in-a-box#26 (aa90504)",
+          "build_at": "2026-11-13T23:22:09.602874-06:00"
         }
       ],
       "approved": {
         "hash": "956e3fb54d53f8ff986dab28d2b11fb8f75a4d9f202c98d4c41e265cbf771752",
         "at": "2026-11-13T22:39:28.417489-06:00",
         "body": "# PLAN1: The read API, server search and downloads\n\n## Spec\n\n`docs/specs/2026-11-13-api-and-search/spec.md`, every section. Plans 1, 2 and 4 are built and merged: build on `archive_contract`, `archive-backend` (`reindex.py` with `catalog_items` and `dataset_item`), and the `ResearchArchive` construct with its `api`, `authorizer`, `catalogTables`, `activeCatalogParameter`, `archiveBucket`, `derivedBucket`, `downloadCounts`, `settings`, `distribution` and `pythonFunction`. The handoff's Decision log (rows dated 2026-11-13 for Plans 4, 6 and 7) holds the catalog item shapes and the archive layout. The implementer reads the spec beside this plan.\n\n## The change\n\nOne API Lambda on Powertools answers search, dataset, version and project reads, restricted download links and the usage form. One function writes `catalog.json`, and the reindex calls it. A daily function rolls CloudFront's logs into DownloadCounts. One internal construct wires it all into `ResearchArchive`. Then one test deploy, a stage named `test` in your AWS account, walks the spec's \"How we'll know it works\" and is destroyed.\n\n**Risk:**\n\n- Tasks 1 to 4 are local code and CI; a mistake is undone by reverting the PR.\n- The one way to do harm is a download route that signs a key it shouldn't. Task 2's tests cover a signed-out call, a path outside the version, a by-request dataset and an open one; links last five minutes; CloudFront is denied `restricted/*`.\n- Task 5 creates real resources under a non-prod stage, all deleted with the stack; a few dollars at most, undone by `cdk destroy`. Nothing touches a prod stage.\n\n**Cost:**\n\n- One walkthrough step for you (STEP1): name the profile and alert address, Go for the deploy, sign in twice in the browser and paste back the URL, Go for the teardown.\n- New dependency: `aws-lambda-powertools` in `archive-backend` (pure Python).\n- No new programs on your machine.\n\n## Left out\n\n- Semantic search, the vector index and the embedding model (PLAN3).\n- Submission, review and review-policy endpoints (Plan 7).\n- Theme and species in the catalog (Plan 2's PARK5 and PARK6).\n- The CLI and MCP sign-in client (Plan 9); Task 5 walks the flow by hand once.\n- An admin reindex route (Plan 4's PARK1).\n- Loading project records into the catalog table: projects are read from the archive bucket where they live.\n\n## Where\n\n- Worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-archive-in-a-box/plan6/read-api-and-catalog-search`, branch `plan6/read-api-and-catalog-search` from `origin/main`. Confirm with `git -C \u003cwt\u003e branch --show-current` before editing.\n- Python: `packages/backend/pyproject.toml`, `uv.lock`, `packages/backend/src/archive_backend/{catalog_file,search,api,downloads,reindex}.py`, their tests under `packages/backend/tests/`, `packages/contract/src/archive_contract/usage.py` with its test.\n- TypeScript: `packages/infra/src/read-api.ts` (new), `packages/infra/src/research-archive.ts`, `packages/infra/src/reindex.ts`, `packages/infra/test/read-api.test.ts` (new), `packages/infra/test/reindex.test.ts`.\n- `justfile`, `packages/web/src/schema/openapi.json` (new, generated), `docs/planning-handoff.md` (Decision log: `publishedAt`).\n- Global constraints:\n  - Lambdas are Python 3.13 on arm64 through `archive.pythonFunction`; `just check` must exit 0.\n  - Nothing reaches AWS in Tasks 1 to 4.\n  - Task 5 runs only with your Go on STEP1, under the profile you name, never against a stage named `prod`.\n  - On any AWS auth error, stop and report; never copy or export credentials.\n\n### Task 1: The catalog file and its writer\n\n**Does:** Adds `archive_backend.catalog_file.write_catalog_file(table_name, derived_bucket)`, which builds `catalog.json` from a catalog table and writes it to `site/catalog.json`; carries the manifest's publish time onto version items; the reindex calls the writer after it flips.\n**Files:** `packages/contract/src/archive_contract/manifest.py`, `packages/contract/tests/test_manifest.py`, `packages/web/src/schema/archive-contract.schema.json`, `packages/infra/src/generated/archive-config.ts` (if regenerated), `packages/backend/src/archive_backend/catalog_file.py`, `packages/backend/src/archive_backend/reindex.py`, `packages/backend/tests/test_catalog_file.py`, `packages/backend/tests/test_reindex.py`, `docs/planning-handoff.md`\n**Checks:** `uv run pytest packages/backend packages/contract` exits 0; `just check-python` exits 0; `just check-schema` exits 0.\n**Serves:** DCSN1 (rests on calls AGNT2, AGNT3)\n\n- The publish time lives in the manifest as `archive:published`, an ISO 8601 UTC datetime the archive sets at publish and nobody else writes (agreed with Plan 7 and the coordinating session, muster thread 945). If `origin/main` doesn't have it yet, add `Manifest.published: datetime | None` with alias `archive:published` to `archive_contract`, run `just schema`, and add one Decision log row; if Plan 7 landed it first, use theirs.\n- `catalog_items` reads `archive:published` from the manifest it already parses and writes it as `publishedAt` on the version item. No new argument and no fallback: a manifest without it gets no `publishedAt`.\n- `catalog_rows(items) -\u003e list[dict]`: pure, from the dataset `META` items and their current version items. Row fields, each left out when the manifest lacks it: `id`, `version`, `title`, `description`, `keywords`, `access`, `licenses` (each license's `name`, else `path`), `rightsStatus`, `project`, `creators` (contributors with the `creator` role: `title`, else `givenName familyName`, else `organization`), `formats` (distinct resource formats, sorted), `start`, `end` (date, or `\"unknown\"`), `ongoing`, `bbox` (`[west, south, east, north]`), `bytes` (sum of the version's file items' `bytes`) and `published` (the version item's `publishedAt`). Rows sorted by `id`.\n- `write_catalog_file` scans the table (paginated), builds the rows and puts `site/catalog.json` with `ContentType: application/json` and `CacheControl: max-age=60`. It returns the row count.\n- In the reindex, a new checkpointed step after `flip` calls it on the table it flipped to. A failure there alerts like the other steps and does not undo the flip.\n- Tests: rows from the sample package's manifest (`examples/sample-package/datapackage.json`) and from a bare manifest with only a title; a two-dataset fake table writes one object with both rows; the reindex calls the writer only when it flipped.\n\n### Task 2: The API Lambda\n\n**Does:** Adds `archive_backend.search` (pure filtering over catalog rows) and `archive_backend.api` (one Powertools `APIGatewayRestResolver` with validation on), the usage answers model in the contract, and a committed OpenAPI spec with a drift check.\n**Files:** `packages/backend/pyproject.toml`, `uv.lock`, `packages/backend/src/archive_backend/search.py`, `packages/backend/src/archive_backend/api.py`, `packages/contract/src/archive_contract/usage.py`, `packages/backend/tests/test_search.py`, `packages/backend/tests/test_api.py`, `packages/contract/tests/test_usage.py`, `justfile`, `packages/web/src/schema/openapi.json`\n**Checks:** `uv run pytest packages/backend packages/contract` exits 0; `just check-python` exits 0; `just check-schema` exits 0.\n**Serves:** DCSN1, DCSN2, DCSN3, DCSN4 (rests on calls AGNT1, AGNT6, AGNT8, AGNT9, AGNT10)\n\nSearch (`search.py`, no AWS):\n\n- `search(rows, query) -\u003e SearchResult`, where the query holds `q`, `access`, `license`, `format`, `project` (lists), `from_`, `to` (dates), `bbox` and `page`, `size` (default 20, 1 to 100).\n- Each whitespace-separated word of `q` must appear, ignoring case, in `title`, `description`, `keywords` or `creators`. A list filter keeps a row that has any of the values. Dates keep a row whose coverage overlaps the range: `end: \"unknown\"` or `ongoing` counts as open-ended, a row without `start` drops out when a date filter is set. The box keeps a row whose box intersects it, splitting either box at the antimeridian when west is greater than east; a row without a box drops out when a box is set.\n- Order: rows with a word of `q` in the title first, then by `published` newest first with rows lacking it last, then `id`.\n- The answer is `rows` (that page), `total`, and `facets`: for each of `access`, `license`, `format` and `project`, every value's count among the rows matching all the other filters (so a facet doesn't hide its own alternatives).\n\nRoutes (`api.py`), paths as API Gateway passes them:\n\n- `GET /api/search`: query parameters as above (`from` and `to` in the URL); reads the catalog through a module-level cache that `head_object`s `site/catalog.json` at most every 60 seconds and re-reads on a new ETag.\n- `GET /api/datasets/\u003cid\u003e`, `/api/datasets/\u003cid\u003e/versions`, `/api/datasets/\u003cid\u003e/versions/\u003cversion\u003e`: query the active catalog table (the `/research-archive/\u003cstage\u003e/catalog-active` parameter, cached 60 seconds, naming `CATALOG_TABLE_A` or `CATALOG_TABLE_B`). The dataset answer is the dataset item's fields, the current version's manifest parsed as JSON, and its files; 404 when absent.\n- `GET /api/projects/\u003cid\u003e`: `projects/\u003cid\u003e/project.json` from the archive bucket, and the datasets from GSI1 (`GSI1PK=PROJECT#\u003cid\u003e`); 404 when the file is absent.\n- `GET /api/datasets/\u003cid\u003e/versions/\u003cversion\u003e/download?path=`: signed in (claims present). `open` answers `{\"url\": \"https://\u003cSITE_DOMAIN\u003e/data/\u003cid\u003e/\u003cversion\u003e/\u003cpath\u003e\"}`; `restricted` answers a presigned `get_object` URL on `restricted/\u003cid\u003e/\u003cversion\u003e/\u003cpath\u003e` with `ExpiresIn=300` and adds 1 to `restricted` on DownloadCounts (`datasetId`, `month` as `YYYY-MM`); `by-request` answers 403; `description-only` and a path that is not one of the version's file items answer 404.\n- `POST /api/datasets/\u003cid\u003e/usage`: body is `archive_contract.usage.UsageAnswers` (`organisation` and `purpose` each one of the spec's six values or absent, `note` up to 500 characters); 404 for an unknown dataset; stores `datasetId`, `entry` = `\u003cYYYY-MM\u003e#\u003cuuid4\u003e`, the answers and `at`; answers 204.\n- `GET /api/admin/usage?dataset=`: 403 unless the claims' `cognito:groups` holds `admin` (parse as `whoami.py` does); answers that dataset's entries, newest first.\n- Environment: `ARCHIVE_BUCKET`, `DERIVED_BUCKET`, `CATALOG_TABLE_A`, `CATALOG_TABLE_B`, `ACTIVE_CATALOG_PARAMETER`, `DOWNLOAD_COUNTS_TABLE`, `USAGE_TABLE`, `SITE_DOMAIN`. Handler `archive_backend.api.handler`.\n\nOpenAPI: `python -m archive_backend.api \u003cpath\u003e` writes `app.get_openapi_json_schema()` with sorted keys. Add `openapi_file := \"packages/web/src/schema/openapi.json\"`, a `just openapi` recipe that writes it, and a diff of it in `check-schema` beside the contract schema's.\n\nTests drive the resolver with API Gateway REST events and fakes for S3, DynamoDB and SSM: each search filter, facet counts, paging bounds, the antimeridian box, every download case above (including no claims: API Gateway refuses it, but the handler also answers 401), the usage 204 and 404, admin 403 and 200, and a 404 for each missing read.\n\n### Task 3: The download rollup\n\n**Does:** Adds `archive_backend.downloads.handler`, run daily, which adds CloudFront's open downloads to DownloadCounts and never counts a day twice.\n**Files:** `packages/backend/src/archive_backend/downloads.py`, `packages/backend/tests/test_downloads.py`\n**Checks:** `uv run pytest packages/backend` exits 0; `just check-python` exits 0.\n**Serves:** none (rests on call AGNT7)\n\n- Days to count: from the day after the Settings item `downloads-rolled-up-through` (`name`, `value` = `YYYY-MM-DD`), or from two days ago when there is none, through two days ago (UTC), since CloudFront may deliver a day's logs hours late.\n- For each day, list `logs/` keys whose name holds `.\u003cYYYY-MM-DD\u003e-`, read each gzip file (tab-separated, `#` lines are headers), and count lines with `cs-method` `GET`, `sc-status` `200` and `cs-uri-stem` starting `/data/`; the dataset id is the next path segment.\n- Add each dataset's count to `open` for that day's month with one `UpdateItem ... ADD`, then write the day to the Settings item before moving to the next day, so a crash mid-run recounts at most nothing already marked.\n- An event `{\"through\": \"YYYY-MM-DD\"}` replaces two days ago as the last day, so the test deploy can count today by hand; the schedule sends none.\n- Environment: `DERIVED_BUCKET`, `DOWNLOAD_COUNTS_TABLE`, `SETTINGS_TABLE`.\n- Tests: a fake log with a 200 GET, a 206, a HEAD, a 404 and a non-`/data` path counts one; a second run the same day counts nothing; two missed days are both counted once.\n\n### Task 4: The infrastructure\n\n**Does:** Adds the internal `ReadApi` construct, created by `ResearchArchive` after the distribution: the API Lambda and its routes, the UsageResponses table, the daily rollup schedule, and the reindex's grant to write the catalog file.\n**Files:** `packages/infra/src/read-api.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/src/reindex.ts`, `packages/infra/test/read-api.test.ts`, `packages/infra/test/reindex.test.ts`\n**Checks:** `npm test -w packages/infra` exits 0; `just check` exits 0.\n**Serves:** DCSN2, DCSN3, DCSN4 (rests on calls AGNT7, AGNT10)\n\n- One Lambda from `archive.pythonFunction(\"ApiFunction\", { handler: \"archive_backend.api.handler\" })` with the Task 2 environment (`SITE_DOMAIN` is the distribution's domain name).\n- Routes under Plan 4's existing `/api` resource, each a `LambdaIntegration` to that one function. `download` and `admin/usage` use `AuthorizationType.COGNITO` with `archive.authorizer`; the rest `NONE`.\n- UsageResponses: plain `dynamodb.Table`, partition `datasetId`, sort `entry`, on-demand, point-in-time recovery, the same removal policy as Plan 4's operational tables for prod and non-prod. Add it to the operations dashboard as Plan 4 does with its tables.\n- Grants: read on both catalog tables and the active-catalog parameter; read `site/catalog.json` and the archive bucket's `restricted/*` and `projects/*`; `ADD` on DownloadCounts; read and write UsageResponses.\n- The rollup: `archive.pythonFunction(\"DownloadRollupFunction\", ...)`, timeout 15 minutes, read `logs/*`, write DownloadCounts and Settings, on an EventBridge Scheduler rate of one day with no retries, as `integrity.ts` schedules its check.\n- Reindex: add `derivedBucket.grantPut(fn, \"site/catalog.json\")`.\n- Synth tests: each route's method and authorization type, the table's keys and recovery, the schedule, and the reindex's new grant.\n\n### Task 5: The test deploy\n\n**Does:** Merges Tasks 1 to 4, deploys `ResearchArchive-test`, walks every check in the spec's \"How we'll know it works\" with you, measures search round trips, and destroys the stack.\n**Files:** none (results go in the task's result line and the build thread)\n**Checks:** every action in STEP1 is done; `aws cloudformation describe-stacks --stack-name ResearchArchive-test` fails with \"does not exist\" at the end.\n**Serves:** DCSN1, DCSN2, DCSN3\n\nSTEP1's actions, in order:\n\n1. You: name the AWS profile and the alert email address.\n2. Agent: open the PR for Tasks 1 to 4, merge it once CI's `python` and `typescript` checks pass, and check the profile's identity.\n3. You: Go for the deploy.\n4. Agent: `just lambda-assets`, deploy `ResearchArchive-test` with a test `ARCHIVE_CONFIG`, upload the sample package twice with `archive:published` set (once `open`, once with `archive:access` set to `restricted`, under `restricted/`), run `just reindex test` and wait for `COMPLETED`.\n5. Agent: check `/catalog.json` has both rows; `GET /api/search?q=` with a word from the description finds both, filters by `access=restricted` to one, facet counts add up; `GET /api/datasets/\u003cid\u003e` returns the manifest and files; the download route signed out answers 401.\n6. You: open the sign-in link the agent gives (Plan 4's `cli` client with PKCE), sign up, and paste back the `localhost:8765` URL you land on, even though the page doesn't load.\n7. Agent: exchange the code; the restricted download link fetches the file; DownloadCounts shows one restricted; a usage answer posts; `GET /api/admin/usage` answers 403; add your user to `admin`.\n8. You: sign in again with the new link and paste back the URL.\n9. Agent: `GET /api/admin/usage` answers the posted answer; download an open file through `/data`, invoke the rollup with `{\"through\": \"\u003ctoday\u003e\"}` once the log file has arrived, and check DownloadCounts shows it; time ten searches warm and one after fifteen idle minutes through CloudFront.\n10. You: Go for the teardown.\n11. Agent: `cdk destroy ResearchArchive-test` and confirm the stack, buckets and tables are gone.\n"
-      }
+      },
+      "edited": "2026-11-13T23:17:35.549267-06:00"
     },
     {
       "id": "PLAN3",
@@ -1025,6 +1204,97 @@
       "at": "2026-11-13T22:39:28.417489-06:00",
       "state": "answered",
       "claim": "fcb19718aa81e9ee"
+    },
+    {
+      "id": 25,
+      "card": "STEP1",
+      "from": "user",
+      "action": "tick",
+      "option": "A1",
+      "text": "personal court@subaud.io",
+      "at": "2026-11-13T22:41:30.640333-06:00",
+      "state": "answered",
+      "claim": "7afd1164e1a7f7cf"
+    },
+    {
+      "id": 26,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A3",
+      "answer": "GO",
+      "at": "2026-11-13T23:10:24.79156-06:00",
+      "state": "answered",
+      "claim": "67a86e38fcaf1ca2"
+    },
+    {
+      "id": 27,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session, at Court's word: accounts become invitation-only. Self-service sign-up goes off (selfSignUpEnabled false in packages/infra/src/auth.ts), and an admin invites a user by email with an optional group, for example a just invite-user \u003cstage\u003e \u003cemail\u003e [group] recipe using AdminCreateUser and AdminAddUserToGroup. \"Restricted\" then means \"people the archive invited\", which is what Court wants until by-request access exists. Please take this into PLAN1 (it sits with your sign-in and restricted-download work), update the spec's \"Anyone signed in qualifies; signing up is self-service with email\" line, and change Task 5's walkthrough so your test user is invited rather than signing up. Also note: Plan 7 will use its own test stage name so your Task 5 teardown can't hit its run.",
+      "at": "2026-11-13T23:17:02.425801-06:00",
+      "state": "answered",
+      "claim": "3b6e23edeaa332df",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 28,
+      "card": "plan",
+      "from": "agent",
+      "action": "reply",
+      "text": "Taken into PLAN1 as Task 6 (invitation-only accounts and just invite-user), research-in-a-box#26; the spec's restricted-downloads line and Task 5's walkthrough now invite the test user instead of signing up.",
+      "at": "2026-11-13T23:20:21.88821-06:00",
+      "answers": [
+        27
+      ]
+    },
+    {
+      "id": 29,
+      "card": "STEP1",
+      "from": "user",
+      "action": "tick",
+      "option": "A5",
+      "text": "why is this still failing on the callback",
+      "at": "2026-11-13T23:28:21.715681-06:00",
+      "state": "answered",
+      "claim": "0cb60f1f3205ef53",
+      "attachments": [
+        {
+          "path": "screenshots/shot-83fe6085c35d.png"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "card": "STEP1",
+      "from": "agent",
+      "action": "reply",
+      "text": "It isn't failing: \"localhost refused to connect\" is expected. The callback address points at port 8765 on your machine, where Plan 9's CLI will listen; nothing listens there today. All that's needed is the code in the address bar, which your screenshot gave me, and the sign-in worked: the token exchange answered 200, and your signed-in call fetched the restricted file through its link. The next sign-in lands on the same page.",
+      "at": "2026-11-13T23:29:10.700754-06:00"
+    },
+    {
+      "id": 31,
+      "card": "STEP1",
+      "from": "user",
+      "action": "tick",
+      "option": "A7",
+      "at": "2026-11-13T23:34:16.22175-06:00",
+      "state": "answered",
+      "claim": "7eb91671b10b922a"
+    },
+    {
+      "id": 32,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A9",
+      "answer": "GO",
+      "at": "2026-11-13T23:53:44.707367-06:00",
+      "state": "answered",
+      "claim": "c0f7e64841fcd6e2"
     }
   ],
   "planned_history": [

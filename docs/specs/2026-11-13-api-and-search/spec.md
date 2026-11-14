@@ -3,7 +3,7 @@ diazo: research-archive-in-a-box/api-and-search
 file: spec
 status: approved
 approved: 2026-11-13T22:34:38-06:00
-hash: efa1b5a93f7112fe9b6cff14c4cc1080bccf324ed32eb7c081e9c0f985e3eb41
+hash: 789ad2e3e5f47e02424e715ed51234a6f5cd314354c06fdf5602c82d09b0f823
 rests_on: [DCSN5, DCSN1, DCSN4, AGNT1, AGNT8, AGNT2, AGNT3, AGNT4, DCSN2, AGNT9, AGNT7, DCSN3, AGNT10, AGNT5, AGNT6, AGNT11]
 record: README.md
 ---
@@ -51,7 +51,7 @@ Rests on: DCSN1, AGNT2, AGNT3, AGNT4
 
 ## Restricted downloads
 
-Open files are fetched straight from CloudFront at `/data/<datasetId>/<version>/<path>`; the API isn't involved. For a restricted dataset, a signed-in user calls the download route and gets an S3 presigned link to `restricted/<datasetId>/<version>/<path>` that lasts five minutes. Anyone signed in qualifies; signing up is self-service with email. The path must be one of the version's file items, so the route can't be used to reach any other key. A by-request dataset answers 403 until Plan 7's request workflow can grant access, which this check will then read. Description-only datasets have no files. An open dataset's download route answers its `/data` URL.
+Open files are fetched straight from CloudFront at `/data/<datasetId>/<version>/<path>`; the API isn't involved. For a restricted dataset, a signed-in user calls the download route and gets an S3 presigned link to `restricted/<datasetId>/<version>/<path>` that lasts five minutes. Anyone signed in qualifies, and accounts are by invitation only: self-service sign-up is off, and an admin invites a person by email with `just invite-user <stage> <email> [group]`. So restricted means people the archive invited, until by-request access exists. The path must be one of the version's file items, so the route can't be used to reach any other key. A by-request dataset answers 403 until Plan 7's request workflow can grant access, which this check will then read. Description-only datasets have no files. An open dataset's download route answers its `/data` URL.
 
 Rests on: DCSN2, AGNT9
 

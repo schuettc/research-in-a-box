@@ -4,9 +4,15 @@
 
 `research-archive-in-a-box/api-and-search` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 wait** → **Build · 0 of 5** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 to write** → **Build · 6 of 6** → Sign off
 
-PLAN1 building · 0 of 5 done · PLAN3 waits on PLAN1 being built
+PLAN1 built · PLAN3 can be written now
+
+## Pick up next
+
+- **PARK1 Linked resource downloads:** A resource whose path is a URL (data held elsewhere) gets a file item, so the download route answers a /data or presigned link that doesn't resolve. Answer the resource's own URL instead.
+- **PARK2 Expire CloudFront logs:** Nothing expires the derived bucket's logs/, and the daily rollup lists the whole prefix each run, so the listing grows forever. Add a lifecycle rule on logs/ (say 30 days, after the rollup has counted them) or list from the last counted day's key.
+- **PARK3 First search after idle:** On the test deploy the first search after 17 idle minutes took 2.81 s (warm searches 0.14 s median), above the about one second the spec estimated: a cold API Lambda loading Powertools, boto3 and the catalog. Measure the parts and decide whether it matters once Plan 8's search page exists; options are trimming imports, more memory, or SnapStart for Python.
 
 ## What was asked
 
@@ -54,13 +60,29 @@ PLAN1 building · 0 of 5 done · PLAN3 waits on PLAN1 being built
 
 ## Plans
 
-- [PLAN1](plans/1-read-api-and-catalog-search.md) The read API, server search and downloads: building · 0 of 5 done
-  - TASK1 Task 1: The catalog file and its writer: not started
-  - TASK2 Task 2: The API Lambda: not started
-  - TASK3 Task 3: The download rollup: not started
-  - TASK4 Task 4: The infrastructure: not started
-  - TASK5 Task 5: The test deploy: not started
-- PLAN3 Semantic search: waits on PLAN1 being built
+- [PLAN1](plans/1-read-api-and-catalog-search.md) The read API, server search and downloads: built
+  - TASK1 Task 1: The catalog file and its writer: done. 160a71b, fc3b233: catalog writer, publishedAt from Manifest.published, reindex step; pytest backend+contract exit 0, check-python 0, check-schema 0
+  - TASK2 Task 2: The API Lambda: done. 9fb6870: search.py, Powertools api.py with 8 routes, UsageAnswers, openapi.json under check-schema; all checks exit 0
+  - TASK3 Task 3: The download rollup: done. d39cfe3: daily rollup with the rolled-up-through marker; pytest backend exit 0, check-python 0
+  - TASK4 Task 4: The infrastructure: done. 17f937d plus review fixes 8ab0e43, 1e70452, 6fa02b8; merged as research-in-a-box#22 (6608bba), CI python and typescript pass
+  - TASK5 Task 5: The test deploy: done. ResearchArchive-test deployed from main and walked: reindex wrote catalog.json, search filters and facets right, reads, restricted link (checksum match, traversal 404, signed-out 401), invited sign-in, usage form and admin read, rollup counted once; search warm median 0.14 s, after idle 2.81 s (PARK3); destroyed with nothing left
+  - TASK6 Task 6: Invitation-only accounts: done. 2989c53: selfSignUpEnabled false (synth test RED then GREEN), just invite-user, Decision log row; just check exit 0; merged as research-in-a-box#26 (aa90504)
+- PLAN3 Semantic search: can be written now
+
+## Steps
+
+- STEP1 Walk the test deploy of Plan 6's read API and search with me: done
+  1. The user · Name the AWS profile and the alert email address · done. “personal court@subaud.io” (2026-11-13 22:41, on the page)
+  2. agent · Open the PR for Tasks 1 to 4, merge it once CI's python and typescript checks pass, and check the profile's identity · done. research-in-a-box#22 merged as 6608bba after python and typescript passed; profile personal is account 316091283514, us-east-1
+  3. The user · Go for the deploy · done: Go (2026-11-13 23:10, on the page)
+  4. agent · Build the Lambda assets, deploy ResearchArchive-test, upload two sample packages (one open, one restricted, each with archive:published), run just reindex test, and check catalog.json, search, reads and a signed-out download refused · done. deploy exit 0; reindex SUCCEEDED (B, 30 items, catalog 2 rows); /catalog.json 200 max-age=60, 2 rows; search 'stream temperature' 2 hits, access=restricted 1, facets add up; dataset read returns manifest + 13 files; unknown dataset 404; signed-out download 401
+  5. agent · Merge Task 6 (invitation-only accounts, research-in-a-box#26) and update the stack so sign-up is off, then invite you with just invite-user test · done. #26 merged as aa90504; stack update exit 0 in 51 s; AllowAdminCreateUserOnly true; just invite-user test court@subaud.io: FORCE_CHANGE_PASSWORD, invitation emailed
+  6. The user · Sign in with the invitation and paste back the URL you land on · done. “why is this still failing on the callback” (2026-11-13 23:28, on the page)
+  7. agent · Exchange the code, fetch the restricted file through its link, post a usage answer, see the admin read refused, then add you to the admin group · done. PKCE exchange 200 (1-hour tokens); whoami court@subaud.io, no groups; restricted link 200, file fetched, SHA-256 matches checksums.sha256; ../../ path 404; open link answers its /data URL; DownloadCounts restricted=1 for 2026-11; usage POST 204; admin read 403; added to admin
+  8. The user · Sign in again and paste back the URL · done (2026-11-13 23:34, on the page)
+  9. agent · Read the usage answer as admin, count an open download through the rollup, and time searches warm and after idle · done. whoami groups [admin]; admin usage read 200 with the posted answer; rollup through today counted the /data download (open=1 for 2026-11), a rerun counted 0; search through CloudFront: warm median 0.14 s (min 0.09, max 0.27, n=10), after 17 idle minutes 2.81 s, then 0.15 s
+  10. The user · Go for the teardown · done: Go (2026-11-13 23:53, on the page)
+  11. agent · Destroy ResearchArchive-test and confirm its stack, buckets and tables are gone · done. cdk destroy exit 0; stack does not exist; no researcharchive-test buckets, tables or functions; user pool and /research-archive/test parameters gone; the S3 auto-delete helper's leftover log group deleted by hand; nothing left
 
 ## Files
 
@@ -72,6 +94,7 @@ PLAN1 building · 0 of 5 done · PLAN3 waits on PLAN1 being built
 | `spec.md` | the agent, header by diazo | The spec. |
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
+| `screenshots/` | the user | The screenshots the user pasted into a note or the opening. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |
 
 ## Ids
