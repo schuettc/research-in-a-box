@@ -96,11 +96,11 @@ my-dataset/
 
 - As serverless as possible.
 - Index: DynamoDB with no relational database. Semantic search uses a DynamoDB vector index, one partition key per archive.
-- On publish, the whole catalog is also written as one file. The browser uses DuckDB on it for facets, keyword and bounding-box filtering.
+- On publish, the whole catalog is also written as one file, `catalog.json`. Search runs on the server: `GET /api/search` filters it in the API Lambda's memory (changed by Plan 6, see the Decision log).
 - Rebuild path: `reindex` writes a DynamoDB JSON file to S3 and loads it with DynamoDB bulk put items.
 - Ingest: one Lambda durable function in Python, not Step Functions. Curator review is a callback wait inside it.
 - Review is controlled by an admin at run time: when review is required, rules for skipping it, stricter cases, who reviews, reminders. Curators can approve, reject or request changes.
-- Accounts: Cognito with email sign-in by default. ORCID and university single sign-on are optional. Open data needs no account.
+- Accounts: Cognito with email sign-in by default, by invitation only: there is no self-service sign-up, and an admin invites each user with an optional group. ORCID and university single sign-on are optional. Open data needs no account.
 - The CLI and plugin sign in through the browser and hold short-lived tokens only.
 - Web hosting: a static site on S3 and CloudFront, with pages backed by the API. No server-side rendering.
 - Public dataset pages are a hybrid. At publish, the pipeline writes a small HTML file per dataset with the title, description, citation and schema.org metadata. That file loads the web app, which fetches live details from the API.
@@ -370,7 +370,7 @@ Plans 1 and 2 should be planned first, in parallel with each other. Plan 2 is th
 **In scope.**
 - Endpoints for datasets, projects, files, submissions, reviews and admin settings.
 - The OpenAPI spec, generated from the Python contract.
-- The catalog file written at publish, and what the browser does with it using DuckDB.
+- The catalog file written at publish, and server search over it (Plan 6 moved search from the browser to the API).
 - Semantic search: what text is embedded, the Bedrock call, the DynamoDB vector query, and the fallback when embeddings are off.
 - Access checks and short-lived links for restricted data.
 - Download counts and the optional usage form.
@@ -387,7 +387,7 @@ Plans 1 and 2 should be planned first, in parallel with each other. Plan 2 is th
 **Done when.** The endpoint list, the search design and the catalog file format are agreed.
 
 **Starter prompt.**
-> Read `docs/planning-handoff.md`. Plan the API and search (Plan 6). There is no relational database. Search is a catalog file filtered in the browser with DuckDB, plus an optional DynamoDB vector index. Plan the endpoints and the search design, and take the open questions with me one at a time.
+> Read `docs/planning-handoff.md`. Plan the API and search (Plan 6). There is no relational database. Search is a catalog file filtered by the API, plus an optional DynamoDB vector index. Plan the endpoints and the search design, and take the open questions with me one at a time.
 
 ---
 
