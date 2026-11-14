@@ -143,6 +143,21 @@ destroy stage:
             exit 1
         fi
     fi
+    # A running ingest execution (a submission waiting for review) blocks deleting the ingest
+    # function's version, and cdk destroy then fails after about ten minutes: stop them first.
+    ingest="ResearchArchive-{{stage}}-Ingest"
+    if executions="$(aws lambda list-durable-executions-by-function --function-name "$ingest" \
+        --query "DurableExecutions[].[DurableExecutionArn,Status]" --output text 2>&1)"; then
+        stopped=0
+        for arn in $(awk '$2 == "RUNNING" { print $1 }' <<< "$executions"); do
+            aws lambda stop-durable-execution --durable-execution-arn "$arn" >/dev/null
+            stopped=$((stopped + 1))
+        done
+        echo "stopped $stopped running ingest execution(s)"
+    elif ! grep -q "ResourceNotFoundException" <<< "$executions"; then
+        echo "could not list $ingest's executions: $executions"
+        exit 1
+    fi
     (cd packages/infra && npx cdk destroy "ResearchArchive-{{stage}}" --force)
     prefix="/aws/lambda/ResearchArchive-{{stage}}-CustomS3AutoDeleteObjects"
     for group in $(aws logs describe-log-groups --log-group-name-prefix "$prefix" \

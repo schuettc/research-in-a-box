@@ -3,7 +3,7 @@ diazo: research-archive-in-a-box/deployment-skill-and-ci
 file: PLAN1
 status: building
 approved: 2026-11-14T00:57:03-06:00
-hash: ea1a697cda6c8d8790846950b54470a23e9e22a530cb0b445feada2c1aef313d
+hash: d96288964c54d3d63522a07159d76eea8aca91fbf12919362306bf978d920702
 rests_on: [AGNT1, AGNT2, AGNT3, AGNT4, AGNT5, AGNT6, AGNT7, DCSN1, DCSN2, DCSN3]
 record: README.md
 ---
@@ -121,3 +121,15 @@ A walkthrough step for Court, run once Tasks 1 to 5 are merged:
 7. Agent: push a one-line change to `research-in-a-box-upstream-test`'s `main`, then run the skill's update in the fork's clone, confirming it merges, checks and deploys. Nothing is pushed to `schuettc/research-in-a-box`.
 8. Court: Go on the teardown, including deleting both throwaway repos. The how says deleting a repo needs gh's `delete_repo` scope, with the command to add it (`gh auth refresh -h github.com -s delete_repo`) in its own block, for Court to run first.
 9. Agent: `just destroy deploy-test`, remove `ResearchArchiveDeploy` and the environments, confirm nothing named for the stage remains, and delete both throwaway repos.
+
+### Task 7: Stop waiting ingest runs before destroy
+
+**Does:** `just destroy` stops every running ingest execution before `cdk destroy`, so a stage with a submission still waiting for review tears down instead of failing.
+**Files:** `justfile`, `.claude/skills/deploy-archive/SKILL.md`
+**Checks:** `just check`; the recipe run against a fake `aws` and `npx` on PATH stops each RUNNING execution, and none that has finished, before calling `cdk destroy`
+**Serves:** none (rests on call AGNT5)
+
+Added during the build from Plan 7's test teardown (its PARK19): `cdk destroy` of `ResearchArchive-ingest-test` with one submission waiting for review stuck deleting the ingest function's `Lambda::Version` and failed with `DELETE_FAILED` (NotStabilized) after about ten minutes. Stopping the running executions first let it destroy.
+
+- After the account check and before `cdk destroy`, the recipe lists the executions of `ResearchArchive-<stage>-Ingest` with `aws lambda list-durable-executions-by-function` (the unqualified name, which the listing needs), and runs `aws lambda stop-durable-execution` on each one whose status is `RUNNING`, printing how many it stopped. A stack with no ingest function (already gone) is not an error.
+- The skill's Teardown says, before its typed confirmation, that submissions still waiting for review or for changes end when the stage is destroyed.
