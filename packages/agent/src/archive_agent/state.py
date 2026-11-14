@@ -43,10 +43,12 @@ def save_url(url: str) -> Path:
 
 @dataclass
 class Session:
-    """One server's state: tokens in memory, and the sign-in to run (a stand-in in tests)."""
+    """One server's state: tokens and the signed-in groups in memory, and the sign-in to run
+    (a stand-in in tests)."""
 
     tokens: Tokens | None = None
     sign_in: Callable[[AuthConfig], Tokens] = field(default=sign_in)
+    groups: list[str] = field(default_factory=list)
 
     def url(self) -> str:
         url = saved_url()

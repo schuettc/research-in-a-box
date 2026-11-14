@@ -17,7 +17,9 @@ note.** The tools come from the `research-archive` MCP server.
    its `datapackage.json`, read in step 2.
 2. **For the one the curator picks, read it.** Call `submissions` with its id for its status,
    events and findings `report`, then `submission_files` for short-lived links to its
-   current files.
+   current files. If it answers a `report_error` instead of a `report`, tell the curator
+   the findings couldn't be read and why (the `report_error` text), and say the summary
+   below rests on the files alone.
    Read its `datapackage.json` and a sample of each table (the first rows of each CSV) from
    those links. The links expire after a few minutes: call `submission_files` again if one
    has.
@@ -33,8 +35,10 @@ note.** The tools come from the `research-archive` MCP server.
    the submitter can act on (for changes, each change named with the field or column). Show
    both, and change them as the curator asks.
 5. **Only with the curator's yes, call `decide`** with the id, the decision and the note.
-   Show the status it answers. An approved dataset is published at `/datasets/<id>` on the
-   archive.
+   It answers only that the decision was accepted (`submissionId` and `decision`); an
+   approval is published afterwards, on its own. Say the decision was accepted, then call
+   `submissions` with the id and report its status as it stands. Say it is published, and
+   give `/datasets/<id>` on the archive, only once that status is `published`.
 
 ## When a tool answers an error
 

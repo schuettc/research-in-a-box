@@ -6,19 +6,22 @@ The request and answer shapes are those of `archive_backend.submissions` (Plan 7
 import base64
 import hashlib
 import json
+import re
 import urllib.parse
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from archive_agent import local
 from archive_agent.archive import Archive
-from archive_agent.errors import ArchiveError, Conflict, LocalError, Refused
+from archive_agent.errors import ArchiveError, Conflict, LocalError, NotAllowed, Refused
 from archive_agent.state import Session
 from archive_contract.validate import CHECKSUMS
 
 CONTRIBUTOR = "contributor"
 CURATOR = "curator"
 DECISIONS = ("approve", "reject", "request-changes")
+DATASET_ID = re.compile(r"[A-Za-z0-9_-]{1,200}")
+"""The dataset ids the archive's create takes (`archive_backend.submissions.create`)."""
 CHUNK = 1024 * 1024
 
 
@@ -85,10 +88,11 @@ def submit(session: Session, folder: str, submission: str | None = None) -> dict
     files = _files(root)
     archive = session.archive()
     if submission is None:
-        # The manifest's id names the dataset: a published one gets its next version.
+        # The manifest's id names the dataset: a published one gets its next version. An id
+        # the archive doesn't take as a dataset id is left out; the archive assigns one.
         body: dict[str, Any] = {"files": files}
         dataset_id = json.loads((root / "datapackage.json").read_text(encoding="utf-8")).get("id")
-        if isinstance(dataset_id, str) and dataset_id:
+        if isinstance(dataset_id, str) and DATASET_ID.fullmatch(dataset_id):
             body["datasetId"] = dataset_id
         started = archive.post("/api/submissions", body, group=CONTRIBUTOR)
     else:
@@ -112,12 +116,14 @@ def submit(session: Session, folder: str, submission: str | None = None) -> dict
     return {"id": sid, "round": sent.get("round"), "status": sent.get("status")}
 
 
-def _report(archive: Archive, link: str) -> Any:
-    """The findings report behind its short-lived link, or None when it can't be read."""
+def _report(archive: Archive, link: str) -> tuple[Any, str | None]:
+    """The findings report behind its short-lived link, or None and why it can't be read."""
     try:
-        return json.loads(archive.fetch(link))
-    except (ArchiveError, ValueError):
-        return None
+        return json.loads(archive.fetch(link)), None
+    except ArchiveError as exc:
+        return None, str(exc)
+    except ValueError:
+        return None, "The findings report isn't JSON, so it can't be read."
 
 
 def submissions(session: Session, id: str | None = None, queue: bool = False) -> dict[str, Any]:
@@ -126,9 +132,17 @@ def submissions(session: Session, id: str | None = None, queue: bool = False) ->
     if id is not None:
         one: dict[str, Any] = archive.get(f"/api/submissions/{_quote(id)}", signed_in=True)
         if one.get("reportUrl"):
-            one["report"] = _report(archive, str(one["reportUrl"]))
+            one["report"], error = _report(archive, str(one["reportUrl"]))
+            if error is not None:
+                one["report_error"] = error
         return one
     if queue:
+        if session.tokens is not None and CURATOR not in session.groups:
+            have = ", ".join(f"`{g}`" for g in session.groups) or "no groups"
+            raise NotAllowed(
+                f"The review queue needs an account in the `{CURATOR}` group; yours has "
+                f"{have}. Ask the archive's admin if you should have access."
+            )
         found: dict[str, Any] = archive.get(
             "/api/submissions", params={"status": "in-review"}, signed_in=True, group=CURATOR
         )

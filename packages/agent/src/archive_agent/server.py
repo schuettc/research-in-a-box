@@ -48,6 +48,7 @@ def connect(session: Session, url: str) -> dict[str, Any]:
         raise Refused(f"{address} answered, but it doesn't look like a research archive.")
     path = state.save_url(address)
     session.tokens = None
+    session.groups = []
     return {"url": address, "saved_to": str(path)}
 
 
@@ -84,9 +85,10 @@ def sign_in(session: Session) -> dict[str, Any]:
         raise SignInFailed(f"Sign-in didn't finish: {exc}. Call sign_in to try again.") from exc
     claims = _claims(tokens.id_token)
     session.tokens = tokens
+    session.groups = _groups(claims.get("cognito:groups"))
     return {
         "email": claims.get("email"),
-        "groups": _groups(claims.get("cognito:groups")),
+        "groups": session.groups,
         "expires_at": datetime.fromtimestamp(tokens.expires_at, UTC).isoformat(),
     }
 

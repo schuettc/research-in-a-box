@@ -12,6 +12,7 @@ from archive_agent import state, submit
 from archive_agent.errors import Conflict, NotAllowed, Refused
 from archive_agent.state import Session
 from archive_client.signin import Tokens
+from archive_contract import checksums_text
 
 SAMPLE = Path(__file__).parents[3] / "examples" / "sample-package"
 
@@ -33,7 +34,12 @@ def connected(stub: Any) -> Any:
 
 @pytest.fixture
 def session(tokens: Tokens) -> Session:
-    return Session(tokens=tokens)
+    return Session(tokens=tokens, groups=["contributor"])
+
+
+@pytest.fixture
+def curator(tokens: Tokens) -> Session:
+    return Session(tokens=tokens, groups=["curator"])
 
 
 def listed(root: Path) -> list[str]:
@@ -127,6 +133,25 @@ def test_submit_names_the_manifests_dataset_so_a_published_one_gets_a_new_versio
     assert json.loads(connected.seen[0].body)["datasetId"] == "stream-temperature-sample"
 
 
+def test_submit_sends_no_dataset_id_the_archive_wouldnt_take(
+    connected: Any, package: Path, session: Session
+) -> None:
+    manifest = json.loads((package / "datapackage.json").read_text())
+    manifest["id"] = "doi:10.1234/x"
+    (package / "datapackage.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (package / "checksums.sha256").write_text(checksums_text(package))
+    answer_uploads(connected, "POST /api/submissions", package, "s1", 1)
+    connected.json(
+        "POST /api/submissions/s1/submit",
+        {"submissionId": "s1", "round": 1, "status": "checking"},
+        202,
+    )
+
+    submit.submit(session, str(package))
+
+    assert "datasetId" not in json.loads(connected.seen[0].body)
+
+
 def test_submit_with_a_submission_sends_the_next_round_through_uploads(
     connected: Any, package: Path, session: Session
 ) -> None:
@@ -168,7 +193,7 @@ def test_submit_names_the_contributor_group_on_a_403(
 
 
 def test_submissions_with_queue_reads_the_curator_queue_stale_first(
-    connected: Any, session: Session
+    connected: Any, curator: Session
 ) -> None:
     rows = [
         {"submissionId": "a", "status": "in-review", "stale": False, "createdAt": "2026-11-02"},
@@ -177,7 +202,7 @@ def test_submissions_with_queue_reads_the_curator_queue_stale_first(
     ]
     connected.json("GET /api/submissions", {"submissions": rows})
 
-    result = submit.submissions(session, queue=True)
+    result = submit.submissions(curator, queue=True)
 
     assert [r["submissionId"] for r in result["submissions"]] == ["b", "c", "a"]
     assert connected.seen[0].query == {"status": ["in-review"]}
@@ -214,14 +239,27 @@ def test_submissions_keeps_the_report_link_when_the_report_cant_be_read(
     }
     connected.json("GET /api/submissions/s1", body)
 
-    assert submit.submissions(session, id="s1") == {**body, "report": None}
+    answer = submit.submissions(session, id="s1")
+
+    assert answer["submission"] == body["submission"]
+    assert answer["report"] is None
+    assert "404" in answer["report_error"]
 
 
-def test_the_queue_names_the_curator_group_on_a_403(connected: Any, session: Session) -> None:
+def test_the_queue_names_the_curator_group_on_a_403(connected: Any, curator: Session) -> None:
     connected.json("GET /api/submissions", {"error": "needs the curator group"}, 403)
 
     with pytest.raises(NotAllowed, match="`curator` group"):
+        submit.submissions(curator, queue=True)
+
+
+def test_the_queue_refuses_an_account_without_the_curator_group_before_asking(
+    connected: Any, session: Session
+) -> None:
+    with pytest.raises(NotAllowed, match="`curator` group"):
         submit.submissions(session, queue=True)
+
+    assert connected.seen == []
 
 
 def test_decide_posts_the_decision_and_note(connected: Any, session: Session) -> None:

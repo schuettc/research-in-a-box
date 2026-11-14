@@ -71,11 +71,12 @@ def test_a_tool_before_connect_says_to_call_connect() -> None:
 
 
 def test_connect_forgets_the_last_archives_sign_in(archive: Any, tokens: Tokens) -> None:
-    session = Session(tokens=tokens)
+    session = Session(tokens=tokens, groups=["curator"])
 
     server.connect(session, archive.url)
 
     assert session.tokens is None
+    assert session.groups == []
 
 
 def test_sign_in_answers_the_email_and_groups_and_keeps_the_tokens(archive: Any) -> None:
@@ -99,6 +100,7 @@ def test_sign_in_answers_the_email_and_groups_and_keeps_the_tokens(archive: Any)
     assert answer["groups"] == ["contributor", "curator"]
     assert "expires_at" in answer
     assert session.tokens == signed
+    assert session.groups == ["contributor", "curator"]
     assert seen == [
         AuthConfig(
             region="us-east-1",
