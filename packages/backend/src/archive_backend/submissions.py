@@ -86,6 +86,7 @@ class Submission(TypedDict, total=False):
 
     submissionId: str
     submitter: str
+    submitterIsCurator: bool
     status: Status
     createdAt: str
     round: int
@@ -365,6 +366,7 @@ def create(c: Clients, env: Env, caller: Caller, body: dict[str, Any]) -> dict[s
     item: dict[str, Any] = {
         "submissionId": sid,
         "submitter": caller.user,
+        "submitterIsCurator": CURATOR in caller.groups,
         "status": "draft",
         "createdAt": now(),
         "round": 1,

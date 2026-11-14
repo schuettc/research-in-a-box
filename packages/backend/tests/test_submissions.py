@@ -318,6 +318,17 @@ def test_a_curator_may_always_version_a_dataset(world: World) -> None:
     assert world.submissions.items[(body["submissionId"],)]["newVersion"] is True
 
 
+def test_create_records_whether_the_submitter_is_a_curator(world: World) -> None:
+    plain = world.create("alice")
+    status, body = world.call(
+        "POST", "/api/submissions", "carol", "contributor,curator", {"files": FILES}
+    )
+
+    assert status == 201, body
+    assert world.submissions.items[(plain,)]["submitterIsCurator"] is False
+    assert world.submissions.items[(body["submissionId"],)]["submitterIsCurator"] is True
+
+
 def test_an_unknown_dataset_id_is_a_new_dataset(world: World) -> None:
     fresh = world.create("bob", datasetId="snow")
 
