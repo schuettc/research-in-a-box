@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/api-and-search` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 to write** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 wait** → **Build · 0 of 5** → Sign off
 
-PLAN1 can be written now · PLAN3 waits on PLAN1 being built
+PLAN1 building · 0 of 5 done · PLAN3 waits on PLAN1 being built
 
 ## What was asked
 
@@ -54,7 +54,12 @@ PLAN1 can be written now · PLAN3 waits on PLAN1 being built
 
 ## Plans
 
-- PLAN1 Read api and catalog search: can be written now
+- [PLAN1](plans/1-read-api-and-catalog-search.md) The read API, server search and downloads: building · 0 of 5 done
+  - TASK1 Task 1: The catalog file and its writer: not started
+  - TASK2 Task 2: The API Lambda: not started
+  - TASK3 Task 3: The download rollup: not started
+  - TASK4 Task 4: The infrastructure: not started
+  - TASK5 Task 5: The test deploy: not started
 - PLAN3 Semantic search: waits on PLAN1 being built
 
 ## Files
@@ -65,6 +70,7 @@ PLAN1 can be written now · PLAN3 waits on PLAN1 being built
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |
 
