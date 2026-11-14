@@ -41,6 +41,28 @@ cruise --version
 
 Inside a clone, `uv run cruise` runs it.
 
+## Use it from Claude Code
+
+The `research-archive` plugin lets Claude Code find and download data in your
+archive, check and fix a dataset package with the archive's own rules, submit
+it, and review submissions as a curator. Nothing is written to a manifest or
+sent to the archive without your yes. It needs uv. In Claude Code:
+
+```
+/plugin marketplace add schuettc/research-in-a-box
+/plugin install research-archive@research-in-a-box
+```
+
+On Claude Code 2.1.275 or later, one line does both:
+
+```
+/plugin install research-archive --marketplace schuettc/research-in-a-box
+```
+
+The plugin's MCP server (`archive-mcp`, in `packages/agent`) runs on your own
+machine. Its skills, `find-data`, `submit-dataset` and `review-submission`, ask
+for your archive's address the first time they need it.
+
 ## Develop
 
 Needs uv, Node 24 and [just](https://just.systems/).

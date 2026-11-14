@@ -1,0 +1,14 @@
+{
+  "name": "research-in-a-box",
+  "owner": {
+    "name": "Court Schuett"
+  },
+  "description": "Claude Code plugins for a research-in-a-box data archive.",
+  "plugins": [
+    {
+      "name": "research-archive",
+      "source": "./packages/agent",
+      "description": "Find and fetch data in a research-in-a-box archive, check and fix a dataset package with the archive's own checks, submit it, and review submissions as a curator. Bundles the archive's MCP server and three skills: find-data, submit-dataset and review-submission."
+    }
+  ]
+}

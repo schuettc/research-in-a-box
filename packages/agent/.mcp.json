@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "research-archive": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/schuettc/research-in-a-box#subdirectory=packages/agent",
+        "archive-mcp"
+      ]
+    }
+  }
+}
