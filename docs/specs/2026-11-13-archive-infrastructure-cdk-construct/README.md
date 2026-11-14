@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/archive-infrastructure-cdk-construct` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 8 of 11** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → ✓ Build → **Sign off · due**
 
-PLAN1 built · PLAN2 built · PLAN3 building · 0 of 3 done
+PLAN1 built · PLAN2 built · PLAN3 built
 
 ## Pick up next
 
@@ -17,6 +17,11 @@ PLAN1 built · PLAN2 built · PLAN3 building · 0 of 3 done
 - **PARK5 Reindex catch-up:** Before flipping the active catalog, re-put every package published after the reindex's snapshot time, so a publish during a run isn't lost from the new table. Needed once Plan 7 publishes; until then a reindex runs while publishing is quiet.
 - **PARK6 Projects in reindex:** Load project records into the catalog on reindex once Plan 7 decides where a project.json lives in the archive bucket. Until then reindex loads datasets, versions and files only.
 - **PARK7 Reserved stage names:** A stage name containing a Cognito reserved word (aws, amazon, cognito) makes the user pool domain prefix fail at deploy. Refuse such names in the Stage model, or encode the prefix, if an adopter ever hits it.
+- **PARK8 Reindex at scale:** The reindex's list step checkpoints every manifest key in one result, capped at 256 KB (about 4,000 versions). Write the key list to S3, or list inside each write step, when an archive nears that.
+- **PARK9 Reindex failure alerts:** A reindex that fails before the load, or whose status check keeps failing, ends with no reindex alert; only the function's errors alarm fires. Send the reindex alert from those paths too.
+- **PARK10 Oversized manifests:** A manifest over DynamoDB's 400 KB item limit fails its version item, so the reindex ends COMPLETED_WITH_ERRORS and never flips. Store large manifests by reference (an S3 key) instead of inline.
+- **PARK11 Missing data file is 403:** A request for an open file that doesn't exist returns 403 from /data, not 404: CloudFront's origin access control has GetObject but not ListBucket, so S3 answers 403. Grant s3:ListBucket scoped to open/, or map 403 to 404 on the /data behaviour, so readers and link checkers see a plain not found.
+- **PARK12 Leftover helper log group:** Destroying a non-prod stage leaves the log group of CDK's S3 auto-delete helper, which Lambda creates outside CloudFormation. Plan 10a's teardown should delete /aws/lambda/ResearchArchive-&lt;stage>-CustomS3AutoDeleteObjects* after cdk destroy.
 
 ## What was asked
 
@@ -75,10 +80,28 @@ PLAN1 built · PLAN2 built · PLAN3 building · 0 of 3 done
   - TASK6 Task 2: The health and whoami handlers, and the integrity check code: done. 52169bf; pytest packages/backend exit 0 (7 passed); just check-python exit 0
   - TASK7 Task 3: Auth, the API shell and the integrity schedule: done. 0ae57d1; infra tests exit 0
   - TASK8 Task 4: CloudFront: done. 2f63c81 + review fixes; just check exit 0; research-in-a-box#12 CI green (infra files 4-7 s each on CI), merged as 15596b4
-- [PLAN3](plans/3-reindex-and-test-deploy.md) Reindex and the test deploy: building · 0 of 3 done
-  - TASK9 Task 1: The reindex function: not started
-  - TASK10 Task 2: The reindex in the construct, the just recipes and a test-stage config: not started
-  - TASK11 Task 3: The test deploy: not started
+- [PLAN3](plans/3-reindex-and-test-deploy.md) Reindex and the test deploy: built
+  - TASK9 Task 1: The reindex function: done. 88a218b; pytest packages/backend exit 0 (21 passed, 13 reindex); just check-python exit 0
+  - TASK10 Task 2: The reindex in the construct, the just recipes and a test-stage config: done. 7dec535 + review fix; just check exit 0 (343 Python, 41 infra); research-in-a-box#13 CI green, merged as 97151a2
+  - TASK11 Task 3: The test deploy: done. ResearchArchive-test deployed from main and every spec check passed after fixes #14 (f1bea57) and #15 (2d8ac81); destroyed cleanly, nothing left in the account
+
+## Steps
+
+- STEP1 Walk the test deploy of the archive with me: done
+  1. The user · Name the AWS profile and the alert email address · done: Ready (2026-11-13 16:33, on the page)
+  2. The user · Write the profile and the alert email in the note · done. “personal court@subaud.io” (2026-11-13 16:35, on the page)
+  3. agent · Check the profile's identity and bootstrap the account and region if needed · done. sts: account 316091283514, AdministratorAccess via SSO; CDKToolkit in us-east-1 already at bootstrap version 28, so no bootstrap; no ResearchArchive-test stack exists yet
+  4. agent · Merge the reindex code (PLAN3 tasks 1 and 2) so the deploy runs from main · done. research-in-a-box#13 CI green on all four runs, merged as 97151a2
+  5. The user · Go for the deploy · done: Go (2026-11-13 16:58, on the page)
+  6. agent · Build the Lambda assets and deploy ResearchArchive-test · done. cdk deploy exit 0 in 206 s, 79 of 79 resources CREATE_COMPLETE; distribution d15sl9pkxent0z.cloudfront.net Deployed
+  7. agent · Check health, throttling, an open download, and that restricted data is refused · done. /api/health 200 {"status": "ok"}; /api/whoami without a token 401; 400 requests at 100 concurrent: 383 x 200, 17 x 429; open/sample/1/data/hello.csv downloads from /data/sample/1/data/hello.csv with the same bytes; restricted/ object 403 from /data (also with /data/../restricted); direct S3 URL 403
+  8. The user · Confirm the alert subscription email · done (2026-11-13 17:16, on the page)
+  9. The user · Sign up once and paste back the URL you land on · done. “screenshot of localhost:8765/callback?code=a6976b99-... from the note” (2026-11-13 17:17, in the terminal)
+  10. agent · Exchange the code for a token and call /api/whoami with it · done. PKCE token exchange 200 (access, id, refresh tokens); /api/whoami with the ID token 200: {"email": "court@subaud.io", "groups": []}
+  11. agent · Run the integrity check clean, then after one file is overwritten, and check the alert email went out · done. clean run: checked 30, problems 0; after overwriting open/second-sample/1/data/logger.csv: problems 1; alert email "mismatch open/second-sample/1/data/logger.csv" arrived at court@subaud.io (your screenshot)
+  12. agent · Upload two sample packages, run just reindex test, and check the catalog flipped to table B · done. after fixes #14 (f1bea57) and #15: just reindex-status test SUCCEEDED {target B, status COMPLETED, items 30, flipped true}; /research-archive/test/catalog-active = B; table B holds DATASET#stream-temperature-sample and DATASET#second-sample, 30 items
+  13. The user · Go for the teardown · done: Go (2026-11-13 21:07, on the page)
+  14. agent · Destroy ResearchArchive-test and confirm its stack, buckets and tables are gone · done. cdk destroy exit 0; stack does not exist; no researcharchive-test-* buckets, no ResearchArchive-test-* tables or functions, user pool and parameter gone; the CDK auto-delete helper's log group (created by Lambda outside the stack) deleted by hand; nothing left
 
 ## Files
 
@@ -90,6 +113,7 @@ PLAN1 built · PLAN2 built · PLAN3 building · 0 of 3 done
 | `spec.md` | the agent, header by diazo | The spec. |
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
+| `screenshots/` | the user | The screenshots the user pasted into a note or the opening. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |
 
 ## Ids

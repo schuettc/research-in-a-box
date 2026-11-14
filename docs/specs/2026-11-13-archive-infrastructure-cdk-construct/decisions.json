@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "Archive infrastructure (Plan 4)",
   "expect": 4,
-  "agent_at": "2026-11-13T22:30:22.854904Z",
+  "agent_at": "2026-11-14T03:13:03.684793Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 1, repo layout, folder d65ecf18be29, and the manifest shape from Plan 2, folder 8da653f233f9.)\n\nBrief: Plan 4 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the archive infrastructure as a TypeScript CDK construct (Plan 4). The service choices are decided and listed under \"Infrastructure\". Do not reopen them. Plan the resources, the DynamoDB design and the construct's interface, and take the open questions with me one at a time."
@@ -168,6 +168,166 @@
       }
     ]
   },
+  "steps": [
+    {
+      "id": "STEP1",
+      "what": "Walk the test deploy of the archive with me",
+      "why": "Proves on real AWS what the tests can only synth: the API, downloads, sign-in, the reindex and the integrity check. It unblocks TASK11 and the sign-off.",
+      "how": "One `test` stack was in account 316091283514 (profile `personal`, us-east-1). Checked end to end, then destroyed.",
+      "done": true,
+      "done_at": "2026-11-13T21:13:03.684793-06:00",
+      "actions": [
+        {
+          "id": "A1",
+          "who": "user",
+          "what": "Name the AWS profile and the alert email address",
+          "how": "1. Pick the AWS profile (from `~/.aws/config`) whose account should hold the test stack, and the region if it isn't the profile's default.\n2. Pick the email address the test stack's alerts go to (budget, failures, the integrity check). You'll confirm one subscription email from AWS later.\n3. Write both in the note box, then press Ready.",
+          "state": "done",
+          "answered_at": "2026-11-13T16:33:52.389775-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "READY",
+              "label": "Ready",
+              "detail": "I check the profile and bootstrap if needed, then ask for your Go"
+            }
+          ],
+          "choice": "READY"
+        },
+        {
+          "id": "A1B",
+          "who": "user",
+          "what": "Write the profile and the alert email in the note",
+          "how": "Your Ready arrived without a note, so I don't have the profile or the email yet.\n\n1. Type the AWS profile and the alert email address in the note box. For example:\n\n```\npersonal, you@example.org\n```\n\n2. Press Done.\n\nThe `personal` profile is account 316091283514 in us-east-1, if that's the one you mean.",
+          "state": "done",
+          "result": "personal court@subaud.io",
+          "answered_at": "2026-11-13T16:35:17.592109-06:00",
+          "via": "page"
+        },
+        {
+          "id": "A2",
+          "who": "agent",
+          "what": "Check the profile's identity and bootstrap the account and region if needed",
+          "state": "done",
+          "result": "sts: account 316091283514, AdministratorAccess via SSO; CDKToolkit in us-east-1 already at bootstrap version 28, so no bootstrap; no ResearchArchive-test stack exists yet"
+        },
+        {
+          "id": "A2B",
+          "who": "agent",
+          "what": "Merge the reindex code (PLAN3 tasks 1 and 2) so the deploy runs from main",
+          "state": "done",
+          "result": "research-in-a-box#13 CI green on all four runs, merged as 97151a2"
+        },
+        {
+          "id": "A3",
+          "who": "user",
+          "what": "Go for the deploy",
+          "how": "1. The deploy goes to account 316091283514, us-east-1, as the stack `ResearchArchive-test`, built from main at 97151a2.\n2. Press Go to deploy it, or No go to stop.\n\nThe deploy takes about 10 to 15 minutes, mostly CloudFront.",
+          "state": "done",
+          "answered_at": "2026-11-13T16:58:30.580978-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "I deploy the test stack now"
+            },
+            {
+              "id": "NOGO",
+              "label": "No go",
+              "detail": "Nothing is deployed",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A4",
+          "who": "agent",
+          "what": "Build the Lambda assets and deploy ResearchArchive-test",
+          "state": "done",
+          "result": "cdk deploy exit 0 in 206 s, 79 of 79 resources CREATE_COMPLETE; distribution d15sl9pkxent0z.cloudfront.net Deployed"
+        },
+        {
+          "id": "A6",
+          "who": "agent",
+          "what": "Check health, throttling, an open download, and that restricted data is refused",
+          "state": "done",
+          "result": "/api/health 200 {\"status\": \"ok\"}; /api/whoami without a token 401; 400 requests at 100 concurrent: 383 x 200, 17 x 429; open/sample/1/data/hello.csv downloads from /data/sample/1/data/hello.csv with the same bytes; restricted/ object 403 from /data (also with /data/../restricted); direct S3 URL 403"
+        },
+        {
+          "id": "A5",
+          "who": "user",
+          "what": "Confirm the alert subscription email",
+          "how": "1. Find the email from AWS Notifications titled \"AWS Notification - Subscription Confirmation\" at court@subaud.io.\n2. Click Confirm subscription in it.\n3. Press Done here.",
+          "state": "done",
+          "answered_at": "2026-11-13T17:16:03.017926-06:00",
+          "via": "page"
+        },
+        {
+          "id": "A7",
+          "who": "user",
+          "what": "Sign up once and paste back the URL you land on",
+          "how": "You should also have an email titled **Archive integrity check: 1 problems** at court@subaud.io: that's the integrity check working (A10). No need to act on it.\n\n1. Open this link (the archive's sign-in page, for the CLI client):\n\n```\nhttps://archive-test-316091283514.auth.us-east-1.amazoncognito.com/oauth2/authorize?response_type=code\u0026client_id=5soikkglmuf4n8mjcqpv6qgbdd\u0026redirect_uri=http%3A%2F%2Flocalhost%3A8765%2Fcallback\u0026scope=openid+email+profile\u0026code_challenge_method=S256\u0026code_challenge=QlfRihYMLmhVCzDQRE2SElyxKO-Rzl1ct8uEobZZZ2M\n```\n\n2. Choose Create an account, sign up with your email and a password, and enter the code it emails you.\n3. The browser then tries to open a `http://localhost:8765/callback?code=...` address and shows that it can't connect. That's expected.\n4. Copy that whole address from the address bar into the note box, then press Done. The code in it works only once and expires in 5 minutes, so paste it back promptly.",
+          "state": "done",
+          "result": "screenshot of localhost:8765/callback?code=a6976b99-... from the note",
+          "answered_at": "2026-11-13T17:17:35.735803-06:00",
+          "via": "terminal"
+        },
+        {
+          "id": "A8",
+          "who": "agent",
+          "what": "Exchange the code for a token and call /api/whoami with it",
+          "state": "done",
+          "result": "PKCE token exchange 200 (access, id, refresh tokens); /api/whoami with the ID token 200: {\"email\": \"court@subaud.io\", \"groups\": []}"
+        },
+        {
+          "id": "A10",
+          "who": "agent",
+          "what": "Run the integrity check clean, then after one file is overwritten, and check the alert email went out",
+          "state": "done",
+          "result": "clean run: checked 30, problems 0; after overwriting open/second-sample/1/data/logger.csv: problems 1; alert email \"mismatch open/second-sample/1/data/logger.csv\" arrived at court@subaud.io (your screenshot)"
+        },
+        {
+          "id": "A9",
+          "who": "agent",
+          "what": "Upload two sample packages, run just reindex test, and check the catalog flipped to table B",
+          "state": "done",
+          "result": "after fixes #14 (f1bea57) and #15: just reindex-status test SUCCEEDED {target B, status COMPLETED, items 30, flipped true}; /research-archive/test/catalog-active = B; table B holds DATASET#stream-temperature-sample and DATASET#second-sample, 30 items"
+        },
+        {
+          "id": "A11",
+          "who": "user",
+          "what": "Go for the teardown",
+          "how": "Every check passed:\n\n- health, throttling (17 of 400 got 429), open and restricted downloads\n- sign-up and a signed-in call to /api/whoami\n- the reindex: COMPLETED, 30 items into table B, active catalog flipped to B\n- the integrity check: 0 problems, then 1 after a file was changed, with your alert email\n\n1. Press Go to destroy `ResearchArchive-test`, or No go to keep it a little longer and tell me why.",
+          "state": "done",
+          "answered_at": "2026-11-13T21:07:08.275557-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "I destroy the test stack now"
+            },
+            {
+              "id": "NOGO",
+              "label": "No go",
+              "detail": "The stack stays until you say",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A12",
+          "who": "agent",
+          "what": "Destroy ResearchArchive-test and confirm its stack, buckets and tables are gone",
+          "state": "done",
+          "result": "cdk destroy exit 0; stack does not exist; no researcharchive-test-* buckets, no ResearchArchive-test-* tables or functions, user pool and parameter gone; the CDK auto-delete helper's log group (created by Lambda outside the stack) deleted by hand; nothing left"
+        }
+      ]
+    }
+  ],
   "decisions": [
     {
       "id": "DCSN1",
@@ -522,6 +682,41 @@
       "text": "A stage name containing a Cognito reserved word (aws, amazon, cognito) makes the user pool domain prefix fail at deploy. Refuse such names in the Stage model, or encode the prefix, if an adopter ever hits it.",
       "from": "PLAN2",
       "kind": "bug"
+    },
+    {
+      "id": "PARK8",
+      "name": "Reindex at scale",
+      "text": "The reindex's list step checkpoints every manifest key in one result, capped at 256 KB (about 4,000 versions). Write the key list to S3, or list inside each write step, when an archive nears that.",
+      "from": "PLAN3",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK9",
+      "name": "Reindex failure alerts",
+      "text": "A reindex that fails before the load, or whose status check keeps failing, ends with no reindex alert; only the function's errors alarm fires. Send the reindex alert from those paths too.",
+      "from": "PLAN3",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK10",
+      "name": "Oversized manifests",
+      "text": "A manifest over DynamoDB's 400 KB item limit fails its version item, so the reindex ends COMPLETED_WITH_ERRORS and never flips. Store large manifests by reference (an S3 key) instead of inline.",
+      "from": "PLAN3",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK11",
+      "name": "Missing data file is 403",
+      "text": "A request for an open file that doesn't exist returns 403 from /data, not 404: CloudFront's origin access control has GetObject but not ListBucket, so S3 answers 403. Grant s3:ListBucket scoped to open/, or map 403 to 404 on the /data behaviour, so readers and link checkers see a plain not found.",
+      "from": "STEP1",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK12",
+      "name": "Leftover helper log group",
+      "text": "Destroying a non-prod stage leaves the log group of CDK's S3 auto-delete helper, which Lambda creates outside CloudFormation. Plan 10a's teardown should delete /aws/lambda/ResearchArchive-\u003cstage\u003e-CustomS3AutoDeleteObjects* after cdk destroy.",
+      "from": "STEP1",
+      "kind": "bug"
     }
   ],
   "spec": {
@@ -790,7 +985,10 @@
             "DCSN1",
             "DCSN3"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "88a218b; pytest packages/backend exit 0 (21 passed, 13 reindex); just check-python exit 0",
+          "build_at": "2026-11-13T16:38:57.224647-06:00"
         },
         {
           "id": "TASK10",
@@ -800,7 +998,10 @@
           "serves": [
             "DCSN3"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "7dec535 + review fix; just check exit 0 (343 Python, 41 infra); research-in-a-box#13 CI green, merged as 97151a2",
+          "build_at": "2026-11-13T16:51:55.899644-06:00"
         },
         {
           "id": "TASK11",
@@ -813,7 +1014,10 @@
             "DCSN3",
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "ResearchArchive-test deployed from main and every spec check passed after fixes #14 (f1bea57) and #15 (2d8ac81); destroyed cleanly, nothing left in the account",
+          "build_at": "2026-11-13T21:13:03.684793-06:00"
         }
       ],
       "approved": {
@@ -823,6 +1027,9 @@
       }
     }
   ],
+  "signoff": {
+    "due_at": "2026-11-13T21:13:03.684793-06:00"
+  },
   "messages": [
     {
       "id": 1,
@@ -992,6 +1199,88 @@
       "at": "2026-11-13T16:31:09.112828-06:00",
       "state": "answered",
       "claim": "132207de13339506"
+    },
+    {
+      "id": 18,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A1",
+      "answer": "READY",
+      "at": "2026-11-13T16:33:52.389775-06:00",
+      "state": "answered",
+      "claim": "98294891b5a56590"
+    },
+    {
+      "id": 19,
+      "card": "STEP1",
+      "from": "user",
+      "action": "tick",
+      "option": "A1B",
+      "text": "personal court@subaud.io",
+      "at": "2026-11-13T16:35:17.592109-06:00",
+      "state": "answered",
+      "claim": "958da9b220f1e723"
+    },
+    {
+      "id": 20,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A3",
+      "answer": "GO",
+      "at": "2026-11-13T16:58:30.580978-06:00",
+      "state": "answered",
+      "claim": "6741de00b3e83bb4"
+    },
+    {
+      "id": 21,
+      "card": "STEP1",
+      "from": "user",
+      "action": "tick",
+      "option": "A5",
+      "at": "2026-11-13T17:16:03.017926-06:00",
+      "state": "answered",
+      "claim": "25367ef8d04fd7dd"
+    },
+    {
+      "id": 22,
+      "card": "STEP1",
+      "from": "user",
+      "action": "note",
+      "at": "2026-11-13T17:17:04.223974-06:00",
+      "state": "answered",
+      "claim": "bb81f473e0a88326",
+      "attachments": [
+        {
+          "path": "screenshots/shot-a211e5e4829a.png"
+        },
+        {
+          "path": "screenshots/shot-0bd1f5a6e2eb.png"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "card": "STEP1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Thanks, both screenshots did their job. The alert email shows the integrity check caught the overwritten file, and the code from the address bar exchanged for a token: /api/whoami answers 200 with your email and no groups. Sign-in and the integrity check are proven. What's left is the reindex rerun after PR #14 merges, then your Go for the teardown.",
+      "at": "2026-11-13T17:17:35.735803-06:00",
+      "answers": [
+        22
+      ]
+    },
+    {
+      "id": 24,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A11",
+      "answer": "GO",
+      "at": "2026-11-13T21:07:08.275557-06:00",
+      "state": "answered",
+      "claim": "b1caccce0963c719"
     }
   ],
   "planned_history": [
