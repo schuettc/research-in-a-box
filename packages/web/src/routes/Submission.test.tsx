@@ -183,6 +183,21 @@ test("it reloads every 10 s while checking, and stops once published", async () 
   expect(reads$()).toBe(2);
 });
 
+test("a draft isn't read again: it changes only when the contributor acts", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  answer({ submission: item({ status: "draft", reportKey: null }), events: [], reportUrl: null });
+  renderPage();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(reads$()).toBe(1);
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(60_000);
+  });
+  expect(reads$()).toBe(1);
+});
+
 test("the history lists each event once, the reader as you", async () => {
   const created = event("created", { actor: "me-1" });
   answer({

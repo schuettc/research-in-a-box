@@ -16,9 +16,13 @@ import { PackageFlow } from "./Submit";
 /** How often a submission is read again while something can still change on its own. */
 export const POLL_MS = 10_000;
 
-/** Whether the contributor's page should read the submission again: the pipeline is at work. */
+/**
+ * Whether the contributor's page should read the submission again: the pipeline is at work.
+ * A draft changes only when the contributor acts, and acting reads it again.
+ */
 function moving(submission: Item): boolean {
   if (FINAL_STATUSES.includes(submission.status)) return false;
+  if (submission.status === "draft") return false;
   if (submission.status === "needs-changes") return !submission.waiting;
   return true;
 }
