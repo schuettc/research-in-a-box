@@ -14,13 +14,13 @@ check-python:
     uv run mypy packages examples/femc scripts
     uv run pytest
 
-# TypeScript: format check, lint, type check, tests, web build
+# TypeScript: format check, lint, type check, web build, tests (the infra tests synth the build)
 check-ts: lambda-assets
     npx prettier --check .
     npx eslint .
     npm run typecheck --workspaces
-    npm test --workspaces
     npm run build -w packages/web
+    npm test --workspaces
 
 # Start a reindex of the stage's catalog, with the caller's AWS_PROFILE and region
 reindex stage:
