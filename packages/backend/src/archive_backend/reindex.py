@@ -82,7 +82,9 @@ def clients() -> Clients:
 
 def embeddings_enabled(c: Clients) -> bool:
     """Whether the archive config switches the embeddings module on."""
-    # TODO(plan7-archive-config): replace with `read_archive_config(ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"]).infrastructure.modules.embeddings is not None`, cached like the active table.  # noqa: E501
+    # TODO(plan7-archive-config): replace with:
+    # cfg = read_archive_config(c.ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"])
+    # return cfg.infrastructure is not None and cfg.infrastructure.modules.embeddings is not None
     return False
 
 

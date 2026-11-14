@@ -396,6 +396,24 @@ def test_semantic_errors_answer_the_keyword_ranking_and_count_a_fallback(
     assert isinstance(metric["_aws"]["Timestamp"], int)
 
 
+def test_a_failed_config_read_answers_keyword_results_and_counts_a_fallback(
+    world: World, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def broken() -> bool:
+        raise ClientError({"Error": {"Code": "ParameterNotFound", "Message": "x"}}, "GetParameter")
+
+    monkeypatch.setattr(api, "embeddings_enabled", broken)
+    world.s3.put(DERIVED, "site/catalog.json", SEMANTIC_ROWS)
+
+    status, body = world.call("GET", "/api/search", {"q": ["lake"]})
+
+    assert status == 200
+    assert [r["id"] for r in body["rows"]] == ["lake", "stream"]
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [line["SemanticFallback"] for line in lines if "_aws" in line] == [1]
+    assert world.bedrock.texts == []
+
+
 def test_search_never_embeds_with_the_setting_off(world: World) -> None:
     world.s3.put(DERIVED, "site/catalog.json", SEMANTIC_ROWS)
 

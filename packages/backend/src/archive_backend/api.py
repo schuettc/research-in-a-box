@@ -336,7 +336,9 @@ def _version(table: str, dataset_id: str, version: int) -> VersionAnswer:
 
 def embeddings_enabled() -> bool:
     """Whether the archive config switches the embeddings module on."""
-    # TODO(plan7-archive-config): replace with `read_archive_config(ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"]).infrastructure.modules.embeddings is not None`, cached like the active table.  # noqa: E501
+    # TODO(plan7-archive-config): replace with, cached like the active table:
+    # cfg = read_archive_config(clients().ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"])
+    # return cfg.infrastructure is not None and cfg.infrastructure.modules.embeddings is not None
     return False
 
 
@@ -364,9 +366,12 @@ def _fallback_metric() -> None:
 
 
 def _nearest(q: str) -> list[str] | None:
-    """The ids of the datasets nearest `q` in the vector index, or None when that fails."""
+    """The ids of the datasets nearest `q` in the vector index, or None when the module is off
+    or any part of the semantic path, the config read included, fails."""
     c = clients()
     try:
+        if not embeddings_enabled():
+            return None
         vector = embed(c.bedrock, q)
         found = c.dynamodb.search_vectors(
             TableName=_table(),
@@ -419,7 +424,7 @@ def search_datasets(
         page=page,
         size=size,
     )
-    semantic = _nearest(q) if q and q.strip() and embeddings_enabled() else None
+    semantic = _nearest(q) if q and q.strip() else None
     result = catalog_search.search(_catalog_rows(), query, semantic)
     return SearchAnswer(
         rows=[CatalogRow.model_validate(row) for row in result.rows],
