@@ -39,14 +39,18 @@ source = { editable = "packages/backend" }
 dependencies = [
     { name = "archive-contract" },
     { name = "aws-durable-execution-sdk-python" },
+    { name = "aws-lambda-powertools" },
     { name = "boto3" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "archive-contract", editable = "packages/contract" },
     { name = "aws-durable-execution-sdk-python", specifier = "==3.0.2" },
+    { name = "aws-lambda-powertools", specifier = ">=3.40.0" },
     { name = "boto3" },
+    { name = "pydantic", specifier = ">=2.11" },
 ]
 
 [[package]]
@@ -147,6 +151,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/bb/b1/0ac80c258272139fe218d476bd580efd513708c1e17ed8ca902ed8e1d05a/aws_durable_execution_sdk_python-3.0.2.tar.gz", hash = "sha256:ffeab0c7668ea606f75cc63c37bd5feb24f6f6d376661c293e8739d228a565a0", size = 423056, upload-time = "2026-11-09T23:34:29.88Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/d1/9de01fd3409b68866e40f996a6602fa7017779920fda7229b62492703867/aws_durable_execution_sdk_python-3.0.2-py3-none-any.whl", hash = "sha256:7fa9a5d2ca21c63bbaeaa5cff349c16f7404c951f76770d884b1468e72f683f9", size = 160964, upload-time = "2026-11-09T23:34:28.252Z" },
+]
+
+[[package]]
+name = "aws-lambda-powertools"
+version = "3.40.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jmespath" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8f/fc/ffe1ce4bc265f0a20da5833e53069ee48e98d86e24a5dbdd1a8cb8548091/aws_lambda_powertools-3.40.0.tar.gz", hash = "sha256:ed51652dd5b38dc0943e76c4663997c709fe7bceef809d48c49ed7c902bfb47e", size = 840686, upload-time = "2026-11-10T11:20:44.806Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/16/bf/7c72a4ded895972089d41722ecfecc67c5f8ad3618f8a4637fae73087ffd/aws_lambda_powertools-3.40.0-py3-none-any.whl", hash = "sha256:0d701a323d406ac029071d81724b9c8f711a2cb7f4be05cb946acab49401159b", size = 1015679, upload-time = "2026-11-10T11:20:42.85Z" },
 ]
 
 [[package]]
