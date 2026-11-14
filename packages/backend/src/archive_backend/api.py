@@ -41,6 +41,7 @@ from pydantic import Field as PydanticField
 
 from archive_backend import search as catalog_search
 from archive_backend.catalog_file import KEY as CATALOG_KEY
+from archive_backend.config import read_archive_config
 from archive_backend.embeddings import Bedrock, embed, vector_attribute
 from archive_backend.whoami import _groups
 from archive_contract.usage import UsageAnswers
@@ -335,11 +336,14 @@ def _version(table: str, dataset_id: str, version: int) -> VersionAnswer:
 
 
 def embeddings_enabled() -> bool:
-    """Whether the archive config switches the embeddings module on."""
-    # TODO(plan7-archive-config): replace with, cached like the active table:
-    # cfg = read_archive_config(clients().ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"])
-    # return cfg.infrastructure is not None and cfg.infrastructure.modules.embeddings is not None
-    return False
+    """Whether the archive config switches the embeddings module on, read at most once a minute."""
+    now = _monotonic()
+    if "embeddings" not in _active or now - _active["embeddings_checked"] >= CACHE_SECONDS:
+        cfg = read_archive_config(clients().ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"])
+        on = cfg.infrastructure is not None and cfg.infrastructure.modules.embeddings is not None
+        _active.update(embeddings=on, embeddings_checked=now)
+    enabled: bool = _active["embeddings"]
+    return enabled
 
 
 def _fallback_metric() -> None:

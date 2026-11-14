@@ -20,6 +20,10 @@ COUNTS = "download-counts"
 USAGE = "usage-responses"
 DOMAIN = "d123.cloudfront.net"
 DOMAIN_PARAMETER = "/research-archive/test/site-domain"
+CONFIG_PARAMETER = "/research-archive/test/archive-config"
+EMBEDDINGS_ON = json.dumps(
+    {"publisher": "P", "infrastructure": {"alertEmail": "a@b.c", "modules": {"embeddings": {}}}}
+)
 CLAIMS = {"sub": "user-1", "email": "a@example.org"}
 ADMIN = CLAIMS | {"cognito:groups": "[admin]"}
 
@@ -145,10 +149,15 @@ class FakeSSM:
     def __init__(self) -> None:
         self.value = "B"
         self.calls = 0
+        self.config = json.dumps({"publisher": "P"})
+        self.config_calls = 0
 
     def get_parameter(self, *, Name: str) -> dict[str, Any]:
         if Name == DOMAIN_PARAMETER:
             return {"Parameter": {"Value": DOMAIN}}
+        if Name == CONFIG_PARAMETER:
+            self.config_calls += 1
+            return {"Parameter": {"Value": self.config}}
         assert Name == PARAMETER
         self.calls += 1
         return {"Parameter": {"Value": self.value}}
@@ -193,6 +202,7 @@ class World:
             "USAGE_TABLE": USAGE,
             "SITE_DOMAIN_PARAMETER": DOMAIN_PARAMETER,
             "STAGE": "test",
+            "ARCHIVE_CONFIG_PARAMETER": CONFIG_PARAMETER,
         }.items():
             monkeypatch.setenv(name, value)
 
@@ -411,6 +421,31 @@ def test_a_failed_config_read_answers_keyword_results_and_counts_a_fallback(
     assert [r["id"] for r in body["rows"]] == ["lake", "stream"]
     lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert [line["SemanticFallback"] for line in lines if "_aws" in line] == [1]
+    assert world.bedrock.texts == []
+
+
+def test_the_setting_is_read_from_the_archive_config_once_a_minute(world: World) -> None:
+    world.ssm.config = EMBEDDINGS_ON
+    world.s3.put(DERIVED, "site/catalog.json", SEMANTIC_ROWS)
+    world.dynamodb.nearest = ["aerosol"]
+
+    _, body = world.call("GET", "/api/search", {"q": ["air pollution"]})
+    world.now += 30
+    world.call("GET", "/api/search", {"q": ["air pollution"]})
+    assert world.ssm.config_calls == 1
+    world.now += 31
+    world.call("GET", "/api/search", {"q": ["air pollution"]})
+
+    assert [r["id"] for r in body["rows"]] == ["aerosol"]
+    assert world.ssm.config_calls == 2
+
+
+def test_a_config_without_infrastructure_leaves_semantic_search_off(world: World) -> None:
+    world.s3.put(DERIVED, "site/catalog.json", SEMANTIC_ROWS)
+
+    world.call("GET", "/api/search", {"q": ["lake"]})
+
+    assert world.ssm.config_calls == 1
     assert world.bedrock.texts == []
 
 

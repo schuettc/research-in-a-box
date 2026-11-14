@@ -58,6 +58,7 @@ export class ReadApi extends Construct {
         USAGE_TABLE: this.usageResponses.tableName,
         SITE_DOMAIN_PARAMETER: siteDomainName,
         STAGE: props.stage,
+        ARCHIVE_CONFIG_PARAMETER: archive.archiveConfigParameter.parameterName,
       },
     });
     fn.addToRolePolicy(
@@ -75,6 +76,7 @@ export class ReadApi extends Construct {
     archive.catalogTables.a.grantReadData(fn);
     archive.catalogTables.b.grantReadData(fn);
     archive.activeCatalogParameter.grantRead(fn);
+    archive.archiveConfigParameter.grantRead(fn);
     archive.derivedBucket.grantRead(fn, "site/catalog.json");
     archive.archiveBucket.grantRead(fn, "restricted/*");
     archive.archiveBucket.grantRead(fn, "projects/*");

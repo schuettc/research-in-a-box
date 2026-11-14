@@ -1,4 +1,4 @@
-import { Stack } from "aws-cdk-lib";
+import { type CfnElement, Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import type { CfnTable } from "aws-cdk-lib/aws-dynamodb";
 import type { CfnAlias } from "aws-cdk-lib/aws-lambda";
@@ -182,4 +182,24 @@ test("the reindex may call Bedrock only with the embeddings module", () => {
 
   expect(grantedActions(withModule, id)).toContain("bedrock:InvokeModel");
   expect(grantedActions(template, reindexFunction().id)).not.toContain("bedrock:InvokeModel");
+});
+
+test("the reindex is told the archive-config parameter and may read it", () => {
+  const { id, properties } = reindexFunction();
+  const configParameter = stack.getLogicalId(
+    archive.archiveConfigParameter.node.defaultChild as CfnElement,
+  );
+
+  expect(
+    (properties.Environment as { Variables: Record<string, unknown> }).Variables
+      .ARCHIVE_CONFIG_PARAMETER,
+  ).toEqual({ Ref: configParameter });
+  const role = (template.toJSON().Resources[id].Properties.Role as { "Fn::GetAtt": string[] })[
+    "Fn::GetAtt"
+  ][0];
+  const policies = JSON.stringify(
+    template.findResources("AWS::IAM::Policy", { Properties: { Roles: [{ Ref: role }] } }),
+  );
+  expect(grantedActions(template, id)).toContain("ssm:GetParameter");
+  expect(policies).toContain(configParameter);
 });

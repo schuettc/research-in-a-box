@@ -301,3 +301,20 @@ test("with the embeddings module the API function may embed and search both vect
     })),
   ]);
 });
+
+test("the API function is told the archive-config parameter and may read it", () => {
+  const configParameter = prod.stack.getLogicalId(
+    prod.archive.archiveConfigParameter.node.defaultChild as CfnElement,
+  );
+  const env = (
+    fn("archive_backend.api.handler").properties.Environment as {
+      Variables: Record<string, unknown>;
+    }
+  ).Variables;
+
+  expect(env.ARCHIVE_CONFIG_PARAMETER).toEqual({ Ref: configParameter });
+  const reads = statements("archive_backend.api.handler").filter((s) =>
+    actions(s).includes("ssm:GetParameter"),
+  );
+  expect(JSON.stringify(reads)).toContain(configParameter);
+});

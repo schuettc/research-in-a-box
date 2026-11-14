@@ -26,6 +26,10 @@ TABLE_A = "catalog-a"
 TABLE_B = "catalog-b"
 PARAMETER = "/research-archive/test/catalog-active"
 TOPIC = "arn:aws:sns:us-east-1:1:alerts"
+CONFIG_PARAMETER = "/research-archive/test/archive-config"
+EMBEDDINGS_ON = json.dumps(
+    {"publisher": "P", "infrastructure": {"alertEmail": "a@b.c", "modules": {"embeddings": {}}}}
+)
 
 
 def _manifest(dataset_id: str, **extra: Any) -> dict[str, Any]:
@@ -162,8 +166,13 @@ def test_fake_bulk_responses_match_botocore_shapes() -> None:
 class FakeSSM:
     def __init__(self, value: str) -> None:
         self.value = value
+        self.config = json.dumps({"publisher": "P"})
+        self.config_reads = 0
 
     def get_parameter(self, *, Name: str) -> dict[str, Any]:
+        if Name == CONFIG_PARAMETER:
+            self.config_reads += 1
+            return {"Parameter": {"Value": self.config}}
         assert Name == PARAMETER
         return {"Parameter": {"Value": self.value}}
 
@@ -244,6 +253,7 @@ class World:
             "CATALOG_TABLE_B": TABLE_B,
             "ACTIVE_CATALOG_PARAMETER": PARAMETER,
             "ALERT_TOPIC_ARN": TOPIC,
+            "ARCHIVE_CONFIG_PARAMETER": CONFIG_PARAMETER,
         }.items():
             monkeypatch.setenv(name, value)
 
@@ -443,10 +453,12 @@ def test_reindex_embeds_each_dataset_item_before_writing_when_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     world = _world(monkeypatch, active="A")
-    monkeypatch.setattr(reindex, "embeddings_enabled", lambda c: True)
+    world.ssm.config = EMBEDDINGS_ON
     _publish_two(world)
 
     world.run()
+
+    assert world.ssm.config_reads == 1
 
     assert world.bedrock.texts == ["Title of ds-1", "Title of ds-2"]
     table = world.dynamodb.tables[TABLE_B]

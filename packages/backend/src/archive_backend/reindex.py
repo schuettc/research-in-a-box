@@ -32,6 +32,7 @@ from aws_durable_execution_sdk_python.waits import (
 )
 
 from archive_backend.catalog_file import write_catalog_file
+from archive_backend.config import read_archive_config
 from archive_backend.embeddings import Bedrock, with_embedding
 from archive_contract.manifest import Manifest
 
@@ -82,10 +83,8 @@ def clients() -> Clients:
 
 def embeddings_enabled(c: Clients) -> bool:
     """Whether the archive config switches the embeddings module on."""
-    # TODO(plan7-archive-config): replace with:
-    # cfg = read_archive_config(c.ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"])
-    # return cfg.infrastructure is not None and cfg.infrastructure.modules.embeddings is not None
-    return False
+    cfg = read_archive_config(c.ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"])
+    return cfg.infrastructure is not None and cfg.infrastructure.modules.embeddings is not None
 
 
 def _s(value: Any) -> dict[str, str]:
