@@ -3,8 +3,8 @@ diazo: research-archive-in-a-box/api-and-search
 file: spec
 status: approved
 approved: 2026-11-13T22:34:38-06:00
-hash: 789ad2e3e5f47e02424e715ed51234a6f5cd314354c06fdf5602c82d09b0f823
-rests_on: [DCSN5, DCSN1, DCSN4, AGNT1, AGNT8, AGNT2, AGNT3, AGNT4, DCSN2, AGNT9, AGNT7, DCSN3, AGNT10, AGNT5, AGNT6, AGNT11]
+hash: 2faf2b0aa9dd548e4ea5dcec9eed07446e98c46c80a9534f268ed452d6e41e61
+rests_on: [DCSN5, DCSN1, DCSN6, DCSN4, AGNT1, AGNT8, AGNT2, AGNT3, AGNT4, DCSN7, DCSN8, AGNT12, AGNT13, AGNT14, AGNT15, AGNT11, DCSN2, AGNT9, AGNT7, DCSN3, AGNT10, AGNT5, AGNT6]
 record: README.md
 ---
 
@@ -12,13 +12,13 @@ record: README.md
 
 ## Goal
 
-Anyone can find a dataset in the archive and fetch it, from the web app, the CLI or an MCP server, with no relational database. A read API open to all answers search, dataset, version and project reads; signed-in users get short-lived links to restricted files; the archive counts downloads and, optionally, asks readers how they use the data. It works today on what Plan 4's reindex loads, and Plan 7's publish step plugs into it later. Semantic search follows as its own plan once there is a real corpus to judge it on.
+Anyone can find a dataset in the archive and fetch it, from the web app, the CLI or an MCP server, with no relational database. A read API open to all answers search, dataset, version and project reads; signed-in users get short-lived links to restricted files; the archive counts downloads and, optionally, asks readers how they use the data. It works today on what Plan 4's reindex loads, and Plan 7's publish step plugs into it later. An archive can switch on semantic search, which finds datasets by meaning as well as by their words.
 
 ## The plans
 
-Plan 6 is two plans in this folder. PLAN1 is the read API and search described below, buildable now. PLAN3 is semantic search: the vector index on both catalog tables, the embedding model and its setting, and ranking semantic results with keyword results inside the same search endpoint; it is written once PLAN1 is built and Plan 5's corpus exists. Plan 7 owns everything under `/api/submissions`, including the review-policy setting, so there is no PLAN2.
+Plan 6 is two plans in this folder. PLAN1 is the read API and search described below, buildable now. PLAN3 makes keyword matching rank by how many words match, and adds semantic search: the vector index on both catalog tables, the embedding setting, and merging semantic with keyword results inside the same search endpoint, as described under Semantic search. Plan 7 owns everything under `/api/submissions`, including the review-policy setting, so there is no PLAN2.
 
-Rests on: DCSN5, DCSN1
+Rests on: DCSN5, DCSN1, DCSN6
 
 ## Endpoints
 
@@ -43,11 +43,21 @@ Rests on: DCSN4, AGNT1, AGNT8
 
 **The catalog file.** One function in `archive-backend` builds `catalog.json` from the active catalog table and writes it to the derived bucket's `site/`, so it is also public at `/catalog.json`. The reindex calls it after it flips the active table; Plan 7's publish step calls the same function. One row per published dataset at every access level: `id`, `version`, `title`, `description`, `keywords`, `access`, `licenses` (ids), `rightsStatus`, `project`, `creators`, `formats`, `start`, `end`, `ongoing`, `bbox` (west, south, east, north), `bytes` (the current version's total) and `published`. Theme and species join when the contract holds those fields (Plan 2's PARK5 and PARK6). It is written with Python's standard library; no DuckDB.
 
-**The endpoint.** `GET /api/search` takes `q` (keywords), `access`, `license`, `format`, `project` (each repeatable), `from` and `to` (dates), `bbox` (`west,south,east,north`), `page` and `size` (default 20, at most 100). Each keyword must appear, ignoring case, in the title, description, keywords or creators. Date filters keep a dataset whose coverage overlaps the range; the box keeps a dataset whose box intersects it, including boxes that cross the antimeridian. Results with a keyword in the title come first, then the rest, newest published first. The answer is the page of rows (the same fields as the catalog file, so a result card needs no further call), the total, and a count for each value of `access`, `license`, `format` and `project` under the current filter.
+**The endpoint.** `GET /api/search` takes `q` (keywords), `access`, `license`, `format`, `project` (each repeatable), `from` and `to` (dates), `bbox` (`west,south,east,north`), `page` and `size` (default 20, at most 100). A dataset matches when any word of `q` appears, ignoring case, in its title, description, keywords or creators; common words such as `on` and `the` are ignored and a plural matches its singular. Date filters keep a dataset whose coverage overlaps the range; the box keeps a dataset whose box intersects it, including boxes that cross the antimeridian. Results are ranked by how many words match, a word in the title counting half again; ties go newest published first. The answer is the page of rows (the same fields as the catalog file, so a result card needs no further call), the total, and a count for each value of `access`, `license`, `format` and `project` under the current filter.
 
 **Freshness.** The search Lambda keeps the parsed catalog in memory and checks the object's ETag at most once a minute, re-reading it when it changed, so a publish or reindex reaches search within a minute. Filtering 10,000 datasets took 9 ms in a measurement on a laptop; past roughly 50,000 datasets, the next step is an index rather than an in-memory list.
 
-Rests on: DCSN1, AGNT2, AGNT3, AGNT4
+Rests on: DCSN1, AGNT2, AGNT3, AGNT4, DCSN6
+
+## Semantic search
+
+Semantic search is an optional module, `infrastructure.modules.embeddings`, off by default. Switched on, the construct adds a vector index named `datasets` to both catalog tables (attribute `embedding`, 1,024 dimensions, COSINE, keys only, no vector partition key) and grants Bedrock on Amazon Titan Text Embeddings v2. One function in `archive-backend` takes a dataset item and its manifest and returns the item with `embedding` set, from the title, description and keywords. The reindex calls it on every dataset item before the bulk load, and Plan 7's publish calls the same function before its put, so the embedding is never written by a separate update that a later put would erase.
+
+With embeddings on and a `q`, `/api/search` embeds the query with the same model, asks the index for the 50 nearest datasets, and merges that list with the keyword ranking by reciprocal rank fusion: each dataset scores 1/(60 + its place) in each list and the page is sorted by the sum. The filters apply to the merged list as they do to keyword matches, and the total and facet counts are taken over it. If Bedrock or the index errors, the search answers the keyword ranking alone and logs a warning. With embeddings off, search is the keyword ranking. Any Lambda reads the setting from the archive-config parameter.
+
+On Plan 5's ten converted datasets, 22 plain-language searches found 11 with every-word keyword matching, 17 with any-word ranking, and put 17 first with Titan v2 merged by fusion (21 in the top 3).
+
+Rests on: DCSN6, DCSN7, DCSN8, AGNT12, AGNT13, AGNT14, AGNT15, AGNT11
 
 ## Restricted downloads
 
@@ -83,14 +93,14 @@ Rests on: DCSN4, AGNT6, AGNT11
 
 **Risk.** A mistake could hand a restricted file to someone it shouldn't reach, for instance a download route that signs any key it is given. Links last five minutes, the route signs only paths listed in the version's file items, and CloudFront is denied `restricted/*` outright, so a fix and a redeploy close it; tests cover a signed-out call, a path outside the version, and a by-request dataset. Nothing here deletes or rewrites a package: every endpoint reads, and the only writes are counts, usage answers and the derived catalog file, all rebuildable or disposable.
 
-**Cost.** One test deploy to an AWS account you choose and its teardown, each a step for you on the page. No new programs on your machine; `aws-lambda-powertools` joins `archive-backend`. Running cost is one Lambda call per search and per read, a daily rollup and a small table, pennies a month for a small archive.
+**Cost.** One test deploy to an AWS account you choose and its teardown, each a step for you on the page. No new programs on your machine; `aws-lambda-powertools` joins `archive-backend`. Running cost is one Lambda call per search and per read, a daily rollup and a small table, pennies a month for a small archive. With embeddings on, each search and each reindexed or published dataset adds one Bedrock call (about $0.02 per million tokens for Titan v2, quoted by third parties) and the vector index's storage and searches; a wrong embedding is undone by a reindex.
 
-Rests on: DCSN2, DCSN4
+Rests on: DCSN2, DCSN4, DCSN7
 
 ## Left out
 
 - Submission, review and review-policy endpoints: Plan 7's.
-- Semantic search, the embedding model and the vector index: PLAN3.
+- A score cut-off for semantic matches, and choosing the model per archive: until real searches show they are needed.
 - Theme and species facets: when Plan 2's PARK5 and PARK6 add the fields.
 - The CLI and MCP sign-in client code: Plan 9, its first user.
 - An admin route to start a reindex: stays Plan 4's follow-up PARK1.
@@ -104,5 +114,6 @@ Rests on: DCSN5, DCSN3, AGNT5
 - `just check` passes, including tests for search filters, facet counts, paging and the antimeridian box; for the download route refusing a signed-out call, a path outside the version and a by-request dataset; for the rollup counting 200s only and never counting a day twice; and the OpenAPI drift check.
 - On one test deploy with two datasets loaded by `just reindex` (one open, one restricted): `GET /api/search?q=` finds each by a word in its description and the facet counts add up; `GET /api/datasets/<id>` returns the manifest and files; a signed-in user's download link fetches the restricted file and expires; the same call signed out answers 401; a usage answer posts and an admin reads it back; after an open download through `/data` and a run of the rollup, DownloadCounts shows it.
 - The round trip of a search through CloudFront, warm and after idle, is measured on that deploy and written in the plan's result.
+- For PLAN3, tests cover any-word ranking, fusion order, filters on the merged list, and keyword-only answers when Bedrock fails; on a test deploy with embeddings on and Plan 5's ten datasets reindexed, `GET /api/search?q=air%20pollution` puts the IMPROVE aerosol dataset first, and with embeddings off the same stack answers keyword results.
 
-Rests on: DCSN1, DCSN2, DCSN3, DCSN4
+Rests on: DCSN1, DCSN2, DCSN3, DCSN4, DCSN6, DCSN8
