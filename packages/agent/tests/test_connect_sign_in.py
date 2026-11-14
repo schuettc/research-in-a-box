@@ -133,7 +133,7 @@ def test_the_server_lists_its_tools_and_answers_errors_in_plain_words() -> None:
     mcp = server.build(Session())
 
     names = {tool.name for tool in asyncio.run(mcp.list_tools())}
-    assert {"connect", "sign_in"} <= names
+    assert {"connect", "sign_in", "search", "get_dataset", "download"} <= names
 
     # An anticipated error: the protocol layer answers it as is_error with this message.
     with pytest.raises(ToolError, match="No archive is set yet.*call connect"):

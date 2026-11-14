@@ -14,7 +14,7 @@ from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
-from archive_agent import __version__, state
+from archive_agent import __version__, read, state
 from archive_agent.archive import Archive
 from archive_agent.errors import NotConnected, Refused, SignInFailed, Unreachable
 from archive_agent.state import Session
@@ -106,6 +106,41 @@ def build(session: Session) -> MCPServer:
         """Open the browser to sign in to the archive. Answers your email and groups. Tokens
         last an hour and are kept only while this server runs."""
         return sign_in(session)
+
+    @mcp.tool(name="search")
+    def search_tool(
+        q: str | None = None,
+        access: list[str] | None = None,
+        license: list[str] | None = None,
+        format: list[str] | None = None,
+        project: list[str] | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        bbox: list[float] | None = None,
+        page: int | None = None,
+        size: int | None = None,
+    ) -> dict[str, Any]:
+        """Search the archive's published datasets; no sign-in needed. `q` is free text;
+        access (open, restricted, by-request), license ids, formats and projects each match
+        any of the values given; from_date and to_date (YYYY-MM-DD) bound the data's dates;
+        bbox is [west, south, east, north]. Answers one page of rows, the total and a count
+        per value of access, license, format and project. size is at most 100."""
+        return read.search(
+            session, q, access, license, format, project, from_date, to_date, bbox, page, size
+        )
+
+    @mcp.tool(name="get_dataset")
+    def get_dataset_tool(id: str, version: int | None = None) -> dict[str, Any]:
+        """One dataset: its title and access, the manifest (datapackage.json) and files of a
+        version (the current one by default) and a citation built from the manifest."""
+        return read.get_dataset(session, id, version)
+
+    @mcp.tool(name="download")
+    def download_tool(id: str, version: int, paths: list[str], to: str) -> dict[str, Any]:
+        """Download the named files (paths as listed in the version's files) of one version
+        into the local folder `to`, checking each against its recorded SHA-256. Restricted
+        files need sign_in first. Answers what was written and anything that failed."""
+        return read.download(session, id, version, paths, to)
 
     return mcp
 
