@@ -27,6 +27,7 @@ TABLE_B = "catalog-b"
 PARAMETER = "/research-archive/test/catalog-active"
 TOPIC = "arn:aws:sns:us-east-1:1:alerts"
 CONFIG_PARAMETER = "/research-archive/test/archive-config"
+DOMAIN = "d111.cloudfront.net"
 EMBEDDINGS_ON = json.dumps(
     {"publisher": "P", "infrastructure": {"alertEmail": "a@b.c", "modules": {"embeddings": {}}}}
 )
@@ -44,6 +45,7 @@ def _manifest(dataset_id: str, **extra: Any) -> dict[str, Any]:
 class FakeS3:
     def __init__(self) -> None:
         self.objects: dict[tuple[str, str], bytes] = {}
+        self.puts: list[str] = []
 
     def put(self, key: str, manifest: dict[str, Any]) -> None:
         self.objects[(ARCHIVE, key)] = json.dumps(manifest).encode()
@@ -62,6 +64,7 @@ class FakeS3:
 
     def put_object(self, *, Bucket: str, Key: str, Body: bytes | str, **_: Any) -> dict[str, Any]:
         self.objects[(Bucket, Key)] = Body.encode() if isinstance(Body, str) else Body
+        self.puts.append(Key)
         return {}
 
 
@@ -203,13 +206,27 @@ class FakeBedrock:
 
 
 class FakeContext:
+    """Runs each step, recording its result; with `replay` on it hands the recorded results back
+    in order without running them, as a durable replay does."""
+
     def __init__(self, events: list[str]) -> None:
         self.events = events
         self.waits: list[int] = []
+        self.recorded: list[Any] = []
+        self.replay = False
+        self._at = 0
+
+    def _checkpoint(self, run: Callable[[], Any]) -> Any:
+        if self.replay:
+            self._at += 1
+            return self.recorded[self._at - 1]
+        result = run()
+        self.recorded.append(result)
+        return result
 
     def step(self, func: Callable[[Any], Any], name: str | None = None) -> Any:
         self.events.append(f"step:{name}")
-        return func(None)
+        return self._checkpoint(lambda: func(None))
 
     def wait_for_condition(
         self,
@@ -218,15 +235,19 @@ class FakeContext:
         name: str | None = None,
     ) -> Any:
         self.events.append(f"step:{name}")
-        state = config.initial_state
-        attempt = 0
-        while True:
-            attempt += 1
-            state = check(state, None)
-            decision = config.wait_strategy(state, attempt)
-            if not decision.should_continue:
-                return state
-            self.waits.append(decision.delay_seconds)
+
+        def poll() -> Any:
+            state = config.initial_state
+            attempt = 0
+            while True:
+                attempt += 1
+                state = check(state, None)
+                decision = config.wait_strategy(state, attempt)
+                if not decision.should_continue:
+                    return state
+                self.waits.append(decision.delay_seconds)
+
+        return self._checkpoint(poll)
 
 
 class World:
@@ -254,6 +275,7 @@ class World:
             "ACTIVE_CATALOG_PARAMETER": PARAMETER,
             "ALERT_TOPIC_ARN": TOPIC,
             "ARCHIVE_CONFIG_PARAMETER": CONFIG_PARAMETER,
+            "SITE_DOMAIN": DOMAIN,
         }.items():
             monkeypatch.setenv(name, value)
 
@@ -408,6 +430,7 @@ def test_reindex_loads_the_inactive_table_and_flips_on_completed(
         "items": 8,
         "flipped": True,
         "catalog": 2,
+        "pages": 2,
     }
     assert len(run) == 16 and run[8] == "T" and run.endswith("Z")
     assert world.ssm.value == "B"
@@ -444,6 +467,7 @@ def test_reindex_loads_the_inactive_table_and_flips_on_completed(
         "step:wait-load",
         "step:flip",
         "step:catalog",
+        "step:pages",
     ]
     catalog = json.loads(world.s3.objects[(DERIVED, "site/catalog.json")])
     assert [row["id"] for row in catalog] == ["ds-1", "ds-2"]
@@ -593,7 +617,43 @@ def test_a_failed_catalog_file_alerts_and_keeps_the_flip(monkeypatch: pytest.Mon
     assert result["flipped"] is True
     assert result["catalog"] is None
     assert world.ssm.value == "B"
-    assert world.events[-2:] == ["step:catalog", "step:alert"]
+    assert world.events[-3:] == ["step:catalog", "step:alert", "step:pages"]
     [alert] = world.sns.published
     assert f"Reindex {result['run']} flipped to B" in alert["Message"]
     assert "no write" in alert["Message"]
+
+
+def test_reindex_writes_each_datasets_page_from_its_current_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    world = _world(monkeypatch, active="A")
+    _publish_two(world)
+
+    result = world.run()
+
+    assert result["pages"] == 2
+    pages = sorted(k for k in world.s3.puts if k.startswith("site/datasets/"))
+    assert pages == ["site/datasets/ds-1/index.html", "site/datasets/ds-2/index.html"]
+    first = world.s3.objects[(DERIVED, "site/datasets/ds-1/index.html")].decode()
+    assert f"https://{DOMAIN}/datasets/ds-1/v2" in first
+    assert f"https://{DOMAIN}/data/ds-1/2/data/a.csv" in first
+    assert "/data/ds-1/1/" not in first
+    second = world.s3.objects[(DERIVED, "site/datasets/ds-2/index.html")].decode()
+    assert f"https://{DOMAIN}/data/ds-2/1/data/a.csv" in second
+    assert '<div id="app">' in second
+    assert world.events.index("step:catalog") < world.events.index("step:pages")
+
+
+def test_a_replayed_reindex_does_not_write_the_pages_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    world = _world(monkeypatch, active="A")
+    _publish_two(world)
+    first = world.run()
+
+    world.context.replay = True
+    again = world.run()
+
+    assert again == first
+    pages = [k for k in world.s3.puts if k.startswith("site/datasets/")]
+    assert len(pages) == 2

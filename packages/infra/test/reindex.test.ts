@@ -135,14 +135,28 @@ test("its environment names both catalog tables, the active-catalog parameter, b
   });
 });
 
-test("it may write the catalog file and nothing else under site/", () => {
+test("it may write the catalog file and the dataset pages, and nothing else under site/", () => {
   const writes = statements().filter(
     (s) => actions(s).includes("s3:PutObject") && JSON.stringify(s.Resource).includes("/site/"),
   );
+  const resources = writes.map((s) => JSON.stringify(s.Resource));
 
-  expect(writes).toHaveLength(1);
-  expect(JSON.stringify(writes[0]!.Resource)).toContain("/site/catalog.json");
-  expect(JSON.stringify(writes[0]!.Resource)).not.toContain("/site/*");
+  expect(resources.some((r) => r.includes("/site/catalog.json"))).toBe(true);
+  expect(resources.some((r) => r.includes("/site/datasets/*"))).toBe(true);
+  for (const r of resources) {
+    expect(r).not.toContain("/site/*");
+  }
+});
+
+test("it is told the site's domain, from the distribution", () => {
+  const distribution = archive.distribution.node.defaultChild as CfnElement;
+  expect(reindexFunction().properties).toMatchObject({
+    Environment: {
+      Variables: {
+        SITE_DOMAIN: { "Fn::GetAtt": [stack.getLogicalId(distribution), "DomainName"] },
+      },
+    },
+  });
 });
 
 function grantedActions(t: Template, id: string): string[] {

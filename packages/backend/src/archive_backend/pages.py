@@ -2,8 +2,10 @@
 
 One self-contained HTML file per dataset, rewritten at each publish: the title, description,
 citation, current version, the file links when the data is open, and the schema.org JSON-LD
-from the contract's export in the head. Every manifest value is escaped; the JSON-LD escapes
-`<`, `>` and `&` so no value can close its script element.
+from the contract's export in the head. The readable content sits in `<div id="app">`, which the
+web app's `/app.js` takes over; without the script the page still reads on its own. Every
+manifest value is escaped; the JSON-LD escapes `<`, `>` and `&` so no value can close its
+script element.
 """
 
 from __future__ import annotations
@@ -11,13 +13,19 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from html import escape
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from archive_contract.exports._common import creators, person_name
 from archive_contract.exports.readme import _citation
 from archive_contract.exports.schemaorg import to_schemaorg
 from archive_contract.manifest import Manifest
+
+if TYPE_CHECKING:
+    # Dev-only stubs: the Lambda asset is built without them.
+    from mypy_boto3_s3 import S3Client
+
+APP_SCRIPT = '<script type="module" src="/app.js"></script>'
 
 STYLE = (
     "body{font-family:system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem;"
@@ -89,6 +97,7 @@ def render_page(
         f'<script type="application/ld+json">\n{_jsonld(data)}\n</script>',
         "</head>",
         "<body>",
+        '<div id="app">',
         "<main>",
         f"<h1>{escape(title)}</h1>",
     ]
@@ -122,5 +131,23 @@ def render_page(
         lines.append("</ul>")
     else:
         lines.append(f"<p>The files are {escape(access)}: ask the archive for access.</p>")
-    lines += ["</main>", "</body>", "</html>"]
+    lines += ["</main>", "</div>", APP_SCRIPT, "</body>", "</html>"]
     return "\n".join(lines) + "\n"
+
+
+def page_key(dataset_id: str) -> str:
+    return f"site/datasets/{dataset_id}/index.html"
+
+
+def write_page(s3: S3Client, bucket: str, html: str, dataset_id: str) -> str:
+    """Put the dataset page at `site/datasets/<id>/index.html` and return its key."""
+    key = page_key(dataset_id)
+    s3.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=html.encode("utf-8"),
+        ContentType="text/html; charset=utf-8",
+        # Short, so a later version's page shows within five minutes.
+        CacheControl="max-age=300",
+    )
+    return key

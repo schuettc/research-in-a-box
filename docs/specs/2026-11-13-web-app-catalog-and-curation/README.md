@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/web-app-catalog-and-curation` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 to write** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 wait** → **Build · 0 of 7** → Sign off
 
-PLAN1 can be written now · PLAN2 waits on PLAN1 being built
+PLAN1 building · 0 of 7 done · PLAN2 waits on PLAN1 being built
 
 ## Pick up next
 
@@ -58,7 +58,14 @@ PLAN1 can be written now · PLAN2 waits on PLAN1 being built
 
 ## Plans
 
-- PLAN1 Reader search page download: can be written now
+- [PLAN1](plans/1-reader-search-page-download.md) The reader's flow: building · 0 of 7 done
+  - TASK1 Task 1: The web app's groundwork: not started
+  - TASK2 Task 2: The search page: not started
+  - TASK3 Task 3: The dataset page, open downloads and the usage panel: not started
+  - TASK4 Task 4: Sign-in and restricted downloads: not started
+  - TASK5 Task 5: Shipping the app and auth-config.json: not started
+  - TASK6 Task 6: The page takeover and the reindex's page step: not started
+  - TASK7 Task 7: The walk on a test stage: not started
 - PLAN2 Submission review and policy screens: waits on PLAN1 being built
 
 ## Files
@@ -69,6 +76,7 @@ PLAN1 can be written now · PLAN2 waits on PLAN1 being built
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 
 ## Ids

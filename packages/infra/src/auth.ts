@@ -10,6 +10,8 @@ export interface AuthProps {
 /** The user pool with email sign-in by invitation only, its role groups, and Cognito's managed login. */
 export class Auth extends Construct {
   readonly userPool: cognito.UserPool;
+  /** Managed login's base URL, which clients read from /auth-config.json. */
+  readonly cognitoDomain: string;
   private readonly domain: cognito.UserPoolDomain;
   private readonly isProd: boolean;
 
@@ -35,6 +37,7 @@ export class Auth extends Construct {
       cognitoDomain: { domainPrefix: `archive-${props.stage}-${Stack.of(this).account}` },
       managedLoginVersion: cognito.ManagedLoginVersion.NEWER_MANAGED_LOGIN,
     });
+    this.cognitoDomain = this.domain.baseUrl();
   }
 
   /** The web app's and the CLI's clients: code with PKCE, no secret, each with managed login. */

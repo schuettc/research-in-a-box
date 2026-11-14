@@ -1,9 +1,22 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as iam from "aws-cdk-lib/aws-iam";
 import type * as s3 from "aws-cdk-lib/aws-s3";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import { Construct } from "constructs";
+
+const WEB_BUILD = fileURLToPath(new URL("../../web/dist", import.meta.url));
+
+/** What /auth-config.json tells the web app and the CLI: the fields Plan 9 agreed. */
+export interface AuthConfig {
+  readonly region: string;
+  readonly cognitoDomain: string;
+  readonly webClientId: string;
+  readonly cliClientId: string;
+}
 
 export interface WebProps {
   readonly derivedBucket: s3.IBucket;
@@ -41,9 +54,11 @@ const STRIP_DATA = `function handler(event) {
  */
 export class Web extends Construct {
   readonly distribution: cloudfront.Distribution;
+  private readonly derivedBucket: s3.IBucket;
 
   constructor(scope: Construct, id: string, props: WebProps) {
     super(scope, id);
+    this.derivedBucket = props.derivedBucket;
     const viewerRequest = (functionId: string, code: string): cloudfront.FunctionAssociation => ({
       eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
       function: new cloudfront.Function(this, functionId, {
@@ -96,5 +111,37 @@ export class Web extends Construct {
         resources: [props.archiveBucket.arnForObjects("restricted/*")],
       }),
     );
+  }
+
+  /**
+   * Upload the web build and /auth-config.json into the derived bucket's `site/`. Pruning is
+   * off in both deployments: catalog.json and datasets/ share the folder. The hashed assets
+   * cache for a year and go first; index.html, app.js and auth-config.json are no-cache and
+   * invalidated, so a release reaches readers at once.
+   */
+  deploySite(authConfig: AuthConfig): void {
+    if (!existsSync(WEB_BUILD)) {
+      throw new Error("packages/web/dist is missing: run npm run build -w packages/web first");
+    }
+    const assets = new s3deploy.BucketDeployment(this, "SiteAssets", {
+      sources: [s3deploy.Source.asset(WEB_BUILD, { exclude: ["index.html", "app.js"] })],
+      destinationBucket: this.derivedBucket,
+      destinationKeyPrefix: "site/",
+      prune: false,
+      cacheControl: [s3deploy.CacheControl.fromString("public, max-age=31536000, immutable")],
+    });
+    const site = new s3deploy.BucketDeployment(this, "Site", {
+      sources: [
+        s3deploy.Source.asset(WEB_BUILD, { exclude: ["*", "!index.html", "!app.js"] }),
+        s3deploy.Source.jsonData("auth-config.json", { ...authConfig }),
+      ],
+      destinationBucket: this.derivedBucket,
+      destinationKeyPrefix: "site/",
+      prune: false,
+      cacheControl: [s3deploy.CacheControl.noCache()],
+      distribution: this.distribution,
+      distributionPaths: ["/index.html", "/app.js", "/auth-config.json"],
+    });
+    site.node.addDependency(assets);
   }
 }

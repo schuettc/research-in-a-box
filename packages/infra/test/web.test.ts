@@ -4,7 +4,8 @@ import type { CfnRestApi } from "aws-cdk-lib/aws-apigateway";
 import type { CfnDistribution } from "aws-cdk-lib/aws-cloudfront";
 import type { CfnUserPoolClient } from "aws-cdk-lib/aws-cognito";
 import type { CfnBucket } from "aws-cdk-lib/aws-s3";
-import { expect, test } from "vitest";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import { afterEach, expect, test, vi } from "vitest";
 import { ResearchArchive } from "../src/research-archive";
 import { testApp } from "./test-app";
 
@@ -167,4 +168,67 @@ test("CloudFront is denied the archive bucket's restricted/ prefix", () => {
   expect(deny).toBeDefined();
   expect(deny?.Action).toBe("s3:GetObject");
   expect(JSON.stringify(deny?.Resource)).toContain("/restricted/*");
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+/** The bucket deployments writing into the derived bucket's site/. */
+function siteDeployments(a: ResearchArchive, stack: Stack, template: Template): Json[] {
+  const derived = bucketId(stack, a.derivedBucket);
+  return Object.values(template.findResources("Custom::CDKBucketDeployment"))
+    .map((resource) => (resource as Json).Properties as Json)
+    .filter(
+      (p) =>
+        JSON.stringify(p.DestinationBucketName).includes(derived) &&
+        String(p.DestinationBucketKeyPrefix ?? "").startsWith("site"),
+    );
+}
+
+test("the app is deployed into site/ by two deployments that never prune", () => {
+  const { archive: a, stack, template } = archive();
+  const deployments = siteDeployments(a, stack, template);
+
+  expect(deployments).toHaveLength(2);
+  for (const deployment of deployments) {
+    expect(deployment.Prune).toBe(false);
+    expect(deployment.DestinationBucketKeyPrefix).toBe("site/");
+  }
+  const caching = deployments.map((d) => d.SystemMetadata?.["cache-control"]).sort();
+  expect(caching).toEqual(["no-cache", "public, max-age=31536000, immutable"]);
+});
+
+test("the no-cache deployment writes auth-config.json and invalidates the app's stable files", () => {
+  const { archive: a, stack, template } = archive();
+  const distribution = stack.getLogicalId(a.distribution.node.defaultChild as CfnDistribution);
+  const site = siteDeployments(a, stack, template).find(
+    (d) => d.SystemMetadata?.["cache-control"] === "no-cache",
+  );
+
+  expect(site?.DistributionId).toEqual({ Ref: distribution });
+  expect(site?.DistributionPaths).toEqual(["/index.html", "/app.js", "/auth-config.json"]);
+  expect(site?.SourceObjectKeys).toHaveLength(2);
+});
+
+test("auth-config.json holds exactly the region, sign-in domain and both client ids", () => {
+  const jsonData = vi.spyOn(s3deploy.Source, "jsonData");
+  const { archive: a, stack } = archive();
+
+  const call = jsonData.mock.calls.find(([name]) => name === "auth-config.json");
+  expect(call).toBeDefined();
+  const data = call?.[1] as Json;
+  expect(Object.keys(data).sort()).toEqual([
+    "cliClientId",
+    "cognitoDomain",
+    "region",
+    "webClientId",
+  ]);
+  const ref = (client: { node: { defaultChild: unknown } }) => ({
+    Ref: stack.getLogicalId(client.node.defaultChild as CfnUserPoolClient),
+  });
+  expect(stack.resolve(data.webClientId)).toEqual(ref(a.userPoolClients.web));
+  expect(stack.resolve(data.cliClientId)).toEqual(ref(a.userPoolClients.cli));
+  expect(stack.resolve(data.region)).toEqual({ Ref: "AWS::Region" });
+  expect(JSON.stringify(stack.resolve(data.cognitoDomain))).toContain("amazoncognito.com");
 });

@@ -142,16 +142,23 @@ export class ResearchArchive extends Construct {
     this.operations.addApi(this.api);
     this.authorizer = api.authorizer;
 
-    this.distribution = new Web(this, "Web", {
+    const web = new Web(this, "Web", {
       derivedBucket: this.derivedBucket,
       archiveBucket: this.archiveBucket,
       restApi: this.api,
-    }).distribution;
+    });
+    this.distribution = web.distribution;
     this.operations.addDistribution(this.distribution);
     this.userPoolClients = auth.addAppClients(this.distribution.distributionDomainName);
     if (!this.isProd) {
       auth.addTestClient(this.distribution.distributionDomainName);
     }
+    web.deploySite({
+      region: Stack.of(this).region,
+      cognitoDomain: auth.cognitoDomain,
+      webClientId: this.userPoolClients.web.userPoolClientId,
+      cliClientId: this.userPoolClients.cli.userPoolClientId,
+    });
 
     new IntegrityCheck(this, "IntegrityCheck", {
       archive: this,
