@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "FEMC migration and practice corpus (Plan 5)",
   "expect": 2,
-  "agent_at": "2026-11-14T04:13:46.562634Z",
+  "agent_at": "2026-11-14T04:58:01.480363Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 2, folder 8da653f233f9, and Plan 3, the quality rules and local tool.)\n\nBrief: Plan 5 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md` and `practice-data/femc/SOURCES.md`. Plan the conversion of the FEMC practice corpus (Plan 5). One dataset is already converted by hand. Plan the other five in order of what each will teach us, and propose which datasets to add to reach 10 to 20."
@@ -477,7 +477,10 @@
           "does": "Creates the examples/femc workspace member with its femc command and FEMC's archive.yaml, wired into the root pyproject so just check covers it.",
           "pulls_in": "A new workspace member; root pyproject and uv.lock changes.",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "6ef20e7; just check-python exit 0; femc --help exit 0",
+          "build_at": "2026-11-13T22:50:00.5063-06:00"
         },
         {
           "id": "TASK2",
@@ -485,7 +488,10 @@
           "does": "femc.eml.standardize rewrites a FEMC record into standard EML for the unchanged from_eml, returning what it dropped and the citation.",
           "pulls_in": "Invented FEMC-shaped EML fixtures and tests.",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "e703a5f; 16 EML tests; just check-python exit 0",
+          "build_at": "2026-11-13T22:50:00.5063-06:00"
         },
         {
           "id": "TASK3",
@@ -495,7 +501,10 @@
           "serves": [
             "DCSN1"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "c3c3944; 10 convert tests; just check-python exit 0 (370 passed)",
+          "build_at": "2026-11-13T22:50:00.5063-06:00"
         },
         {
           "id": "TASK4",
@@ -505,7 +514,10 @@
           "serves": [
             "DCSN1"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "All ten converted (exit 0), 0 structure findings each (jq check exit 0); no converter fix needed; old Ozone moved to _draft-ozone-bioindicators",
+          "build_at": "2026-11-13T22:50:00.5063-06:00"
         },
         {
           "id": "TASK5",
@@ -515,7 +527,10 @@
           "serves": [
             "DCSN2"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "cruise audit exit 0, 10 packages (jq check true); counts in documents/femc-audit-counts.md, no evidence values; full output in practice-data/audit/",
+          "build_at": "2026-11-13T22:58:01.480363-06:00"
         }
       ],
       "approved": {
@@ -525,6 +540,9 @@
       }
     }
   ],
+  "signoff": {
+    "due_at": "2026-11-13T22:58:01.480363-06:00"
+  },
   "messages": [
     {
       "id": 1,

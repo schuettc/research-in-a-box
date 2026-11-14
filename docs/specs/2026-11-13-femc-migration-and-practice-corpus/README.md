@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/femc-migration-and-practice-corpus` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 0 of 5** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → ✓ Build → **Sign off · due**
 
-PLAN1 building · 0 of 5 done
+PLAN1 built
 
 ## What was asked
 
@@ -48,12 +48,12 @@ PLAN1 building · 0 of 5 done
 
 ## Plans
 
-- [PLAN1](plans/1-femc-converter-and-corpus.md) The FEMC converter and the ten-dataset corpus: building · 0 of 5 done
-  - TASK1 Task 1: The femc package and FEMC's config: not started
-  - TASK2 Task 2: Reading FEMC's EML: not started
-  - TASK3 Task 3: Writing a package: not started
-  - TASK4 Task 4: Convert the ten: not started
-  - TASK5 Task 5: The audit and its counts: not started
+- [PLAN1](plans/1-femc-converter-and-corpus.md) The FEMC converter and the ten-dataset corpus: built
+  - TASK1 Task 1: The femc package and FEMC's config: done. 6ef20e7; just check-python exit 0; femc --help exit 0
+  - TASK2 Task 2: Reading FEMC's EML: done. e703a5f; 16 EML tests; just check-python exit 0
+  - TASK3 Task 3: Writing a package: done. c3c3944; 10 convert tests; just check-python exit 0 (370 passed)
+  - TASK4 Task 4: Convert the ten: done. All ten converted (exit 0), 0 structure findings each (jq check exit 0); no converter fix needed; old Ozone moved to _draft-ozone-bioindicators
+  - TASK5 Task 5: The audit and its counts: done. cruise audit exit 0, 10 packages (jq check true); counts in documents/femc-audit-counts.md, no evidence values; full output in practice-data/audit/
 
 ## Steps
 
@@ -70,6 +70,7 @@ PLAN1 building · 0 of 5 done
 | `spec.md` | the agent, header by diazo | The spec. |
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
+| `documents/` | the agent and the user | Every other file the plan holds, of any type: CSV, PDF, Markdown, transcripts. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |
 
 ## Ids

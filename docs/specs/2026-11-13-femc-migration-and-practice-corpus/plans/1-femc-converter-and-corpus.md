@@ -1,7 +1,7 @@
 ---
 diazo: research-archive-in-a-box/femc-migration-and-practice-corpus
 file: PLAN1
-status: approved
+status: done
 approved: 2026-11-13T22:26:53-06:00
 hash: c76a9863dbd5dd3d22bea13a1c65ab2f7b351a2c1d1138d4f571c19cd93cc1be
 rests_on: [AGNT1, AGNT2, AGNT3, AGNT4, AGNT5, AGNT6, AGNT7, AGNT8, AGNT9, DCSN1, DCSN2]
