@@ -1,4 +1,4 @@
-import { Stack } from "aws-cdk-lib";
+import { CfnOutput, Stack } from "aws-cdk-lib";
 import type * as apigateway from "aws-cdk-lib/aws-apigateway";
 import type * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import type * as cognito from "aws-cdk-lib/aws-cognito";
@@ -149,9 +149,14 @@ export class ResearchArchive extends Construct {
     });
     this.distribution = web.distribution;
     this.operations.addDistribution(this.distribution);
+    // just smoke, just seed, CI's smoke step and just ingest-e2e read it on every stage.
+    new CfnOutput(Stack.of(this), "SiteDomain", {
+      key: "SiteDomain",
+      value: this.distribution.distributionDomainName,
+    });
     this.userPoolClients = auth.addAppClients(this.distribution.distributionDomainName);
     if (!this.isProd) {
-      auth.addTestClient(this.distribution.distributionDomainName);
+      auth.addTestClient();
     }
     web.deploySite({
       region: Stack.of(this).region,

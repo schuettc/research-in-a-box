@@ -5,6 +5,16 @@ archive package, a local tool (`cruise`) that builds and checks packages, and
 an AWS backend, CDK construct and web app that serve them. Fork the repo, edit
 one config file and deploy.
 
+## Deploy your archive
+
+1. Fork this repo on GitHub and clone your fork.
+2. Open the clone in [Claude Code](https://claude.com/claude-code).
+3. Ask it to set up the archive.
+
+The `deploy-archive` skill (`.claude/skills/deploy-archive/`) checks what you need, writes
+`archive.yaml` with you, connects GitHub Actions to your AWS account, and has CI deploy it. It
+also updates your fork from upstream and tears a stage down.
+
 ## Layout
 
 ```

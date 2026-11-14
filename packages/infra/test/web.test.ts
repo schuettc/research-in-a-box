@@ -154,6 +154,13 @@ test("the web client's callback is on the distribution's domain", () => {
   });
 });
 
+test("the SiteDomain output names the distribution's domain, for just smoke and just seed", () => {
+  const { archive: a, stack, template } = archive();
+  const distribution = stack.getLogicalId(a.distribution.node.defaultChild as CfnDistribution);
+
+  template.hasOutput("SiteDomain", { Value: { "Fn::GetAtt": [distribution, "DomainName"] } });
+});
+
 test("CloudFront is denied the archive bucket's restricted/ prefix", () => {
   const { archive: a, stack, template } = archive();
   const policies = template.findResources("AWS::S3::BucketPolicy");

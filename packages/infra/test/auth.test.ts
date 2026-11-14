@@ -110,7 +110,6 @@ test("a prod stage has no e2e client, no admin password sign-in on any client, a
   const outputs = Object.keys(template.findOutputs("*"));
   expect(outputs).not.toContain("E2eClientId");
   expect(outputs).not.toContain("UserPoolId");
-  expect(outputs).not.toContain("SiteDomain");
 });
 
 test("the ingest-test config makes only the ingest-test stack, with the e2e client", () => {
@@ -130,7 +129,7 @@ test("the ingest-test config makes only the ingest-test stack, with the e2e clie
 test("the e2e client refuses a prod pool", () => {
   const auth = new Auth(new Stack(testApp(), "S"), "Auth", { stage: "prod", isProd: true });
 
-  expect(() => auth.addTestClient("d123.cloudfront.net")).toThrow(/prod/);
+  expect(() => auth.addTestClient()).toThrow(/prod/);
 });
 
 test("the prod user pool is retained with deletion protection; a dev stage's is not", () => {
