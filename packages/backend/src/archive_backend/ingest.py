@@ -9,14 +9,26 @@ so a submission still open then ends itself as `expired` before the platform's o
 execution timeout ends it without a word. Every call that reads the clock, the network or a random
 value runs inside a named step, every status change writes its event in the same step, and a
 step that fails after its retries ends the submission as `failed` with an admin alert.
+
+Publish is a series of steps, each safe to repeat: assign the version from the active catalog,
+fill in the manifest and regenerate its README and checksums, copy the files to the archive
+bucket (the manifest last), put the catalog items the reindex would build into the active
+table, write the dataset page, and finish.
 """
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
+import mimetypes
 import os
+import re
+import secrets
 import shutil
+import string
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -39,11 +51,14 @@ from aws_durable_execution_sdk_python.waits import (
     WaitForConditionDecision,
 )
 
+from archive_backend import pages
+from archive_backend.reindex import catalog_items, dataset_item
 from archive_backend.submissions import Table, put_event, stored_policy
 from archive_contract import SubmissionFacts, match, reminder_schedule
 from archive_contract.config import ArchiveConfig
+from archive_contract.exports.readme import render_readme
 from archive_contract.findings import Finding, Target
-from archive_contract.manifest import AccessLevel
+from archive_contract.manifest import AccessLevel, Manifest
 from cruise.diagnose import diagnose
 
 DAY = 86400
@@ -57,6 +72,12 @@ PIPELINE = "pipeline"
 ALL = "all"
 MAX_SCAN_DELAY = 3600
 DELETE_BATCH = 1000
+README = "README.md"
+CHECKSUMS = "checksums.sha256"
+CATALOG_BATCH = 25
+SUFFIX = 6
+SLUG_LENGTH = 60
+CHUNK = 1024 * 1024
 
 
 class S3(Protocol):
@@ -76,11 +97,19 @@ class SSM(Protocol):
     def get_parameter(self, **kwargs: Any) -> dict[str, Any]: ...
 
 
+class DynamoDB(Protocol):
+    """The low-level client, for the catalog tables' DynamoDB JSON items."""
+
+    def get_item(self, **kwargs: Any) -> dict[str, Any]: ...
+    def batch_write_item(self, **kwargs: Any) -> dict[str, Any]: ...
+
+
 @dataclass(frozen=True)
 class Clients:
     s3: S3
     sns: SNS
     ssm: SSM
+    dynamodb: DynamoDB
     submissions: Table
     reviews: Table
     settings: Table
@@ -95,6 +124,12 @@ class Env:
     curator_topic_arn: str
     alert_topic_arn: str
     archive_config_parameter: str
+    archive_bucket: str
+    derived_bucket: str
+    active_catalog_parameter: str
+    catalog_table_a: str
+    catalog_table_b: str
+    site_domain: str
 
     @classmethod
     def from_environ(cls) -> Env:
@@ -106,6 +141,12 @@ class Env:
             curator_topic_arn=os.environ["CURATOR_TOPIC_ARN"],
             alert_topic_arn=os.environ["ALERT_TOPIC_ARN"],
             archive_config_parameter=os.environ["ARCHIVE_CONFIG_PARAMETER"],
+            archive_bucket=os.environ["ARCHIVE_BUCKET"],
+            derived_bucket=os.environ["DERIVED_BUCKET"],
+            active_catalog_parameter=os.environ["ACTIVE_CATALOG_PARAMETER"],
+            catalog_table_a=os.environ["CATALOG_TABLE_A"],
+            catalog_table_b=os.environ["CATALOG_TABLE_B"],
+            site_domain=os.environ["SITE_DOMAIN"],
         )
 
 
@@ -119,6 +160,7 @@ def clients(env: Env) -> Clients:
         s3=cast(S3, boto3.client("s3")),
         sns=cast(SNS, boto3.client("sns")),
         ssm=cast(SSM, boto3.client("ssm")),
+        dynamodb=cast(DynamoDB, boto3.client("dynamodb")),
         submissions=table(env.submissions_table),
         reviews=table(env.reviews_table),
         settings=table(env.settings_table),
@@ -135,6 +177,10 @@ class BadCallback(Exception):
 
 class Expired(Exception):
     """The submission reached its 360 days still open."""
+
+
+class PublishConflict(Exception):
+    """The dataset a submission publishes no longer is what it was when it was created."""
 
 
 def _set(c: Clients, sid: str, fields: dict[str, Any], remove: tuple[str, ...] = ()) -> None:
@@ -457,12 +503,231 @@ def _expire(_: StepContext, c: Clients, env: Env, sid: str) -> int:
     return round
 
 
+def _config(c: Clients, env: Env) -> ArchiveConfig:
+    value = c.ssm.get_parameter(Name=env.archive_config_parameter)["Parameter"]["Value"]
+    return ArchiveConfig.model_validate_json(value)
+
+
+def _held(sid: str, path: str = "") -> str:
+    return f"held/{sid}/{path}"
+
+
+def _read(c: Clients, bucket: str, key: str) -> bytes:
+    body: bytes = c.s3.get_object(Bucket=bucket, Key=key)["Body"].read()
+    return body
+
+
+def _slug(title: str) -> str:
+    """The title in lower-case words joined by hyphens, plus six random lower-case letters."""
+    words = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    words = words[:SLUG_LENGTH].rstrip("-") or "dataset"
+    return f"{words}-{''.join(secrets.choice(string.ascii_lowercase) for _ in range(SUFFIX))}"
+
+
+def _meta(c: Clients, table: str, dataset_id: str) -> dict[str, Any] | None:
+    key = {"PK": {"S": f"DATASET#{dataset_id}"}, "SK": {"S": "META"}}
+    item: dict[str, Any] | None = c.dynamodb.get_item(TableName=table, Key=key).get("Item")
+    return item
+
+
 @durable_step
-def _publish(_: StepContext, c: Clients, sid: str, round: int, rule: int | None) -> None:
-    """Publish: for now only the finish; the version, fill-in, copy, catalog and page steps
-    come before it once the publisher is built."""
+def _version(_: StepContext, c: Clients, env: Env, sid: str) -> dict[str, Any]:
+    """The dataset id (minted from the title when none was given) and its next version, read
+    from the active catalog table."""
+    item = _submission(c, sid)
+    active = c.ssm.get_parameter(Name=env.active_catalog_parameter)["Parameter"]["Value"]
+    table = env.catalog_table_a if active == "A" else env.catalog_table_b
+    dataset_id = item.get("datasetId")
+    version = 1
+    if dataset_id:
+        meta = _meta(c, table, str(dataset_id))
+        if bool(item.get("newVersion")) != (meta is not None):
+            state = "is not" if meta is None else "already is"
+            raise PublishConflict(f"dataset {dataset_id} {state} in the catalog")
+        if meta is not None:
+            version = int(meta["currentVersion"]["N"]) + 1
+    else:
+        manifest = json.loads(_read(c, env.staging_bucket, _held(sid, MANIFEST)))
+        dataset_id = _slug(str(manifest.get("title") or ""))
+    _set(c, sid, {"datasetId": dataset_id, "status": "publishing"})
+    return {"datasetId": str(dataset_id), "version": version, "table": table}
+
+
+def _checksum_lines(text: str, changed: dict[str, bytes]) -> str:
+    listed: dict[str, str] = {}
+    for line in text.splitlines():
+        digest, _, path = line.partition(" ")
+        if line.strip():
+            listed[path.lstrip(" *")] = digest
+    for path, body in changed.items():
+        listed[path] = hashlib.sha256(body).hexdigest()
+    listed.pop(CHECKSUMS, None)
+    return "".join(f"{listed[path]}  {path}\n" for path in sorted(listed))
+
+
+@durable_step
+def _fill(_: StepContext, c: Clients, env: Env, sid: str, target: dict[str, Any]) -> dict[str, Any]:
+    """Fill in the held manifest, regenerate its README and rewrite its checksums."""
+    dataset_id, version = target["datasetId"], int(target["version"])
+    raw = json.loads(_read(c, env.staging_bucket, _held(sid, MANIFEST)))
+    raw["id"] = dataset_id
+    raw["version"] = str(version)
+    raw["archive:published"] = _clock().strftime("%Y-%m-%dT%H:%M:%SZ")
+    raw["archive:publisher"] = _config(c, env).publisher
+    raw["archive:identifier"] = pages.identifier(env.site_domain, dataset_id, version)
+    manifest = Manifest.model_validate(raw)
+    changed = {
+        MANIFEST: (json.dumps(raw, indent=2, ensure_ascii=False) + "\n").encode("utf-8"),
+        README: render_readme(manifest).encode("utf-8"),
+    }
+    # The check passed only with a matching checksums.sha256, so it is there.
+    listed = _read(c, env.staging_bucket, _held(sid, CHECKSUMS)).decode("utf-8")
+    changed[CHECKSUMS] = _checksum_lines(listed, changed).encode("utf-8")
+    for path, body in changed.items():
+        c.s3.put_object(Bucket=env.staging_bucket, Key=_held(sid, path), Body=body)
+    held = _held(sid)
+    files: list[str] = []
+    for page in c.s3.get_paginator("list_objects_v2").paginate(
+        Bucket=env.staging_bucket, Prefix=held
+    ):
+        files.extend(item["Key"][len(held) :] for item in page.get("Contents", []))
+    access = manifest.access or "open"
+    return {
+        "prefix": "open" if access == "open" else "restricted",
+        "files": sorted(files),
+        "published": raw["archive:published"],
+    }
+
+
+def _root(filled: dict[str, Any], target: dict[str, Any]) -> str:
+    return f"{filled['prefix']}/{target['datasetId']}/{target['version']}/"
+
+
+@durable_step
+def _copy(
+    _: StepContext,
+    c: Clients,
+    env: Env,
+    sid: str,
+    target: dict[str, Any],
+    filled: dict[str, Any],
+) -> int:
+    """One checksummed PUT per file into the archive bucket, the manifest last."""
+    paths = sorted(filled["files"], key=lambda p: (p == MANIFEST, p))
+    root = _root(filled, target)
+    for path in paths:
+        with tempfile.TemporaryFile() as stream:
+            body = c.s3.get_object(Bucket=env.staging_bucket, Key=_held(sid, path))["Body"]
+            digest = hashlib.sha256()
+            while chunk := body.read(CHUNK):
+                digest.update(chunk)
+                stream.write(chunk)
+            stream.seek(0)
+            put: dict[str, Any] = {
+                "Bucket": env.archive_bucket,
+                "Key": root + path,
+                "Body": stream,
+                "ChecksumSHA256": base64.b64encode(digest.digest()).decode("ascii"),
+            }
+            kind = mimetypes.guess_type(path)[0]
+            if kind:
+                put["ContentType"] = kind
+            c.s3.put_object(**put)
+    return len(paths)
+
+
+def _write_items(c: Clients, table: str, items: list[dict[str, Any]]) -> None:
+    for i in range(0, len(items), CATALOG_BATCH):
+        requests: dict[str, Any] = {
+            table: [{"PutRequest": {"Item": item}} for item in items[i : i + CATALOG_BATCH]]
+        }
+        attempt = 0
+        while requests:
+            if attempt:
+                time.sleep(min(0.05 * 2**attempt, 5))
+            requests = c.dynamodb.batch_write_item(RequestItems=requests).get(
+                "UnprocessedItems", {}
+            )
+            attempt += 1
+
+
+@durable_step
+def _catalog(
+    _: StepContext, c: Clients, env: Env, target: dict[str, Any], filled: dict[str, Any]
+) -> int:
+    """The version, file and dataset items, built as the reindex builds them."""
+    dataset_id, version, prefix = target["datasetId"], int(target["version"]), filled["prefix"]
+    text = _read(c, env.archive_bucket, _root(filled, target) + MANIFEST).decode("utf-8")
+    items = catalog_items(prefix, dataset_id, version, text)
+    items.append(dataset_item(dataset_id, [(prefix, version, json.loads(text))]))
+    _write_items(c, target["table"], items)
+    return len(items)
+
+
+@durable_step
+def _page(
+    _: StepContext, c: Clients, env: Env, target: dict[str, Any], filled: dict[str, Any]
+) -> str:
+    dataset_id, version = target["datasetId"], int(target["version"])
+    text = _read(c, env.archive_bucket, _root(filled, target) + MANIFEST).decode("utf-8")
+    html = pages.render_page(
+        Manifest.model_validate_json(text),
+        dataset_id=dataset_id,
+        version=version,
+        domain=env.site_domain,
+        files=filled["files"],
+    )
+    key = f"site/datasets/{dataset_id}/index.html"
+    c.s3.put_object(
+        Bucket=env.derived_bucket,
+        Key=key,
+        Body=html.encode("utf-8"),
+        ContentType="text/html; charset=utf-8",
+    )
+    return key
+
+
+@durable_step
+def _finish(
+    _: StepContext,
+    c: Clients,
+    env: Env,
+    sid: str,
+    round: int,
+    rule: int | None,
+    target: dict[str, Any],
+) -> None:
+    _delete_prefix(c, env, _held(sid))
     _set(c, sid, {"status": "published"}, remove=("callbackId",))
-    put_event(c.reviews, sid, "published", PIPELINE, round, rule=rule)
+    put_event(
+        c.reviews,
+        sid,
+        "published",
+        PIPELINE,
+        round,
+        rule=rule,
+        datasetId=target["datasetId"],
+        version=int(target["version"]),
+    )
+
+
+def publish(
+    context: DurableContext, c: Clients, env: Env, sid: str, round: int, rule: int | None
+) -> dict[str, Any]:
+    """The held round published as the dataset's next version, one named step at a time."""
+
+    def name(part: str) -> str:
+        return f"publish-{round}-{part}"
+
+    target = context.step(_version(c, env, sid), name=name("version"))
+    filled = context.step(_fill(c, env, sid, target), name=name("fill"))
+    context.step(_copy(c, env, sid, target, filled), name=name("copy"))
+    context.step(_catalog(c, env, target, filled), name=name("catalog"))
+    context.step(_page(c, env, target, filled), name=name("page"))
+    # The catalog file: call Plan 6's writer here, as its own named step, once it is in
+    # archive_backend (spec, Publish step 6). It isn't built yet.
+    context.step(_finish(c, env, sid, round, rule, target), name=name("finish"))
+    return {"datasetId": target["datasetId"], "version": int(target["version"])}
 
 
 @durable_step
@@ -641,8 +906,8 @@ def _rounds(
             if policy["outcome"] != "skip":
                 outcome = _review(context, c, env, sid, round, policy, started)
             if outcome == "approved":
-                context.step(_publish(c, sid, round, policy["rule"]), name=f"publish-{round}")
-                return {"submissionId": sid, "status": "published", "round": round}
+                published = publish(context, c, env, sid, round, policy["rule"])
+                return {"submissionId": sid, "status": "published", "round": round, **published}
             if outcome == "rejected":
                 return {"submissionId": sid, "status": "rejected", "round": round}
         next_round = _resubmit(context, c, env, sid, round, started)

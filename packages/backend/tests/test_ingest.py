@@ -21,6 +21,9 @@ STAGING = "staging"
 CURATORS = "arn:aws:sns:us-east-1:1:curators"
 ALERTS = "arn:aws:sns:us-east-1:1:alerts"
 CONFIG = "/research-archive/test/archive-config"
+ACTIVE = "/research-archive/test/catalog-active"
+ARCHIVE = "archive"
+DERIVED = "derived"
 DAY = 86400
 ENV = Env(
     submissions_table="submissions",
@@ -30,6 +33,12 @@ ENV = Env(
     curator_topic_arn=CURATORS,
     alert_topic_arn=ALERTS,
     archive_config_parameter=CONFIG,
+    archive_bucket=ARCHIVE,
+    derived_bucket=DERIVED,
+    active_catalog_parameter=ACTIVE,
+    catalog_table_a="catalog-a",
+    catalog_table_b="catalog-b",
+    site_domain="d111.cloudfront.net",
 )
 
 
@@ -60,6 +69,7 @@ def _package(themes: list[str] | None = None, broken: bool = False) -> dict[str,
 class FakeS3:
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
+        self.published: dict[tuple[str, str], bytes] = {}
         self.tags: dict[str, str] = {}
         self.pending: dict[str, str] = {}
         self.copies: list[tuple[str, str]] = []
@@ -72,12 +82,17 @@ class FakeS3:
         return {"TagSet": [{"Key": "GuardDutyMalwareScanStatus", "Value": tag}] if tag else []}
 
     def get_object(self, *, Bucket: str, Key: str) -> dict[str, Any]:
-        assert Bucket == STAGING
+        if Bucket != STAGING:
+            return {"Body": io.BytesIO(self.published[(Bucket, Key)])}
         return {"Body": io.BytesIO(self.objects[Key])}
 
-    def put_object(self, *, Bucket: str, Key: str, Body: bytes, **_: Any) -> dict[str, Any]:
-        assert Bucket == STAGING
-        self.objects[Key] = Body
+    def put_object(self, *, Bucket: str, Key: str, Body: Any, **_: Any) -> dict[str, Any]:
+        body = Body.read() if hasattr(Body, "read") else Body
+        if Bucket != STAGING:
+            assert Bucket in (ARCHIVE, DERIVED)
+            self.published[(Bucket, Key)] = body
+        else:
+            self.objects[Key] = body
         return {}
 
     def copy_object(
@@ -167,8 +182,26 @@ class FakeSNS:
         return [p for p in self.published if p["TopicArn"] == topic]
 
 
+class FakeDynamoDB:
+    def __init__(self) -> None:
+        self.items: dict[tuple[str, str, str], dict[str, Any]] = {}
+
+    def get_item(self, *, TableName: str, Key: dict[str, Any]) -> dict[str, Any]:
+        item = self.items.get((TableName, Key["PK"]["S"], Key["SK"]["S"]))
+        return {"Item": item} if item else {}
+
+    def batch_write_item(self, *, RequestItems: dict[str, Any]) -> dict[str, Any]:
+        for table, requests in RequestItems.items():
+            for request in requests:
+                item = request["PutRequest"]["Item"]
+                self.items[(table, item["PK"]["S"], item["SK"]["S"])] = item
+        return {}
+
+
 class FakeSSM:
     def get_parameter(self, *, Name: str) -> dict[str, Any]:
+        if Name == ACTIVE:
+            return {"Parameter": {"Value": "A"}}
         assert Name == CONFIG
         return {"Parameter": {"Value": json.dumps({"publisher": "Test", "profiles": ["core"]})}}
 
@@ -278,6 +311,7 @@ class World:
             s3=cast(ingest.S3, self.s3),
             sns=cast(ingest.SNS, self.sns),
             ssm=cast(ingest.SSM, FakeSSM()),
+            dynamodb=cast(ingest.DynamoDB, FakeDynamoDB()),
             submissions=cast(submissions.Table, self.submissions),
             reviews=cast(submissions.Table, self.reviews),
             settings=cast(submissions.Table, self.settings),
@@ -292,6 +326,12 @@ class World:
             "CURATOR_TOPIC_ARN": CURATORS,
             "ALERT_TOPIC_ARN": ALERTS,
             "ARCHIVE_CONFIG_PARAMETER": CONFIG,
+            "ARCHIVE_BUCKET": ENV.archive_bucket,
+            "DERIVED_BUCKET": ENV.derived_bucket,
+            "ACTIVE_CATALOG_PARAMETER": ENV.active_catalog_parameter,
+            "CATALOG_TABLE_A": ENV.catalog_table_a,
+            "CATALOG_TABLE_B": ENV.catalog_table_b,
+            "SITE_DOMAIN": ENV.site_domain,
         }.items():
             monkeypatch.setenv(name, value)
         self.submissions.items[SID] = {
@@ -371,9 +411,14 @@ def test_approve_publishes_after_the_scan_check_hold_and_one_review(world: World
     report = json.loads(world.s3.objects[f"reports/{SID}/1.json"])
     assert report["quality"]["errors"] == 0
     assert world.item["reportKey"] == f"reports/{SID}/1.json"
-    assert world.s3.keys(f"held/{SID}/") == sorted(
+    assert sorted(held for _, held in world.s3.copies) == sorted(
         f"held/{SID}/{e['path']}" for e in world.item["files"]["1"]
     )
+    assert world.s3.keys(f"held/{SID}/") == []
+    dataset_id = world.item["datasetId"]
+    assert result["datasetId"] == dataset_id and result["version"] == 1
+    assert (ARCHIVE, f"open/{dataset_id}/1/datapackage.json") in world.s3.published
+    assert (DERIVED, f"site/datasets/{dataset_id}/index.html") in world.s3.published
     assert world.item["rule"] is None
     assert world.item["approvals"] == ["carol"]
     assert "callbackId" not in world.item
