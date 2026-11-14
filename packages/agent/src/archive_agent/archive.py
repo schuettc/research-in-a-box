@@ -6,7 +6,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any
+from typing import Any, BinaryIO
 
 from archive_agent.errors import Conflict, NotAllowed, Refused, SignedOut, Unreachable
 from archive_client.signin import Tokens
@@ -145,6 +145,15 @@ class Archive:
         """POST JSON to `path` and answer its JSON. Every POST the tools make needs sign-in."""
         raw = self.request("POST", path, body=body, signed_in=signed_in, group=group)
         return self._json(raw)
+
+    def put(self, link: str, data: BinaryIO, size: int, headers: Mapping[str, str]) -> None:
+        """PUT `size` bytes read from `data` to a presigned link, sent with no token."""
+        sent = {
+            **headers,
+            "Content-Type": "application/octet-stream",
+            "Content-Length": str(size),
+        }
+        self._open(urllib.request.Request(link, data=data, headers=sent, method="PUT"), None)
 
     def fetch(self, link: str) -> bytes:
         """The bytes at an archive path (`/data/...`) or an absolute link, sent with no token."""

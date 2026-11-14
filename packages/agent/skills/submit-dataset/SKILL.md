@@ -40,7 +40,9 @@ anything to the archive without the person's yes.** The tools come from the
    Show the submission id and its status. `submit` refuses a package with an error finding;
    go back to step 2 if it does.
 6. **Later, on request, call `submissions`** with the id to show its status. When it is
-   `needs-changes`, show the curator's note and the findings, go back to step 2, and call
+   `needs-changes`, show the curator's note (in its `decided` event) and the findings (in
+   its `report`; if it answers a `report_error` instead, say the findings couldn't be read
+   and why, and run `diagnose` on the folder to see them), go back to step 2, and call
    `submit` with the folder and `submission` set to the same id for its next round.
 
 ## When a tool answers an error
