@@ -47,6 +47,20 @@ reindex-status stage:
     aws lambda get-durable-execution --durable-execution-arn "$arn" \
         --query "{status: Status, result: Result}" --output json
 
+# Invite a person to the stage by email, optionally into a group (contributor, curator or admin)
+invite-user stage email group="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pool="$(aws cloudformation describe-stack-resources --stack-name "ResearchArchive-{{stage}}" \
+        --query "StackResources[?ResourceType=='AWS::Cognito::UserPool'].PhysicalResourceId" --output text)"
+    aws cognito-idp admin-create-user --user-pool-id "$pool" --username "{{email}}" \
+        --user-attributes Name=email,Value="{{email}}" Name=email_verified,Value=true \
+        --desired-delivery-mediums EMAIL >/dev/null
+    if [ -n "{{group}}" ]; then
+        aws cognito-idp admin-add-user-to-group --user-pool-id "$pool" --username "{{email}}" --group-name "{{group}}"
+    fi
+    echo "invited {{email}} to {{stage}} {{group}}"
+
 # Install archive-backend and its locked dependencies as arm64 Lambda wheels, without Docker
 lambda-assets:
     #!/usr/bin/env bash
