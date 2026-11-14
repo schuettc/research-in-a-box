@@ -21,6 +21,20 @@ check-ts: lambda-assets
     npm test --workspaces
     npm run build -w packages/web
 
+# Print the stage names of archive.yaml (or ARCHIVE_CONFIG) as a JSON list, in file order
+stages:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv run --frozen python - "${ARCHIVE_CONFIG:-archive.yaml}" <<'EOF'
+    import json, sys
+    from pathlib import Path
+    from archive_contract.config import load_config
+    config = load_config(Path(sys.argv[1]))
+    if config.infrastructure is None:
+        sys.exit(f"{sys.argv[1]} needs an infrastructure section")
+    print(json.dumps([stage.name for stage in config.infrastructure.stages]))
+    EOF
+
 # Start a reindex of the stage's catalog, with the caller's AWS_PROFILE and region
 reindex stage:
     #!/usr/bin/env bash
