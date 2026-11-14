@@ -1,9 +1,9 @@
 ---
 diazo: research-archive-in-a-box/web-app-catalog-and-curation
 file: PLAN1
-status: approved
+status: done
 approved: 2026-11-14T00:49:48-06:00
-hash: 6a2225b2f88bcdc74b5267a323be878c350fea0760bc3022fb33481945e3bca0
+hash: f082f033dae320321876f533922e70d4a2eafcb99e663a571c400d3fe4632264
 rests_on: [AGNT1, AGNT10, AGNT2, AGNT3, AGNT4, AGNT5, AGNT6, AGNT7, AGNT8, AGNT9, DCSN1]
 record: README.md
 ---
@@ -103,10 +103,11 @@ Risk is low (spec, Risk and cost): the app only reads, pruning is off and pinned
 
 ### Task 7: The walk on a test stage
 
-**Does:** Opens the PR with tasks 1 to 6 and enables auto-merge; after it merges, deploys `ResearchArchive-test` from main with `ARCHIVE_CONFIG` pointing at a test config, publishes the sample package through Plan 7's pipeline as an open dataset and again under another id as restricted, invites a test user, and walks with the user: a search for words in the title finds it and a facet narrows it with counts; `/datasets/<id>` shows the citation, files and columns, and Copy works; the versioned URL opens that version; `/auth-config.json` answers the four fields; an open file downloads and the usage panel sends; the restricted file asks for sign-in and downloads after it; with JavaScript off the page shows the title, citation and file links; after `just reindex`, `/datasets/<id>` still opens; a keyboard pass through search and the page. Then destroys the stage and checks nothing is left.
+**Does:** Opens the PR with tasks 1 to 6 and enables auto-merge; after it merges and the user gives a Go, deploys `ResearchArchive-web-test` from main with `ARCHIVE_CONFIG` pointing at a test config, publishes the sample package through Plan 7's pipeline as an open dataset and again under another id as restricted, invites a test user, and walks with the user: a search for words in the title finds it and a facet narrows it with counts; `/datasets/<id>` shows the citation, files and columns, and Copy works; the versioned URL opens that version; `/auth-config.json` answers the four fields; an open file downloads and the usage panel sends; the restricted file asks for sign-in and downloads after it; with JavaScript off the page shows the title, citation and file links; after `just reindex`, `/datasets/<id>` still opens; a keyboard pass through search and the page. Then, on the user's second Go, destroys the stage and checks nothing is left.
 **Files:** none changed; the walk's notes go in the task's result
-**Checks:** `just check` on main, `cdk deploy` and `cdk destroy` of `ResearchArchive-test` exit 0
+**Checks:** `just check` on main, `cdk deploy` and `cdk destroy` of `ResearchArchive-web-test` exit 0
 **Serves:** DCSN1 (rests on calls AGNT1, AGNT9, AGNT10)
 
-- The walk is a step on this folder's page, with the user's actions and the agent's in order.
+- The walk is a step on this folder's page, with the user's actions and the agent's in order, starting with a Go before the deploy and with a Go before the teardown.
+- The stage is named `web-test`, so it can't collide with another plan's test stage.
 - On any AWS auth error, stop and report; never copy or export credentials.
