@@ -124,7 +124,8 @@ export class Ingest extends Construct {
     });
     // Presigned PUTs are signed with the function's own role, so it needs the PUT itself.
     api.addToRolePolicy(allow(["s3:PutObject"], objects(staging, "incoming/")));
-    api.addToRolePolicy(allow(["s3:GetObject"], objects(staging, "reports/")));
+    // Submit HEADs each declared file in incoming/; read presigns the report.
+    api.addToRolePolicy(allow(["s3:GetObject"], objects(staging, "incoming/", "reports/")));
     archive.submissions.grant(
       api,
       "dynamodb:GetItem",

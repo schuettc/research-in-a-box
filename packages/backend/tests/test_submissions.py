@@ -91,6 +91,17 @@ class FakeTable:
 class FakeS3:
     def __init__(self) -> None:
         self.presigned: list[dict[str, Any]] = []
+        self.uploaded: set[str] = set()
+
+    def head_object(self, *, Bucket: str, Key: str) -> dict[str, Any]:
+        assert Bucket == STAGING
+        if Key not in self.uploaded:
+            raise ClientError({"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject")
+        return {}
+
+    def upload_all(self) -> None:
+        """Every file each presigned PUT so far was for, as a client's PUTs leave them."""
+        self.uploaded.update(p["Key"] for p in self.presigned if p["method"] == "put_object")
 
     def generate_presigned_url(self, method: str, Params: dict[str, Any], ExpiresIn: int) -> str:
         self.presigned.append({"method": method, **Params})
@@ -126,7 +137,7 @@ class World:
         self.settings = FakeTable(("name",))
         self.catalog = {"catalog-a": FakeTable(("PK", "SK")), "catalog-b": FakeTable(("PK", "SK"))}
         self.clients = Clients(
-            s3=self.s3,
+            s3=cast(submissions.S3, self.s3),
             lambda_=self.lambda_,
             ssm=cast(submissions.SSM, FakeSSM()),
             submissions=cast(submissions.Table, self.submissions),
@@ -234,7 +245,9 @@ def test_a_real_presigned_put_signs_the_checksum_header() -> None:
         config=submissions.S3_CONFIG,
     )
     assert isinstance(submissions.S3_CONFIG, Config)
-    upload = submissions.presigned_put(s3, STAGING, "incoming/s/1/a.csv", DIGEST)
+    upload = submissions.presigned_put(
+        cast(submissions.S3, s3), STAGING, "incoming/s/1/a.csv", DIGEST
+    )
     query = parse_qs(urlparse(upload["url"]).query)
     assert "x-amz-checksum-sha256" in query["X-Amz-SignedHeaders"][0].split(";")
     assert upload["headers"] == {
@@ -355,6 +368,7 @@ def test_an_unknown_dataset_id_is_a_new_dataset(world: World) -> None:
 
 def test_submit_starts_the_execution_named_by_the_submission(world: World) -> None:
     sid = world.create("alice")
+    world.s3.upload_all()
 
     status, body = world.call(
         "POST", "/api/submissions/{id}/submit", "alice", "contributor", sid=sid
@@ -376,6 +390,34 @@ def test_submit_starts_the_execution_named_by_the_submission(world: World) -> No
     assert len(world.lambda_.invocations) == 1
 
 
+def test_submit_refuses_a_round_whose_files_are_not_all_uploaded(world: World) -> None:
+    status, body = world.call(
+        "POST",
+        "/api/submissions",
+        "alice",
+        "contributor",
+        {
+            "files": [
+                {"path": "data/a.csv", "size": 4, "sha256": DIGEST},
+                {"path": "data/b.csv", "size": 4, "sha256": DIGEST},
+            ]
+        },
+    )
+    assert status == 201, body
+    sid = body["submissionId"]
+    world.s3.uploaded.add(f"incoming/{sid}/1/data/a.csv")
+
+    status, body = world.call(
+        "POST", "/api/submissions/{id}/submit", "alice", "contributor", sid=sid
+    )
+
+    assert status == 409
+    assert "data/b.csv" in body["error"] and "data/a.csv" not in body["error"]
+    assert world.lambda_.invocations == []
+    assert world.submissions.items[(sid,)]["status"] == "draft"
+    assert [e["type"] for e in world.events(sid)] == ["created"]
+
+
 def test_resubmit_completes_the_stored_callback(world: World) -> None:
     sid = world.create("alice")
     world.submissions.items[(sid,)].update(status="needs-changes", callbackId="cb-resubmit")
@@ -391,6 +433,7 @@ def test_resubmit_completes_the_stored_callback(world: World) -> None:
     assert status == 200, body
     assert body["round"] == 2
     assert world.s3.presigned[-1]["Key"] == f"incoming/{sid}/2/data/a.csv"
+    world.s3.upload_all()
 
     status, body = world.call(
         "POST", "/api/submissions/{id}/submit", "alice", "contributor", sid=sid

@@ -285,3 +285,12 @@ test("the ingest writes only the archive's open/ and restricted/ and the derived
     }
   }
 });
+
+test("the submissions function may read incoming/, so submit can HEAD each declared file", () => {
+  const reads = statements(SUBMISSIONS).filter((s) => actions(s).includes("s3:GetObject"));
+  const resources = JSON.stringify(reads.map((s) => s.Resource));
+
+  expect(resources).toContain("/incoming/*");
+  expect(resources).toContain("/reports/*");
+  expect(resources).not.toMatch(/"\/\*"/);
+});

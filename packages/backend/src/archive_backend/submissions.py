@@ -111,6 +111,7 @@ class Table(Protocol):
 
 class S3(Protocol):
     def generate_presigned_url(self, *args: Any, **kwargs: Any) -> str: ...
+    def head_object(self, **kwargs: Any) -> dict[str, Any]: ...
 
 
 class Lambda(Protocol):
@@ -270,6 +271,20 @@ def _uploads(c: Clients, env: Env, sid: str, round: int, files: list[FileEntry])
     ]
 
 
+def _missing(c: Clients, env: Env, sid: str, round: int, files: list[Any]) -> list[str]:
+    """The round's declared files not in `incoming/`: not uploaded yet, or expired."""
+    missing: list[str] = []
+    for f in files:
+        try:
+            c.s3.head_object(Bucket=env.staging_bucket, Key=f"incoming/{sid}/{round}/{f['path']}")
+        except ClientError as error:
+            # Without ListBucket, S3 answers 403 rather than 404 for a missing key.
+            if error.response["Error"]["Code"] not in ("403", "404", "NoSuchKey"):
+                raise
+            missing.append(str(f["path"]))
+    return missing
+
+
 def _update(
     c: Clients, sid: str, fields: dict[str, Any], expect: Status, call: str = "update"
 ) -> None:
@@ -417,6 +432,9 @@ def submit(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, A
     callback = submission.get("callbackId")
     if round > 1 and not callback:
         raise Refused(409, "the pipeline is not waiting for a resubmit")
+    missing = _missing(c, env, sid, round, (submission.get("files") or {}).get(str(round)) or [])
+    if missing:
+        raise Refused(409, f"not uploaded yet: {', '.join(missing)}")
     _update(c, sid, {"status": "checking"}, "draft")
     try:
         if round == 1:
