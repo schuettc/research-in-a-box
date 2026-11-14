@@ -67,6 +67,32 @@ function ResultCard({ row }: { row: CatalogRow }) {
   );
 }
 
+/** A year box: follows the URL, and writes a whole year (or nothing) to it after a pause. */
+function useYear(name: "from" | "to") {
+  const [params, setParams] = useSearchParams();
+  const year = params.get(name) ?? "";
+  const [text, setText] = useState(year);
+  const [shown, setShown] = useState(year);
+  if (year !== shown) {
+    setShown(year);
+    setText(year);
+  }
+  useEffect(() => {
+    if (text === year || (text !== "" && !/^\d{4}$/.test(text))) return;
+    const timer = setTimeout(() => {
+      setParams((previous) => {
+        const next = new URLSearchParams(previous);
+        if (text) next.set(name, text);
+        else next.delete(name);
+        next.delete("page");
+        return next;
+      });
+    }, DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [text, year, name, setParams]);
+  return [text, setText] as const;
+}
+
 export function Search() {
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
@@ -97,6 +123,9 @@ export function Search() {
     return () => clearTimeout(timer);
   }, [text, q, setParams]);
 
+  const [fromText, setFromText] = useYear("from");
+  const [toText, setToText] = useYear("to");
+
   const [attempt, setAttempt] = useState(0);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   useEffect(() => {
@@ -125,15 +154,6 @@ export function Search() {
       next.delete(facet);
       const kept = values.includes(value) ? values.filter((v) => v !== value) : [...values, value];
       for (const v of kept) next.append(facet, v);
-      next.delete("page");
-    });
-  }
-
-  function setYear(name: "from" | "to", value: string) {
-    if (value !== "" && !/^\d{4}$/.test(value)) return;
-    update((next) => {
-      if (value) next.set(name, value);
-      else next.delete(name);
       next.delete("page");
     });
   }
@@ -192,9 +212,8 @@ export function Search() {
               <input
                 type="number"
                 inputMode="numeric"
-                defaultValue={params.get("from") ?? ""}
-                key={`from-${params.get("from") ?? ""}`}
-                onChange={(event) => setYear("from", event.target.value)}
+                value={fromText}
+                onChange={(event) => setFromText(event.target.value)}
               />
             </label>
             <label className="year">
@@ -202,9 +221,8 @@ export function Search() {
               <input
                 type="number"
                 inputMode="numeric"
-                defaultValue={params.get("to") ?? ""}
-                key={`to-${params.get("to") ?? ""}`}
-                onChange={(event) => setYear("to", event.target.value)}
+                value={toText}
+                onChange={(event) => setToText(event.target.value)}
               />
             </label>
           </fieldset>

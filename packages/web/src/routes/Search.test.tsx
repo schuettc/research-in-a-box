@@ -89,6 +89,24 @@ test("typing sends one request after the debounce", async () => {
   expect(screen.getByTestId("where").textContent).toBe("?q=str");
 });
 
+test("typing a year keeps focus in the box and sends it after the debounce", async () => {
+  vi.useFakeTimers();
+  renderAt("/");
+  await act(() => vi.advanceTimersByTimeAsync(0));
+
+  const from = screen.getByRole("spinbutton", { name: "From year" });
+  from.focus();
+  for (const text of ["2", "20", "202", "2020"]) {
+    fireEvent.change(from, { target: { value: text } });
+    await act(() => vi.advanceTimersByTimeAsync(100));
+  }
+  await act(() => vi.advanceTimersByTimeAsync(300));
+
+  expect(document.activeElement).toBe(from);
+  expect((from as HTMLInputElement).value).toBe("2020");
+  expect(requests().at(-1)?.get("from")).toBe("2020-01-01");
+});
+
 test("checking a facet adds a repeated parameter and keeps the others", async () => {
   renderAt("/?q=stream&access=open&page=2");
   fireEvent.click(await screen.findByRole("checkbox", { name: "restricted (2)" }));
