@@ -3,7 +3,7 @@ diazo: research-archive-in-a-box/agent-layer-mcp-and-skills
 file: spec
 status: approved
 approved: 2026-11-14T00:50:08-06:00
-hash: c7d973930e8c72872b75e64b65ebf73398839030fd3d1458d83a6c96ba375b40
+hash: 9207f49b49c58ea1804b17c5087d2164e98a3d862ef4bcf4503525d9ebfbf6c8
 rests_on: [DCSN2, AGNT7, AGNT8, DCSN1, DCSN3, AGNT3, AGNT5, AGNT4, AGNT6, AGNT9, AGNT1, AGNT2]
 record: README.md
 ---
@@ -72,7 +72,7 @@ Rests on: DCSN1, DCSN3, AGNT3, AGNT5, AGNT8
 
 `edit_manifest(folder, edits)` takes a list of edits, each a target and a value. The targets are the metadata the findings ask for: the package's title, description, keywords, licenses, rights status, temporal and spatial coverage, methods and contributors, and a column's title, description and unit (named by resource and column). Resources, paths, column names, types and schemas are not editable through it, so an edit can't change what the data is.
 
-The tool reads `datapackage.json` into the contract's `Manifest`, applies every edit, and validates the result. If any edit fails, it writes nothing and answers which edit failed and why. Otherwise it writes `datapackage.json`, regenerates `README.md` with the contract's readme export, and rewrites those two files' lines in `checksums.sha256`, so the package stays consistent and `diagnose` finds no stale checksum. Each file is written to a temporary name and moved into place.
+The tool reads `datapackage.json` into the contract's `Manifest`, applies every edit, and validates the result. If any edit fails, it writes nothing and answers which edit failed and why. Otherwise it writes `datapackage.json`, regenerates `README.md` with the contract's readme export, and rewrites `checksums.sha256` with a new contract function, `archive_contract.write_checksums(root)`, so the package stays consistent and `diagnose` finds no stale checksum. That function becomes the one checksum writer: the FEMC converter and Plan 7's publish move to it when next touched. Each file is written to a temporary name and moved into place.
 
 Rests on: DCSN2
 
