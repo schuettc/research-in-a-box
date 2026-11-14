@@ -1,0 +1,579 @@
+{
+  "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
+  "schema": 4,
+  "title": "FEMC migration and practice corpus (Plan 5)",
+  "expect": 2,
+  "agent_at": "2026-11-14T04:01:39.749408Z",
+  "start": {
+    "opening": {
+      "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 2, folder 8da653f233f9, and Plan 3, the quality rules and local tool.)\n\nBrief: Plan 5 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md` and `practice-data/femc/SOURCES.md`. Plan the conversion of the FEMC practice corpus (Plan 5). One dataset is already converted by hand. Plan the other five in order of what each will teach us, and propose which datasets to add to reach 10 to 20."
+    },
+    "findings": [
+      {
+        "text": "Plans 1 to 4 are built on main. Plan 3 built only the rules, `cruise diagnose` and `cruise audit`. `tidy`, `package`, `inventory` and `profile` are follow-ups, so nothing in the repo writes a package from source files yet, apart from the sample package's own build script.",
+        "source": "docs/specs/2026-11-13-quality-rules-and-local-tool/wrap-up.md on origin/main 2d8ac81",
+        "cases": "1 of 1 wrap-up"
+      },
+      {
+        "text": "The one dataset 'already converted by hand' has to be converted again. The hand-made Ozone package was built on a draft of the format, and the contract rejects it: `cruise diagnose` stops at structure.manifest-invalid with 8 validation errors, the first being version '1.0.0'.",
+        "source": "uv run cruise diagnose practice-data/packages/ozone-bioindicators",
+        "output": "error  structure.manifest-invalid  datapackage.json\n    datapackage.json does not fit the contract: 8 validation errors for Manifest\nversion\n  Value error, version is a whole number from 1 up, written as a string [type=value_error, input_value='1.0.0', input_type=str]",
+        "cases": "1 of 1 hand-made package"
+      },
+      {
+        "text": "The standard EML importer reads almost nothing from FEMC's records: no title and no resources in any of the six, only the project and the package id.",
+        "source": "from_eml on each practice-data/femc/*/eml.xml, at origin/main 2d8ac81",
+        "output": "aerial-detection-survey | title: None | resources: 0 | project: Northeastern Regional Aerial Detection Surveys ... | skipped lines: 17\ncamels-hump-census | title: None | resources: 0 | ... | skipped lines: 12\ndata-rescue-inventory | title: None | resources: 0 | ... | skipped lines: 13\nfia-tree-level | title: None | resources: 0 | ... | skipped lines: 15\nimprove-fine-aerosol | title: None | resources: 0 | ... | skipped lines: 16\nozone-bioindicators | title: None | resources: 0 | ... | skipped lines: 16",
+        "cases": "6 of 6 records"
+      },
+      {
+        "text": "All six FEMC records share one non-standard shape, so one set of rules covers them all. The title, description, purpose and coverage sit on the dataTable. People sit under role-named elements. Attributes use measurementType. The distribution tag is misspelled distibution. Only the aerial survey has code lists, written as enumeratedDomain directly on the attribute.",
+        "source": "docs/specs/2026-11-12-generic-package-format-and-contract/documents/femc-paper-test.md",
+        "cases": "6 of 6 records"
+      },
+      {
+        "text": "The core importer leaves one archive's non-standard EML to that archive's converter, in its own words: 'Tolerating one archive's non-standard EML is left to that archive's converter.' The handoff says FEMC is one config file plus the ecology profile, and that nothing in the core may be specific to FEMC.",
+        "source": "packages/contract/src/archive_contract/imports/eml.py:1-8, docs/planning-handoff.md ground rules",
+        "cases": "2 sources"
+      },
+      {
+        "text": "The records and the files disagree in 3 of 5 tables. FIA has 49 columns that aren't described. Data Rescue describes 25 columns the file doesn't have. The aerial survey describes 27 of 42 columns, and three names only match after a change of case or the shapefile's 10-character limit. A converter that takes the column list from the file and matches descriptions onto it handles all three.",
+        "source": "femc-paper-test.md, Resources sections",
+        "cases": "3 of 5 tables"
+      },
+      {
+        "text": "No FEMC record states rights in EML. Rights come only from the license FEMC's web page shows, which SOURCES.md records: four show 'Linked - third party determines data license' and two show none.",
+        "source": "practice-data/femc/SOURCES.md",
+        "cases": "6 of 6 datasets"
+      }
+    ],
+    "rounds": [
+      {
+        "take": "**What Plan 5 has to build is bigger than the brief assumed, in one way, and smaller in another.**\n\nBigger: the brief says one dataset is converted and five remain. In fact none are: the hand-made Ozone package uses a draft of the format and the contract rejects it outright. Nothing in the repo writes a package from source files either, since Plan 3 left `cruise package` for later. So all six need converting, and something has to do the converting.\n\nSmaller: FEMC's six EML records all share the same non-standard shape (findings above). One set of rules for reading that shape covers every record, rather than six one-off scripts.\n\nSo the fork is **what does the converting, and where does it live?** I see three ways:\n\n- **A FEMC converter beside FEMC's config, outside the core** (my recommendation). One small committed module, kept with FEMC's archive config file. It takes a downloaded dataset folder (the `eml.xml` plus the download) and writes a package. It reshapes FEMC's EML into what the standard `from_eml` reads and lets `from_eml` do the rest. It takes the column list from the actual file, matches the record's descriptions onto those columns, and writes down everything it could not import. Rights come from what `SOURCES.md` records for each page. It runs on all six, then `cruise audit` over the folder gives the numbers for the FEMC report (Plan 10b). The contract and cruise stay unchanged.\n- **Teach the core importer FEMC's quirks.** Fewer files, but it breaks the generic-first rule and the importer's own stated design.\n- **Paper only.** Fix the corpus list, the order and the expected problems, and build nothing. This is the handoff's literal 'Done when', but the report would then have no audit numbers to cite.\n\nGrowing the corpus to 10 to 20 datasets and approaching the FEMC contact come after this, as their own decisions, once the converter has run on the six.",
+        "visuals": [
+          {
+            "kind": "mermaid",
+            "caption": "The recommended flow: FEMC-specific code stays beside FEMC's config, and the core is used as it is.",
+            "mermaid": "flowchart LR\n  D[\"practice-data/femc/\u0026lt;dataset\u0026gt;: eml.xml + download\"] --\u003e C[\"FEMC converter: reshape FEMC EML, read real columns, rights from SOURCES.md\"]\n  C --\u003e F[\"from_eml (core, unchanged)\"]\n  F --\u003e C\n  C --\u003e P[\"package folder + what could not be imported\"]\n  P --\u003e A[\"cruise audit (unchanged)\"]\n  A --\u003e R[\"audit numbers for the FEMC report (10b)\"]"
+          }
+        ],
+        "recommendation": "Build a small FEMC converter, committed beside FEMC's archive config and outside the core. It reads FEMC's EML shape through the standard from_eml, takes columns from the real files, and records what it could not import. Run it on all six datasets (Ozone again, since the hand package is unreadable) and audit them with cruise. Decide which datasets to add and how to approach the contact afterwards."
+      }
+    ],
+    "done": [
+      {
+        "text": "Created a planning worktree on origin/main (branch plan5/femc-planning) to read the built code; nothing committed yet",
+        "ref": "/Users/courtschuett/GitHub/personal/.worktrees/research-archive-in-a-box/plan5/femc-planning"
+      }
+    ],
+    "direction": {
+      "round": 1,
+      "at": "2026-11-13T21:32:44.255214-06:00",
+      "by": "user"
+    }
+  },
+  "understanding": {
+    "points": [
+      {
+        "kind": "outcome",
+        "text": "A committed FEMC converter that turns a downloaded FEMC dataset (its eml.xml plus the download) into a package the contract accepts. It lives beside FEMC's archive config, outside the core, and leaves archive_contract and cruise unchanged.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "All six practice datasets converted by it, Ozone included (the hand-made Ozone package uses a draft format the contract rejects), with what could not be imported written down per dataset.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "`cruise audit` run over the converted packages, giving the counts the FEMC report (Plan 10b) cites.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "FEMC's archive config file: publisher, the ecology profile and FEMC's themes.",
+        "source": "assumed"
+      },
+      {
+        "kind": "outcome",
+        "text": "A decided list of datasets to add towards 10 to 20, and a decided approach to the FEMC contact.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Nothing in the core is specific to FEMC. FEMC is a test of the design, never its source.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Nothing from practice-data/ is committed. Converted packages stay on Court's machine. The converter's tests use invented records written in FEMC's shape.",
+        "source": "assumed"
+      },
+      {
+        "kind": "constraint",
+        "text": "Nothing is invented about FEMC. Where a record is silent (a missing license, a 21-character description), the package says so and the audit shows it; the converter never fills the gap.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "New datasets are hand-picked and downloaded through FEMC's public pages, with each license recorded in SOURCES.md. No scraping of the whole archive.",
+        "source": "said"
+      },
+      {
+        "kind": "success",
+        "text": "Every converted package passes `cruise diagnose` with no structure errors. Quality findings are expected and are the point.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "Each package's 'not imported' list accounts for every element the converter skipped, so nothing is dropped silently.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "`just check` passes with the converter and its tests in CI.",
+        "source": "assumed"
+      }
+    ],
+    "confirmed": true
+  },
+  "steps": [
+    {
+      "id": "STEP1",
+      "what": "Download Vegetation Class Raster from FEMC",
+      "why": "Dataset 7 in the corpus (the raster); the converter can't be tested on a raster until the file is here.",
+      "how": "1. Open https://www.uvm.edu/femc/data/archive/project/catskill-vegetation-maps/dataset/vegetation-class-raster/overview\n2. Press **Download Data** and leave the optional details form blank, as for the first six.\n3. Make the folder and move the download into it, keeping its file name:\n\n```\nmkdir -p ~/GitHub/personal/research-archive-in-a-box/practice-data/femc/vegetation-class-raster\n```\n\n4. Press Done here. I save its EML record, add its row to SOURCES.md (license CC0) and its checksum."
+    },
+    {
+      "id": "STEP2",
+      "what": "Download Mount Mansfield Quadrat Images from FEMC",
+      "why": "Dataset 8 in the corpus (photographs); the converter can't be tested on images until the files are here.",
+      "how": "1. Open https://www.uvm.edu/femc/data/archive/project/mount-mansfield-photostudy/dataset/mount-mansfield-quadrat-images/overview\n2. Press **Download Data** and leave the optional details form blank.\n3. Make the folder and move the download into it, keeping its file name:\n\n```\nmkdir -p ~/GitHub/personal/research-archive-in-a-box/practice-data/femc/mount-mansfield-quadrat-images\n```\n\n4. Press Done here. I save its EML record, add its row to SOURCES.md (license CC BY-NC-SA 4.0) and its checksum."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "DCSN1",
+      "name": "Datasets to add",
+      "question": "Which FEMC datasets should we add to the six, to reach 10 to 20?",
+      "example": "The six we have cover tables, a shapefile and one linked record, but no raster, no images, and nothing FEMC marks By request or Description only. FEMC has 223 By-request and 215 Description-only datasets, so a converter that has never seen one would meet them first in a real migration.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Four, one per missing shape (reach 10)",
+          "includes": "Vegetation Class Raster (Catskills, a raster, CC0). Mount Mansfield Quadrat Images (photographs, CC BY-NC-SA 4.0). Development Related Projects with Threatened or Endangered Species (By request, ongoing, locations of protected plants). 1991 White clover clones as a biomonitor (Description only, the same ozone work as Ozone Bioindicators).",
+          "pulls_in": "Two downloads you make by hand through FEMC's pages (the raster and the images), four EML records saved from /eml_xmlview, and four lines added to SOURCES.md. The converter learns raster, image and two metadata-only access levels.",
+          "visuals": [
+            {
+              "kind": "table",
+              "table": {
+                "columns": [
+                  "Dataset",
+                  "New shape",
+                  "FEMC access",
+                  "License FEMC shows"
+                ],
+                "rows": [
+                  [
+                    "Vegetation Class Raster",
+                    "raster",
+                    "Downloadable",
+                    "CC0 1.0"
+                  ],
+                  [
+                    "Mount Mansfield Quadrat Images",
+                    "images",
+                    "Downloadable",
+                    "CC BY-NC-SA 4.0"
+                  ],
+                  [
+                    "Development Related Projects with T\u0026E Species",
+                    "by request, sensitive locations, ongoing",
+                    "By request",
+                    "none shown"
+                  ],
+                  [
+                    "1991 White clover clones as a biomonitor",
+                    "description only",
+                    "Description only",
+                    "none shown"
+                  ]
+                ],
+                "sample": "read from each dataset's overview page on 2026-11-13"
+              }
+            }
+          ]
+        },
+        {
+          "id": "B",
+          "title": "The four, plus one per theme towards 15",
+          "includes": "Option A, plus about five more tables picked to cover each of FEMC's six themes (a weather station series, a soil study, a water quality series, a wildlife survey, a licensed small table such as Canopy Health Monitoring, 752 rows, CC BY-NC-SA).",
+          "pulls_in": "About seven downloads by hand and their licenses. More audit counts for the report, but the extra tables are the same shape as ones we already convert, so the converter learns little more."
+        },
+        {
+          "id": "C",
+          "title": "Not yet: convert the six first",
+          "includes": "Convert and audit the six, then choose additions from what the six showed.",
+          "pulls_in": "Nothing now. The raster, images and the two metadata-only access levels stay untested until later."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "Each of the four adds a shape no current dataset has, which is what the brief asks the order to follow ('what each will teach us'). Option B's extras repeat shapes the converter already handles. It reaches 10, the brief's lower end, and the rest can be added once a real migration needs them.",
+        "evidence": [
+          {
+            "text": "FEMC's project listing counts datasets by access level across its 581 projects",
+            "source": "getProjectsInfo, the JSON the public themes page loads, fetched once on 2026-11-13",
+            "output": "Counter({'Downloadable': 1024, 'Unpublished': 310, 'By request': 223, 'Description only': 215})"
+          },
+          {
+            "text": "Licenses and access shown on each candidate's overview page",
+            "source": "the overview pages of the four datasets, fetched 2026-11-13",
+            "output": "Vegetation Class Raster is licensed under a Creative Commons CC0 - Public domain 4.0 ...\nMount Mansfield Quadrat Images is licensed under a Creative Commons CC BY-NC-SA ...\nDevelopment Related Projects ...: Data Availability Data is available upon request ... Start date 1990-01-01\n1991 White clover clones ...: Data Availability There is no data for this dataset."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    },
+    {
+      "id": "DCSN2",
+      "name": "Approaching the FEMC contact",
+      "question": "When should we approach your FEMC contact, and with what?",
+      "example": "The handoff lists 'the request to the FEMC contact for a bulk export' in Plan 5. Asking now means asking with nothing to show. Asking after the six are audited means the ask can come with real counts from their own records (such as 'Data Rescue's EML describes 25 columns its file doesn't have').",
+      "options": [
+        {
+          "id": "A",
+          "title": "With the FEMC report (Plan 10b), after the audit",
+          "includes": "Plan 5 makes no contact. It hands 10b the audit numbers and a draft of the bulk-export request, and 10b sends both together.",
+          "pulls_in": "One paragraph drafted in Plan 5. The contact sees findings and the ask at the same time. Plan 10b owns the timing."
+        },
+        {
+          "id": "B",
+          "title": "Now, a short note from Plan 5",
+          "includes": "A short message to the contact now, saying what we are building and asking whether a bulk export is possible.",
+          "pulls_in": "A message for you to send this week. Earlier answer on a bulk export, but nothing concrete to show yet."
+        },
+        {
+          "id": "C",
+          "title": "Not in this plan",
+          "includes": "Drop the contact from Plan 5 entirely and leave it all to 10b.",
+          "pulls_in": "Nothing here. 10b drafts the ask from scratch."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "The handoff's 10b principles say counts come from the audit tool and every finding cites a record, so the strongest ask arrives with the report. Nothing in Plan 5 needs a bulk export: the corpus is hand-picked from public pages. Drafting the request here keeps it beside the evidence it rests on.",
+        "evidence": [
+          {
+            "text": "10b's principles",
+            "source": "docs/planning-handoff.md, 10b: The FEMC report",
+            "output": "Every finding cites a specific record, so they can check it.\nCounts come from the audit tool, not from impressions."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "C"
+    }
+  ],
+  "calls": [
+    {
+      "id": "AGNT1",
+      "name": "Converter location",
+      "question": "Where does the FEMC converter live?",
+      "took": "`examples/femc/`: FEMC's `archive.yaml` and a small uv workspace package `femc` (src layout, its own tests), so ruff, mypy and pytest in `just check` cover it. It depends on archive-contract only.",
+      "instead": "A plain script beside the config, outside CI, like the sample package's `_build/make.py`.",
+      "why": "The handoff makes FEMC 'one config file plus the ecology profile' and the first reference deployment; keeping the converter with that config keeps the core generic, and a workspace member gets the same checks as the rest of the code.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT2",
+      "name": "Read FEMC through from_eml",
+      "question": "How does the converter read FEMC's EML?",
+      "took": "It rewrites FEMC's shape into standard EML (title and description up from the dataTable, entityName from the table, role-named personnel to individualName plus role, measurementType to measurementScale, distibution to distribution, enumeratedDomain into its scale) and passes the result to the unchanged `from_eml`.",
+      "instead": "A separate FEMC reader that builds the manifest itself.",
+      "why": "from_eml already maps every standard element to the manifest and lists what it skips; one rewrite step reuses all of it, and any later core improvement reaches FEMC too.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT3",
+      "name": "Columns from the file",
+      "question": "Whose column list wins when the EML and the file disagree?",
+      "took": "The file's. Each real column becomes a field; an EML attribute is matched to it by exact name, then case-insensitively, then by the shapefile's 10-character truncation, and the EML's spelling goes in `archive:sourceName`. Described columns not in the file are listed as not imported.",
+      "instead": "Keep the EML's list and flag the mismatch, so fields can describe columns that don't exist.",
+      "why": "A package describes the data it holds; this handles FIA's 49 undescribed columns, Data Rescue's 25 extra attributes and the aerial survey's three renamed ones with one rule, and needs no change to the core validator's case-sensitive check.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT4",
+      "name": "Rights from SOURCES.md",
+      "question": "Where do rights come from, since no FEMC record states them?",
+      "took": "From the license each dataset page shows, as recorded in SOURCES.md: a Creative Commons license becomes a license, 'Linked - third party determines data license' becomes `third-party` with FEMC's words as the statement, and no license shown becomes `undetermined`.",
+      "instead": "Leave every package `undetermined` until someone checks each page.",
+      "why": "The page is FEMC's own statement, recorded at download; the audit then shows the third-party packages lack a named licensor, which is a real finding for the report.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT5",
+      "name": "Conversion order",
+      "question": "In what order are the datasets converted?",
+      "took": "1 Ozone (small, the baseline). 2 Data Rescue (EML lists columns the file lacks, personal columns, short description). 3 IMPROVE (239 columns, day-first dates, value/uncertainty/flag groups). 4 Camels Hump (linked, URL only in the citation). 5 Aerial survey (shapefile set, code lists, attribute table, renamed columns). 6 FIA (155 MB, 49 undescribed columns). Then the additions DCSN1 settles.",
+      "instead": "Convert the hardest first (aerial survey), so its problems shape the converter early.",
+      "why": "Each step adds one new problem to a converter that already handles the earlier ones, which is the brief's 'in order of what each will teach us'.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT6",
+      "name": "Themes in the config",
+      "question": "What goes in FEMC's archive config, given packages have no theme field?",
+      "took": "publisher, profiles [core, ecology] and FEMC's six themes as its own project listing names them (air, climate change, forest, soil, water, wildlife). Access is set per dataset on each package (`archive:access`), since FEMC sets it per dataset, not per theme. A per-package theme field is Plan 2's follow-up (its PARK5, archive:themes checked against the config's themes); when it lands, the converter can fill it.",
+      "instead": "Add a theme field to the manifest now.",
+      "why": "The handoff says seven themes, but FEMC's own listing uses six top-level themes across its 581 projects; and the theme field belongs to the contract, which Plan 2 owns and has recorded as a follow-up.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT7",
+      "name": "Gaps stay gaps",
+      "question": "What does the converter do with a gap in FEMC's record?",
+      "took": "Writes what the record says and nothing more: a 21-character description stays, coverage keeps the record's dates (with `end: unknown` where only a start is given), and the citation goes in `archive:citation`. cruise reports the gaps.",
+      "instead": "Fill gaps from the citation, the file name or the project text.",
+      "why": "The handoff's rule: nothing is invented about FEMC. The gaps are the evidence the report needs.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT8",
+      "name": "Files and the not-imported list",
+      "question": "Which files go where in each converted package, and where is the not-imported list kept?",
+      "took": "Downloaded files go under data/ as downloaded (the aerial survey's zip unpacked, nothing else changed, since tidying is Plan 3's later work). FEMC's eml.xml goes under original/ as a file resource, so the source record travels with the package. The zip itself isn't copied again, since every member sits unchanged in data/ and SOURCES.md checksums the zip. The not-imported list goes in the package's _build/not-imported.txt, which the contract treats as outside the package content.",
+      "instead": "Keep a full untouched copy of each download under original/ as well (155 MB more for FIA), and put the not-imported list in docs/ so it is archived with the package.",
+      "why": "No cleaning happens in this plan, so a second byte-identical copy adds size and nothing else; the not-imported list is a converter report for us and the FEMC report, not part of the dataset.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT9",
+      "name": "Audit counts only in public",
+      "question": "What of the audit output is committed to this public planning folder?",
+      "took": "Only counts with no evidence values: per dataset its errors, warnings, notes, completeness score and the rule ids that fired. The full diagnose and audit output stays under practice-data/audit/, which is git-ignored.",
+      "instead": "Commit the full output, evidence values included, to documents/; that publishes data values from datasets with no license or a third-party one.",
+      "why": "Findings quote up to 20 data values each, and the repo is public; 'nothing from practice-data is committed' exists to keep those private. The coordinating session raised it in its scope check of the spec.",
+      "state": "standing"
+    }
+  ],
+  "principles": [],
+  "follow_ups": [],
+  "spec": {
+    "hash": "9ebbdc30fea9969f6d401840ce499598139fdacfec8bfb48ae320b706c08fb37",
+    "sections": [
+      {
+        "id": "SPEC1",
+        "heading": "Goal",
+        "decisions": []
+      },
+      {
+        "id": "SPEC2",
+        "heading": "The converter",
+        "decisions": [
+          "AGNT1",
+          "AGNT8"
+        ]
+      },
+      {
+        "id": "SPEC3",
+        "heading": "Reading FEMC's EML",
+        "decisions": [
+          "AGNT2",
+          "AGNT7"
+        ]
+      },
+      {
+        "id": "SPEC4",
+        "heading": "Columns and files",
+        "decisions": [
+          "AGNT3",
+          "AGNT8"
+        ]
+      },
+      {
+        "id": "SPEC5",
+        "heading": "Rights and access",
+        "decisions": [
+          "AGNT4"
+        ]
+      },
+      {
+        "id": "SPEC6",
+        "heading": "The corpus and its order",
+        "decisions": [
+          "DCSN1",
+          "AGNT5"
+        ]
+      },
+      {
+        "id": "SPEC7",
+        "heading": "FEMC's archive config",
+        "decisions": [
+          "AGNT6"
+        ]
+      },
+      {
+        "id": "SPEC8",
+        "heading": "The audit",
+        "decisions": [
+          "DCSN2",
+          "AGNT9"
+        ]
+      },
+      {
+        "id": "SPEC9",
+        "heading": "Risk and cost",
+        "decisions": [
+          "DCSN1",
+          "AGNT1"
+        ]
+      },
+      {
+        "id": "SPEC10",
+        "heading": "Left out",
+        "decisions": [
+          "DCSN2",
+          "AGNT7"
+        ]
+      },
+      {
+        "id": "SPEC11",
+        "heading": "How we'll know it works",
+        "decisions": [
+          "AGNT3",
+          "AGNT8",
+          "AGNT9"
+        ]
+      }
+    ],
+    "approved": {
+      "hash": "9ebbdc30fea9969f6d401840ce499598139fdacfec8bfb48ae320b706c08fb37",
+      "at": "2026-11-13T22:07:37.034136-06:00",
+      "body": "# FEMC migration and practice corpus\n\n## Goal\n\nA converter that turns a dataset downloaded from FEMC's public archive (its EML record plus its download) into a package the contract accepts. It runs on a practice corpus of ten FEMC datasets, and `cruise audit` over the result gives the FEMC report (Plan 10b) its counts. FEMC's quirks are handled beside FEMC's own config, so `archive_contract` and `cruise` stay unchanged and generic.\n\n## The converter\n\nThe converter lives in `examples/femc/`, beside FEMC's `archive.yaml`, as a small uv workspace package named `femc` with a `src/` layout and its own tests. It depends on `archive-contract` only, and `just check` covers it with ruff, mypy and pytest like every other package.\n\nIt takes one dataset folder from `practice-data/femc/\u003cdataset\u003e/` (the `eml.xml`, the download if there is one, and that dataset's row of `SOURCES.md`) and writes one package folder under `practice-data/packages/\u003cdataset\u003e/`. It is run as `uv run femc convert \u003cdataset-folder\u003e \u003cout-folder\u003e`. It writes the manifest, `checksums.sha256` and the generated `README.md` with the contract's own functions, and nothing in `practice-data/` is committed.\n\nRests on: AGNT1, AGNT8\n\n## Reading FEMC's EML\n\nAll FEMC records share one non-standard shape, so the converter reads them in two steps. First it rewrites the record into standard EML:\n\n- the `dataTable`'s `title`, `description`, `purpose` and `coverage` move up to the dataset, and the table gets an `entityName`;\n- role-named personnel (`principalInvestigator`, `contentProvider`) become `individualName` plus `role`;\n- `publisher`'s inner `metadataProvider` becomes the publisher party itself;\n- `measurementType` becomes `measurementScale`, and an `enumeratedDomain` sitting directly on an attribute moves into its scale;\n- the misspelled `distibution` becomes `distribution`;\n- a coverage with only a begin date gets `end: unknown`.\n\nThen it passes the rewritten record to the unchanged `from_eml`, which maps every standard element to the manifest, project and code lists. FEMC's preferred citation goes in `archive:citation`. For a linked record, the data's URL is taken from the citation's \"Available online at:\" text, the only place FEMC records it. Anything neither step reads goes on the package's not-imported list.\n\nThe converter writes what the record says and nothing more. A description shorter than the core 50 characters stays as it is; coverage keeps the record's dates even where the file name disagrees; a record with no creator gets none. The audit reports each gap.\n\nRests on: AGNT2, AGNT7\n\n## Columns and files\n\nThe file is the truth about its columns. Each real column becomes a field, typed from the file. An EML attribute is matched to a column by exact name, then without regard to case, then by the shapefile's 10-character truncation; the EML's spelling, when it differs, goes in `archive:sourceName`. An attribute with no column is listed as not imported, and a column with no attribute gets a field with no description. The core validator's case-sensitive check is left as it is, since field names are written exactly as the file spells them.\n\nDownloaded files go under `data/` as downloaded, with nothing changed: tidying is Plan 3's later work. A zip is unpacked and not copied again; the aerial survey's shapefile parts become one `vector` resource with `archive:files` and an `archive:attributes` schema naming its `.dbf` columns as the `.dbf` spells them; its CSV (the attribute table without geometry) becomes its own `table` resource, and its XLSX an alternate of the CSV. FEMC's `eml.xml` goes under `original/` as a `file` resource. The not-imported list, one line per element or attribute with the reason, goes in the package's `_build/not-imported.txt`, which the contract treats as outside the package content.\n\nRests on: AGNT3, AGNT8\n\n## Rights and access\n\nNo FEMC record states rights, so rights come from the license each dataset page shows, as recorded in `SOURCES.md` at download:\n\n- a Creative Commons license becomes a license with its SPDX id;\n- \"Linked - third party determines data license\" becomes `archive:rightsStatus: third-party`, with FEMC's words as the statement;\n- no license shown becomes `undetermined`, so the package can be audited but not published.\n\nAccess follows FEMC's own label for the dataset: Downloadable is `open`, By request is `by-request`, Description only is `description-only`. A linked record is `open`, with a `linked` resource.\n\nRests on: AGNT4\n\n## The corpus and its order\n\nTen datasets, converted in this order, each adding one problem the converter has not met yet:\n\n| # | Dataset | What it teaches |\n| --- | --- | --- |\n| 1 | Ozone Bioindicators | The baseline: a small table. Converted again, since the hand-made package uses a draft format the contract rejects. |\n| 2 | Data Rescue Inventory | The record describes 25 columns the file lacks; personal columns; a 21-character description. |\n| 3 | IMPROVE fine aerosol | 239 columns, day-first dates, value, uncertainty, detection limit and flag per analyte. |\n| 4 | Camels Hump census_data | A linked record whose URL is only in the citation. |\n| 5 | Aerial detection survey | A shapefile set, code lists on attributes, an attribute table, renamed columns. |\n| 6 | FIA tree-level | 155 MB and 49 undescribed columns. |\n| 7 | Vegetation Class Raster | A raster, licensed CC0. |\n| 8 | Mount Mansfield Quadrat Images | Photographs, licensed CC BY-NC-SA 4.0. |\n| 9 | Development Related Projects with Threatened or Endangered Species | By request, ongoing, protected species: metadata only. |\n| 10 | 1991 White clover clones as a biomonitor | Description only: metadata only. |\n\nDatasets 7 to 10 are new. Their EML records are saved from each page's `/eml_xmlview`; datasets 7 and 8 are downloaded by hand through FEMC's public pages; each gets a row in `SOURCES.md` with the license its page shows and a line in `CHECKSUMS.sha256`. The raster and image files' exact formats are read when they are downloaded, and they map to the contract's existing `raster` and `media` kinds.\n\nRests on: DCSN1, AGNT5\n\n## FEMC's archive config\n\n`examples/femc/archive.yaml` holds FEMC's config: the publisher (the Forest Ecosystem Monitoring Cooperative), the profiles `core` and `ecology`, and FEMC's six themes as its own project listing names them: air, climate change, forest, soil, water and wildlife. Access is set per package, not per theme. A per-package theme field is Plan 2's follow-up (its PARK5); the converter fills it once it exists.\n\nRests on: AGNT6\n\n## The audit\n\nOnce the ten are converted, `cruise diagnose` runs on each and `cruise audit` over `practice-data/packages/`. Their full output, whose evidence quotes data values, stays under `practice-data/audit/`, which is not committed. This folder's `documents/` gets only the counts the FEMC report needs, with no evidence values: per dataset its errors, warnings, notes, completeness score and the rule ids that fired. Plan 5 makes no contact with FEMC and drafts no request to them: the contact and any bulk-export ask belong to Plan 10b, which takes the audit numbers from here.\n\nRests on: DCSN2, AGNT9\n\n## Risk and cost\n\nRisk: low. The converter writes only new package folders under `practice-data/packages/` on Court's machine and adds new code under `examples/femc/`; nothing in the core changes and nothing is deployed. A wrong conversion is undone by deleting the package folder and running the converter again. The one thing that must not happen is committing FEMC's data, since `practice-data/` is git-ignored and licenses vary.\n\nCost: two downloads by hand from Court (the raster and the images). No new programs: the converter uses the contract and the standard library.\n\nRests on: DCSN1, AGNT1\n\n## Left out\n\n- Contacting FEMC, and the bulk-export request: Plan 10b.\n- Tidying the data (renaming columns, fixing values, writing `changes.jsonl` steps): `cruise tidy`, a Plan 3 follow-up.\n- A generic `cruise package` command: a Plan 3 follow-up. The FEMC converter is not its first draft.\n- A per-package theme field (Plan 2's PARK5) and taxonomic coverage (Plan 2's PARK6).\n- Code lists published outside a record, such as the FIA database manual's codes: those columns stay `undocumented`.\n- Growing the corpus past ten, and any scrape of FEMC's archive.\n- Uploading the packages to an archive: Plan 7.\n\nRests on: DCSN2, AGNT7\n\n## How we'll know it works\n\n- Each of the ten packages passes `cruise diagnose` with no structure error. Quality findings are expected; they are the point.\n- Every package's `_build/not-imported.txt` accounts for each element and attribute the converter did not map, so nothing is dropped silently.\n- The converter's tests, on invented records written in FEMC's shape (none of FEMC's own records are committed), cover each rewrite and the column matching, and `just check` exits 0.\n- `cruise audit` over the ten runs to the end; its full output is under `practice-data/audit/`, and the counts with no evidence values are in this folder's `documents/`.\n\nRests on: AGNT3, AGNT8, AGNT9\n"
+    }
+  },
+  "plans": [],
+  "messages": [
+    {
+      "id": 1,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 2 (package format and contract), built and merged on main in schuettc/research-in-a-box. Read docs/specs/2026-11-12-generic-package-format-and-contract/documents/femc-paper-test.md first: it writes FEMC's six practice datasets in the format and lists, per record, what the standard EML importer (archive_contract.imports.eml.from_eml) reads and skips. FEMC's EML is almost entirely non-standard (title, description and coverage on the dataTable; role-named personnel; measurementType; the misspelled distibution), so from_eml reads only the package id, the project and some parties. Tolerating those quirks is yours. Two notes: the validator matches a shapefile's described columns to the .dbf case-sensitively, and FEMC names may need a case-insensitive match; the eight gaps the paper test found are now fields in the format.",
+      "at": "2026-11-13T12:05:42.53023-06:00",
+      "state": "answered",
+      "claim": "d978571da9028c3a",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 2,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session for research-in-a-box. Court asked that every planning session know this. Muster alias: personal-personal/generic-package-format-and-contract (the name is left over from Plan 2; this session now coordinates all the plans).\n\n1. Send cross-plan questions here first: anything that touches another plan's interface, ownership or order, or the overall direction. Ask over muster or with diazo_note to this alias. Questions only Court can answer still go on your own page as decision cards.\n2. Send a one-line muster message here when your understanding is confirmed, your spec is printed, each plan is printed, and the build is done. I check each spec and plan for scope before Court approves it.\n3. Record anything other plans rely on in the Decision log of docs/planning-handoff.md.\n4. Keep it small. Plans 1 and 2 are built: the repo, the uv and npm workspaces, archive_contract, the exports and the sample package. Build on them and don't rebuild. Plan only what your brief needs to work end to end now, and put everything else in follow-ups. Size checks to the risk. Question every option, config field and fallback that no real case needs yet.\n5. FEMC is the test afterwards, never the source of the design (Plan 2's PRIN1).",
+      "at": "2026-11-13T15:11:09.023485-06:00",
+      "state": "answered",
+      "claim": "499780468a145d88",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 3,
+      "card": "plan",
+      "from": "user",
+      "action": "start-planning",
+      "at": "2026-11-13T21:14:05.7938-06:00",
+      "state": "answered",
+      "claim": "b83ef1c262a96eca"
+    },
+    {
+      "id": 4,
+      "card": "DIRN",
+      "from": "user",
+      "action": "direction",
+      "at": "2026-11-13T21:32:44.255214-06:00",
+      "state": "answered",
+      "claim": "88a8de3b334c5c2e"
+    },
+    {
+      "id": 5,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 2 (package format and contract): the per-package theme field is now a follow-up on Plan 2 itself (PARK5, archive:themes checked against the config's themes), since the contract is Plan 2's; Plan 6 raised the same gap, along with taxonomic coverage (PARK6). So you needn't record one for Plans 6 and 8. Keeping themes in FEMC's config only is right for now.",
+      "at": "2026-11-13T21:36:27.661662-06:00",
+      "state": "answered",
+      "claim": "701dccc3c2f5b6df",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 6,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-13T21:58:38.646952-06:00",
+      "state": "answered",
+      "claim": "756e5fe3c3a0a6e7"
+    },
+    {
+      "id": 7,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-13T21:58:53.889192-06:00",
+      "state": "answered",
+      "claim": "b51a43ab2d86525c"
+    },
+    {
+      "id": 8,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "choose",
+      "option": "C",
+      "at": "2026-11-13T21:59:16.59212-06:00",
+      "state": "answered",
+      "claim": "dd9415dbce3c9532"
+    },
+    {
+      "id": 9,
+      "card": "DCSN2",
+      "from": "agent",
+      "action": "reply",
+      "text": "Recorded: Plan 5 makes no FEMC contact and drafts nothing for it; the contact and the bulk-export ask belong to the FEMC report (10b). I've told the coordinating session.",
+      "at": "2026-11-13T21:59:32.184586-06:00",
+      "answers": [
+        8
+      ]
+    },
+    {
+      "id": 10,
+      "card": "spec",
+      "from": "user",
+      "action": "approve-spec",
+      "at": "2026-11-13T22:07:37.034136-06:00",
+      "state": "answered",
+      "claim": "bedd4f1d32415d03"
+    }
+  ],
+  "planned_history": [
+    {
+      "action": "planned",
+      "by": "agent",
+      "at": "2026-11-13T08:48:22.248525-06:00"
+    },
+    {
+      "action": "started",
+      "by": "user",
+      "at": "2026-11-13T21:14:05.7938-06:00"
+    }
+  ]
+}
