@@ -233,8 +233,13 @@ class FakeSSM:
         return {"Parameter": {"Value": json.dumps({"publisher": "Test", "profiles": ["core"]})}}
 
 
+class Raw(str):
+    """A callback result sent as this text, not as JSON."""
+
+
 Script = list[Any]
-"""Each callback wait's outcome in order: a payload, "timeout", or a callable returning one."""
+"""Each callback wait's outcome in order: a payload, a `Raw` text, "timeout", or a callable
+returning one."""
 
 
 class FakeContext:
@@ -301,7 +306,7 @@ class FakeContext:
             self.log.append(("callback", name, "timeout"))
             raise CallbackTimeoutError("timed out")
         self.world.now += timedelta(hours=1)
-        result = json.dumps(entry)
+        result = entry if isinstance(entry, Raw) else json.dumps(entry)
         self.log.append(("callback", name, result))
         return result
 
@@ -678,6 +683,17 @@ def test_a_replay_repeats_no_step_and_names_each_operation_once(world: World) ->
 
     assert replayed == first
     assert (len(world.reviews.events), len(world.sns.published)) == (events, messages)
+
+
+@pytest.mark.parametrize("sent", [Raw("{not json"), Raw('"approve"'), ["approve"]])
+def test_a_malformed_callback_ends_failed_with_an_admin_alert(world: World, sent: Any) -> None:
+    result, _ = world.run([sent])
+
+    assert result["status"] == "failed"
+    assert world.item["status"] == "failed"
+    assert world.types() == [*REVIEWED, "failed"]
+    [alert] = world.sns.to(ALERTS)
+    assert SID in alert["Subject"]
 
 
 def test_a_submission_still_open_at_360_days_ends_expired(world: World) -> None:

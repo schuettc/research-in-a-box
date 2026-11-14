@@ -257,7 +257,10 @@ def _alert(c: Clients, env: Env, subject: str, message: str) -> None:
 def _payload(result: Any) -> dict[str, Any]:
     """A callback's result: the SDK passes the sent JSON through as text."""
     if isinstance(result, bytes | str):
-        result = json.loads(result)
+        try:
+            result = json.loads(result)
+        except ValueError as error:
+            raise BadCallback(f"callback result is not JSON: {error}") from error
     if not isinstance(result, dict):
         raise BadCallback(f"callback result is not an object: {result!r}")
     return result
