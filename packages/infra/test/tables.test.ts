@@ -55,7 +55,8 @@ test("there are two catalog tables with PK, SK and GSI1, on demand, without poin
     expect(props.PointInTimeRecoverySpecification).toBeUndefined();
     expect(props.TableName).toBeUndefined();
   }
-  expect(Object.keys(template.findResources("AWS::DynamoDB::Table"))).toHaveLength(7);
+  // Plan 4's seven, plus the read API's UsageResponses.
+  expect(Object.keys(template.findResources("AWS::DynamoDB::Table"))).toHaveLength(8);
 });
 
 test("no table is a global table", () => {
@@ -113,12 +114,12 @@ test("prod tables have deletion protection and are retained; a dev stage's are n
   const prod = Object.values(archive("prod").template.findResources("AWS::DynamoDB::Table"));
   const dev = Object.values(archive("dev").template.findResources("AWS::DynamoDB::Table"));
 
-  expect(prod).toHaveLength(7);
+  expect(prod).toHaveLength(8);
   for (const table of prod) {
     expect(table.DeletionPolicy).toBe("Retain");
     expect(table.Properties.DeletionProtectionEnabled).toBe(true);
   }
-  expect(dev).toHaveLength(7);
+  expect(dev).toHaveLength(8);
   for (const table of dev) {
     expect(table.DeletionPolicy).toBe("Delete");
     expect(table.Properties.DeletionProtectionEnabled).not.toBe(true);

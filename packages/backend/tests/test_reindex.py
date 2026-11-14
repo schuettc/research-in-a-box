@@ -75,7 +75,9 @@ class FakeDynamoDB:
 
     def scan(self, **kwargs: Any) -> dict[str, Any]:
         items = sorted(self.tables[kwargs["TableName"]].items())
-        assert kwargs["ProjectionExpression"] == "#pk, #sk"
+        keys_only = "ProjectionExpression" in kwargs
+        if keys_only:
+            assert kwargs["ProjectionExpression"] == "#pk, #sk"
         start = 0
         if "ExclusiveStartKey" in kwargs:
             last = kwargs["ExclusiveStartKey"]
@@ -83,7 +85,9 @@ class FakeDynamoDB:
             start = sum(1 for k, _ in items if k <= after)
         page = items[start : start + 2]
         result: dict[str, Any] = {
-            "Items": [{"PK": item["PK"], "SK": item["SK"]} for _, item in page]
+            "Items": [
+                {"PK": item["PK"], "SK": item["SK"]} if keys_only else item for _, item in page
+            ]
         }
         if start + 2 < len(items):
             result["LastEvaluatedKey"] = {"PK": page[-1][1]["PK"], "SK": page[-1][1]["SK"]}
@@ -374,7 +378,14 @@ def test_reindex_loads_the_inactive_table_and_flips_on_completed(
     result = world.run()
 
     run = result["run"]
-    assert result == {"run": run, "target": "B", "status": "COMPLETED", "items": 8, "flipped": True}
+    assert result == {
+        "run": run,
+        "target": "B",
+        "status": "COMPLETED",
+        "items": 8,
+        "flipped": True,
+        "catalog": 2,
+    }
     assert len(run) == 16 and run[8] == "T" and run.endswith("Z")
     assert world.ssm.value == "B"
     assert world.dynamodb.tables[TABLE_A] == {}
@@ -409,7 +420,10 @@ def test_reindex_loads_the_inactive_table_and_flips_on_completed(
         "step:load",
         "step:wait-load",
         "step:flip",
+        "step:catalog",
     ]
+    catalog = json.loads(world.s3.objects[(DERIVED, "site/catalog.json")])
+    assert [row["id"] for row in catalog] == ["ds-1", "ds-2"]
 
 
 def test_reindex_loads_table_a_when_b_is_active(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -457,6 +471,8 @@ def test_reindex_does_not_flip_and_alerts_on_completed_with_errors(
     assert result["flipped"] is False
     assert world.ssm.value == "A"
     assert "step:flip" not in world.events
+    assert "step:catalog" not in world.events
+    assert (DERIVED, "site/catalog.json") not in world.s3.objects
     assert world.events[-1] == "step:alert"
     assert len(world.sns.published) == 1
     alert = world.sns.published[0]
@@ -508,3 +524,23 @@ def test_reindex_imports_without_the_type_stubs(monkeypatch: pytest.MonkeyPatch)
     module = importlib.import_module("archive_backend.reindex")
 
     assert callable(module.handler)
+
+
+def test_a_failed_catalog_file_alerts_and_keeps_the_flip(monkeypatch: pytest.MonkeyPatch) -> None:
+    world = _world(monkeypatch, active="A")
+    _publish_two(world)
+
+    def broken(*_: Any, **__: Any) -> int:
+        raise RuntimeError("no write")
+
+    monkeypatch.setattr(reindex, "write_catalog_file", broken)
+
+    result = world.run()
+
+    assert result["flipped"] is True
+    assert result["catalog"] is None
+    assert world.ssm.value == "B"
+    assert world.events[-2:] == ["step:catalog", "step:alert"]
+    [alert] = world.sns.published
+    assert f"Reindex {result['run']} flipped to B" in alert["Message"]
+    assert "no write" in alert["Message"]

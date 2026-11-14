@@ -14,6 +14,7 @@ import type { ArchiveConfig } from "./generated/archive-config";
 import { IntegrityCheck } from "./integrity";
 import { Operations } from "./operations";
 import { makePythonFunction, type PythonFunctionProps } from "./python-function";
+import { ReadApi } from "./read-api";
 import { Reindex } from "./reindex";
 import { Storage } from "./storage";
 import { Tables } from "./tables";
@@ -36,6 +37,8 @@ export class ResearchArchive extends Construct {
   readonly settings: dynamodb.Table;
   readonly userProfiles: dynamodb.Table;
   readonly downloadCounts: dynamodb.Table;
+  /** The optional usage answers readers give before a download, one item per answer. */
+  readonly usageResponses: dynamodb.Table;
   readonly alertTopic: sns.Topic;
   readonly userPool: cognito.UserPool;
   readonly userPoolClients: {
@@ -117,6 +120,12 @@ export class ResearchArchive extends Construct {
       archiveBucket: this.archiveBucket,
       alertTopic: this.alertTopic,
     });
+
+    this.usageResponses = new ReadApi(this, "ReadApi", {
+      archive: this,
+      stage: props.stage,
+    }).usageResponses;
+    this.operations.addTables([this.usageResponses]);
 
     this.reindexFunction = new Reindex(this, "Reindex", { archive: this }).alias;
   }

@@ -1,6 +1,7 @@
 schema_file := "packages/web/src/schema/archive-contract.schema.json"
 config_type_file := "packages/infra/src/generated/archive-config.ts"
 config_type_generator := "packages/infra/scripts/generate-config-type.ts"
+openapi_file := "packages/web/src/schema/openapi.json"
 
 # Run every check in both languages, plus the schema drift check
 check: check-python check-ts check-schema
@@ -57,7 +58,7 @@ lambda-assets:
     uv pip install --python-platform aarch64-manylinux2014 --python-version 3.13 --only-binary :all: --target packages/infra/assets/python -r "$tmp/requirements.txt"
     uv pip install --no-deps --python-version 3.13 --target packages/infra/assets/python packages/contract packages/backend
 
-# Fail when the committed JSON Schema or the construct's config type differs from the contract
+# Fail when the committed JSON Schema, the construct's config type or the OpenAPI spec differs from the code
 check-schema:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -67,11 +68,17 @@ check-schema:
     diff -u {{schema_file}} "$tmp/schema.json"
     npx tsx {{config_type_generator}} "$tmp/schema.json" "$tmp/archive-config.ts"
     diff -u {{config_type_file}} "$tmp/archive-config.ts"
+    uv run python -m archive_backend.api "$tmp/openapi.json"
+    diff -u {{openapi_file}} "$tmp/openapi.json"
 
 # Rewrite the committed JSON Schema and the construct's config type from the contract
 schema:
     uv run python -m archive_contract.schema {{schema_file}}
     npx tsx {{config_type_generator}} {{schema_file}} {{config_type_file}}
+
+# Rewrite the committed OpenAPI spec from the read API's routes
+openapi:
+    uv run python -m archive_backend.api {{openapi_file}}
 
 # Format Python and TypeScript in place
 fmt:
