@@ -160,6 +160,12 @@ export class ResearchArchive extends Construct {
     });
     this.distribution = web.distribution;
     this.operations.addDistribution(this.distribution);
+    // The web app PUTs uploads and reads reports from the staging bucket; a local dev server too
+    // on non-prod stages.
+    storage.allowStagingOrigins([
+      `https://${this.distribution.distributionDomainName}`,
+      ...(this.isProd ? [] : ["http://localhost:5199"]),
+    ]);
     // just smoke, just seed, CI's smoke step and just ingest-e2e read it on every stage.
     new CfnOutput(Stack.of(this), "SiteDomain", {
       key: "SiteDomain",

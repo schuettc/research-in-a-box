@@ -119,8 +119,10 @@ test("every environment variable either handler reads is set", () => {
       "ACTIVE_CATALOG_PARAMETER",
       "CATALOG_TABLE_A",
       "CATALOG_TABLE_B",
+      "USER_POOL_ID",
     ].sort(),
   );
+  expect(api.Variables.USER_POOL_ID).toEqual({ Ref: logicalId(archive.userPool) });
   expect(JSON.stringify(api.Variables.INGEST_ALIAS_ARN)).toContain(
     ":function:ResearchArchive-prod-Ingest:live",
   );
@@ -146,7 +148,13 @@ test("each submissions route has its method behind the Cognito authorizer", () =
   const submissions = resource("submissions");
   const policy = resource("policy", submissions);
   const id = resource("{id}", submissions);
+  const api = template.findResources("AWS::ApiGateway::Resource", {
+    Properties: { PathPart: "api" },
+  }) as object;
+  const [apiId] = Object.keys(api);
   const routes: [string, string][] = [
+    ["GET", resource("people", apiId)],
+    ["GET", resource("curators", apiId)],
     ["POST", submissions],
     ["GET", submissions],
     ["GET", policy],
@@ -355,4 +363,17 @@ test("the ingest may call Bedrock only with the embeddings module, to embed what
 
   expect(granted).toContain("bedrock:InvokeModel");
   expect(statements(INGEST).flatMap(actions)).not.toContain("bedrock:InvokeModel");
+});
+
+test("the submissions function may only list the user pool's users and a group's members", () => {
+  const cognito = statements(SUBMISSIONS).filter((s) =>
+    actions(s).some((action) => action.startsWith("cognito-idp:")),
+  );
+
+  expect(cognito).toEqual([
+    expect.objectContaining({
+      Action: ["cognito-idp:ListUsers", "cognito-idp:ListUsersInGroup"],
+      Resource: { "Fn::GetAtt": [logicalId(archive.userPool), "Arn"] },
+    }),
+  ]);
 });

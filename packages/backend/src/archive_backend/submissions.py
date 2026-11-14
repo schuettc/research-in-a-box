@@ -26,6 +26,8 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 
+from archive_backend import people
+from archive_backend.people import Cognito as Cognito
 from archive_backend.whoami import _groups
 from archive_contract import ReviewPolicy
 
@@ -134,6 +136,7 @@ class Clients:
     reviews: Table
     settings: Table
     table: Callable[[str], Table]
+    cognito: Cognito
 
 
 @dataclass(frozen=True)
@@ -145,6 +148,7 @@ class Env:
     ingest_alias_arn: str
     active_catalog_parameter: str
     catalog_tables: dict[str, str]
+    user_pool_id: str
 
     @classmethod
     def from_environ(cls) -> Env:
@@ -156,6 +160,7 @@ class Env:
             ingest_alias_arn=os.environ["INGEST_ALIAS_ARN"],
             active_catalog_parameter=os.environ["ACTIVE_CATALOG_PARAMETER"],
             catalog_tables={"A": os.environ["CATALOG_TABLE_A"], "B": os.environ["CATALOG_TABLE_B"]},
+            user_pool_id=os.environ["USER_POOL_ID"],
         )
 
 
@@ -173,6 +178,7 @@ def clients(env: Env) -> Clients:
         reviews=table(env.reviews_table),
         settings=table(env.settings_table),
         table=table,
+        cognito=cast(Cognito, boto3.client("cognito-idp")),
     )
 
 
@@ -399,7 +405,10 @@ def create(c: Clients, env: Env, caller: Caller, body: dict[str, Any]) -> dict[s
 
 
 def uploads(c: Clients, env: Env, caller: Caller, sid: str | None, body: Any) -> dict[str, Any]:
-    """The next round's URLs while `needs-changes`; asked again before submit, the same round's."""
+    """The next round's URLs while `needs-changes`; asked again before submit, the same round's.
+
+    A round-1 draft asks again when its links expired before every file was uploaded.
+    """
     caller.need(CONTRIBUTOR)
     submission = _load(c, sid)
     _own(caller, submission)
@@ -409,7 +418,7 @@ def uploads(c: Clients, env: Env, caller: Caller, sid: str | None, body: Any) ->
     expect: Status
     if status == "needs-changes":
         round, expect = current + 1, "needs-changes"
-    elif status == "draft" and current > 1:
+    elif status == "draft":
         round, expect = current, "draft"
     else:
         raise Refused(409, f"no uploads while {status}")
@@ -590,12 +599,30 @@ def put_policy(c: Clients, caller: Caller, body: Any) -> dict[str, Any]:
     return _response(200, policy.dump())
 
 
+def lookup_people(c: Clients, env: Env, caller: Caller, subs: list[str]) -> dict[str, Any]:
+    """Email addresses for the ids a curator or admin sees in submissions and events."""
+    caller.need(CURATOR, ADMIN)
+    if len(subs) > people.MAX_PEOPLE:
+        raise Refused(400, f"at most {people.MAX_PEOPLE} ids at once")
+    for sub in subs:
+        if not people.SUB.fullmatch(sub):
+            raise Refused(400, f"not a user id: {sub!r}")
+    return _response(200, {"people": people.emails(c.cognito, env.user_pool_id, subs)})
+
+
+def list_curators(c: Clients, env: Env, caller: Caller) -> dict[str, Any]:
+    """The curator group, for the admin choosing named reviewers."""
+    caller.need(ADMIN)
+    return _response(200, people.curators(c.cognito, env.user_pool_id))
+
+
 def handle(event: dict[str, Any], c: Clients, env: Env) -> dict[str, Any]:
     """Route one API Gateway proxy event by method and resource."""
     claims: dict[str, Any] = event["requestContext"]["authorizer"]["claims"]
     caller = Caller(str(claims["sub"]), frozenset(_groups(claims.get("cognito:groups"))))
     sid = (event.get("pathParameters") or {}).get("id")
     query = event.get("queryStringParameters") or {}
+    multi = event.get("multiValueQueryStringParameters") or {}
     route = (event.get("httpMethod"), event.get("resource"))
     try:
         body = json.loads(event.get("body") or "{}")
@@ -620,6 +647,10 @@ def handle(event: dict[str, Any], c: Clients, env: Env) -> dict[str, Any]:
                 return files(c, env, caller, sid)
             case ("POST", "/api/submissions/{id}/decision"):
                 return decide(c, caller, sid, body)
+            case ("GET", "/api/people"):
+                return lookup_people(c, env, caller, list(multi.get("sub") or []))
+            case ("GET", "/api/curators"):
+                return list_curators(c, env, caller)
         return _response(404, {"error": f"no route {route[0]} {route[1]}"})
     except json.JSONDecodeError:
         return _response(400, {"error": "the body must be JSON"})

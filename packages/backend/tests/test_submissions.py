@@ -25,6 +25,7 @@ ENV = Env(
     ingest_alias_arn=ALIAS,
     active_catalog_parameter=PARAMETER,
     catalog_tables={"A": "catalog-a", "B": "catalog-b"},
+    user_pool_id="pool",
 )
 
 
@@ -144,6 +145,7 @@ class World:
             reviews=cast(submissions.Table, self.reviews),
             settings=cast(submissions.Table, self.settings),
             table=lambda name: cast(submissions.Table, self.catalog[name]),
+            cognito=cast(submissions.Cognito, None),
         )
 
     def call(
@@ -203,6 +205,8 @@ ROUTES = [
     ("GET", "/api/submissions/{id}", "contributor"),
     ("POST", "/api/submissions/{id}/decision", "contributor,admin"),
     ("GET", "/api/submissions/{id}/files", "contributor,admin"),
+    ("GET", "/api/people", "contributor"),
+    ("GET", "/api/curators", "contributor,curator"),
 ]
 
 
@@ -448,6 +452,29 @@ def test_resubmit_completes_the_stored_callback(world: World) -> None:
     ]
     assert world.submissions.items[(sid,)]["round"] == 2
     assert [e["type"] for e in world.events(sid)] == ["created", "resubmitted"]
+
+
+def test_a_round_1_draft_gets_new_links_for_its_submitter_only(world: World) -> None:
+    sid = world.create("alice")
+    world.s3.presigned.clear()
+    files = [{"path": "data/a.csv", "size": 4, "sha256": DIGEST}]
+
+    stranger, body = world.call(
+        "POST", "/api/submissions/{id}/uploads", "bob", "contributor", {"files": files}, sid=sid
+    )
+    assert stranger == 403, body
+    assert world.s3.presigned == []
+
+    status, body = world.call(
+        "POST", "/api/submissions/{id}/uploads", "alice", "contributor", {"files": files}, sid=sid
+    )
+
+    assert status == 200, body
+    assert body["round"] == 1
+    assert [u["path"] for u in body["uploads"]] == ["data/a.csv"]
+    assert world.s3.presigned[-1]["Key"] == f"incoming/{sid}/1/data/a.csv"
+    item = world.submissions.items[(sid,)]
+    assert (item["status"], item["round"]) == ("draft", 1)
 
 
 def _in_review(world: World, submitter: str = "alice") -> str:
