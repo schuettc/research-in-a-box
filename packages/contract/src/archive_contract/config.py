@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Literal, Self, get_args
+from xml.etree import ElementTree
 
 import yaml
 from pydantic import ConfigDict, PositiveInt, ValidationInfo, field_validator, model_validator
@@ -68,6 +69,27 @@ class Infrastructure(_Strict):
 
 BRAND_FILE_MAX_BYTES = 200 * 1024
 _BRAND_FILE_SUFFIXES = {"logo": (".svg", ".png"), "favicon": (".svg", ".ico")}
+# Cognito's managed login refuses an SVG asset with role or aria-* attributes, failing the
+# deploy; script, event handlers and foreignObject would run in the app, which serves the
+# logo from its own origin. Refusing them here turns a rolled-back deploy into a config error.
+_SVG_REFUSED_ELEMENTS = {"script", "foreignobject"}
+
+
+def _svg_refusal(text: str) -> str | None:
+    """Why this SVG can't be a brand file, or None when it can."""
+    try:
+        root = ElementTree.fromstring(text)
+    except ElementTree.ParseError as error:
+        return f"isn't a well-formed SVG ({error})"
+    for element in root.iter():
+        tag = str(element.tag).rsplit("}", 1)[-1]
+        if tag.lower() in _SVG_REFUSED_ELEMENTS:
+            return f"has a <{tag}> element, which is not allowed"
+        for name in element.attrib:
+            attribute = name.rsplit("}", 1)[-1]
+            if attribute == "role" or attribute.startswith(("aria-", "on")):
+                return f"has a {attribute} attribute on <{tag}>, which is not allowed"
+    return None
 
 
 class Brand(_Strict):
@@ -105,6 +127,10 @@ class Brand(_Strict):
                 raise ValueError(f"no {field} file at {path}")
             if path.stat().st_size > BRAND_FILE_MAX_BYTES:
                 raise ValueError(f"the {field} is over 200 KB")
+            if path.suffix.lower() == ".svg":
+                refusal = _svg_refusal(path.read_text(encoding="utf-8"))
+                if refusal:
+                    raise ValueError(f"the {field} {refusal}")
         return value
 
 

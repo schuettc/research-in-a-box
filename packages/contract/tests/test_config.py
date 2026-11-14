@@ -241,3 +241,23 @@ def test_root_archive_yaml_has_a_brand_and_fits_the_ssm_parameter() -> None:
     assert config.brand is not None
     assert config.brand.logo is not None
     assert len(as_json.encode("utf-8")) <= 4096
+
+
+@pytest.mark.parametrize(
+    "svg",
+    [
+        '<svg xmlns="http://www.w3.org/2000/svg" role="img"><rect width="1" height="1"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg" aria-label="X"><rect width="1" height="1"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><rect onclick="x()" width="1" height="1"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject/></svg>',
+    ],
+)
+def test_an_svg_cognito_or_a_browser_would_refuse_is_refused(tmp_path: Path, svg: str) -> None:
+    # Cognito's managed login refused role and aria-label on a deploy; script, handlers and
+    # foreignObject would run in the app, which serves the logo from its own origin.
+    path = _brand_config(tmp_path, VALID_BRAND)
+    (tmp_path / "logo.svg").write_text(svg, encoding="utf-8")
+
+    with pytest.raises(ValidationError, match=r"brand\.logo[\s\S]*not allowed"):
+        load_config(path)
