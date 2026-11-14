@@ -148,10 +148,14 @@ export class ResearchArchive extends Construct {
       restApi: this.api,
     }).distribution;
     this.operations.addDistribution(this.distribution);
-    new CfnOutput(Stack.of(this), "SiteDomain", {
-      key: "SiteDomain",
-      value: this.distribution.distributionDomainName,
-    });
+    // just smoke and CI's smoke step read SiteDomain on every stage; a non-prod stage's comes
+    // with its e2e client's outputs.
+    if (this.isProd) {
+      new CfnOutput(Stack.of(this), "SiteDomain", {
+        key: "SiteDomain",
+        value: this.distribution.distributionDomainName,
+      });
+    }
     this.userPoolClients = auth.addAppClients(this.distribution.distributionDomainName);
     if (!this.isProd) {
       auth.addTestClient(this.distribution.distributionDomainName);

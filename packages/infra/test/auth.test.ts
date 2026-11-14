@@ -110,7 +110,6 @@ test("a prod stage has no e2e client, no admin password sign-in on any client, a
   const outputs = Object.keys(template.findOutputs("*"));
   expect(outputs).not.toContain("E2eClientId");
   expect(outputs).not.toContain("UserPoolId");
-  expect(outputs).not.toContain("SiteDomain");
 });
 
 test("the ingest-test config makes only the ingest-test stack, with the e2e client", () => {
