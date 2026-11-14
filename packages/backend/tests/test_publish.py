@@ -14,7 +14,7 @@ import pytest
 from aws_durable_execution_sdk_python import DurableContext
 from botocore.exceptions import ClientError
 
-from archive_backend import ingest, reindex, submissions
+from archive_backend import ingest, pages, reindex, submissions
 from archive_backend.embeddings import Bedrock
 from archive_backend.ingest import Clients, Env
 from archive_contract.exports.readme import render_readme
@@ -439,6 +439,27 @@ def test_the_page_is_written_with_its_json_ld(world: World) -> None:
     block = page.split('<script type="application/ld+json">', 1)[1].split("</script>", 1)[0]
     assert json.loads(block)["identifier"] == f"https://{DOMAIN}/datasets/stream/v1"
     assert f"https://{DOMAIN}/data/stream/1/data/logger.csv" in page
+
+
+def test_the_page_goes_through_the_shared_page_writer(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    written: list[tuple[str, str, int | None]] = []
+    write_page = pages.write_page
+
+    def recording(
+        s3: Any, bucket: str, html: str, dataset_id: str, version: int | None = None
+    ) -> str:
+        written.append((bucket, dataset_id, version))
+        return write_page(s3, bucket, html, dataset_id, version)
+
+    monkeypatch.setattr(pages, "write_page", recording)
+    world.hold(SID, _package(), datasetId="stream")
+
+    world.publish()
+
+    # The reindex rebuilds pages with the same writer, so the two never drift apart.
+    assert written == [(DERIVED, "stream", None), (DERIVED, "stream", 1)]
 
 
 def test_a_new_dataset_whose_id_was_taken_meanwhile_is_refused(world: World) -> None:

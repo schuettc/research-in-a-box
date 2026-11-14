@@ -4,11 +4,9 @@
 
 `research-archive-in-a-box/ingest-review-and-access-workflows` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → ✓ Build → ✓ Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 7 of 9** → Sign off
 
-Signed off 2026-11-14 10:33.
-
-PLAN1 built
+PLAN1 built · PLAN2 building · 0 of 2 done
 
 ## Wrap-up
 
@@ -107,6 +105,9 @@ You chose not to wait a day for the reminder email (DCSN4), so the reminder neve
   - TASK5 Task 5: Publish and the dataset page: done. ac6caae (submitterIsCurator), b02633b (expired at 360 days), 0133a6e (dataset page), 0e5a215 (publish: version, fill, checksummed copy, catalog items via reindex builders, page, finish); just check exit 0. Catalog-file call is a marked spot until Plan 6's writer lands
   - TASK6 Task 6: The Ingest construct: done. 81e777e (page Cache-Control, datasetId pattern), 3f2dd01 (Ingest construct: durable fn + live alias, 10 GiB /tmp, submissions fn + routes, curators' topic, GuardDuty plan on incoming/, least-privilege grants, just add-curator); just check exit 0 (423 py, 55 ts)
   - TASK7 Task 7: The run on a test stage: done. 5b2374a, 541652f (e2e client, script, ingest-test config) plus review fixes; deployed run on ingest-test passed twice (875cb69, then rebased afd047f on Plan 6): all six paths; reminder decided early under DCSN4 B (PARK17). PR #29 merged as a22c85a
+- [PLAN2](plans/2-curator-files-and-page-writer.md) The curator files route and the shared page writer: building · 0 of 2 done
+  - TASK8 Task 8: The curator files route: not started
+  - TASK9 Task 9: The shared page writer: not started
 
 ## Steps
 

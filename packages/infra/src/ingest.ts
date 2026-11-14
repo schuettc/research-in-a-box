@@ -136,8 +136,11 @@ export class Ingest extends Construct {
     });
     // Presigned PUTs are signed with the function's own role, so it needs the PUT itself.
     api.addToRolePolicy(allow(["s3:PutObject"], objects(staging, "incoming/")));
-    // Submit HEADs each declared file in incoming/; read presigns the report.
-    api.addToRolePolicy(allow(["s3:GetObject"], objects(staging, "incoming/", "reports/")));
+    // Submit HEADs each declared file in incoming/; read presigns the report; files presigns
+    // the held package's files for a curator.
+    api.addToRolePolicy(
+      allow(["s3:GetObject"], objects(staging, "incoming/", "reports/", "held/")),
+    );
     archive.submissions.grant(
       api,
       "dynamodb:GetItem",
@@ -171,6 +174,7 @@ export class Ingest extends Construct {
     policy.addMethod("PUT", integration, auth);
     const one = submissions.addResource("{id}");
     one.addMethod("GET", integration, auth);
+    one.addResource("files").addMethod("GET", integration, auth);
     for (const action of ["uploads", "submit", "decision"]) {
       one.addResource(action).addMethod("POST", integration, auth);
     }

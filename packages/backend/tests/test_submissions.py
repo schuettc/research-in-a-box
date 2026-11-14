@@ -104,7 +104,7 @@ class FakeS3:
         self.uploaded.update(p["Key"] for p in self.presigned if p["method"] == "put_object")
 
     def generate_presigned_url(self, method: str, Params: dict[str, Any], ExpiresIn: int) -> str:
-        self.presigned.append({"method": method, **Params})
+        self.presigned.append({"method": method, "expires": ExpiresIn, **Params})
         return f"https://{Params['Bucket']}.s3/{Params['Key']}?signed"
 
 
@@ -202,6 +202,7 @@ ROUTES = [
     ("POST", "/api/submissions/{id}/submit", "contributor"),
     ("GET", "/api/submissions/{id}", "contributor"),
     ("POST", "/api/submissions/{id}/decision", "contributor,admin"),
+    ("GET", "/api/submissions/{id}/files", "contributor,admin"),
 ]
 
 
@@ -227,6 +228,7 @@ def test_create_records_the_submission_and_returns_checksummed_urls(world: World
     assert world.s3.presigned == [
         {
             "method": "put_object",
+            "expires": 3600,
             "Bucket": STAGING,
             "Key": f"incoming/{sid}/1/data/a.csv",
             "ChecksumSHA256": checksum,
@@ -579,3 +581,82 @@ def test_lists_and_reads_follow_the_caller(world: World) -> None:
     assert [e["type"] for e in body["events"]] == ["created"]
     stranger, _ = world.call("GET", "/api/submissions/{id}", "bob", "contributor", sid=mine)
     assert stranger == 403
+
+
+SECOND = hashlib.sha256(b"c\n").hexdigest()
+
+
+def _held(world: World, status: str) -> str:
+    """A submission in its second round, with round 1's file no longer listed."""
+    sid = world.create("alice")
+    world.submissions.items[(sid,)].update(
+        status=status,
+        round=2,
+        files={
+            "1": [{"path": "data/old.csv", "size": 9, "sha256": DIGEST}],
+            "2": [
+                {"path": "data/a.csv", "size": 4, "sha256": DIGEST},
+                {"path": "README.md", "size": 2, "sha256": SECOND},
+            ],
+        },
+    )
+    world.s3.presigned.clear()
+    return sid
+
+
+@pytest.mark.parametrize("status", ["in-review", "publishing"])
+def test_a_curator_gets_a_five_minute_link_to_each_held_file(world: World, status: str) -> None:
+    sid = _held(world, status)
+
+    code, body = world.call("GET", "/api/submissions/{id}/files", "carol", "curator", sid=sid)
+
+    assert code == 200, body
+    assert body == {
+        "round": 2,
+        "files": [
+            {
+                "path": "data/a.csv",
+                "size": 4,
+                "sha256": DIGEST,
+                "url": f"https://{STAGING}.s3/held/{sid}/data/a.csv?signed",
+            },
+            {
+                "path": "README.md",
+                "size": 2,
+                "sha256": SECOND,
+                "url": f"https://{STAGING}.s3/held/{sid}/README.md?signed",
+            },
+        ],
+    }
+    # Only the round's listed paths are signed, each for five minutes.
+    assert world.s3.presigned == [
+        {"method": "get_object", "expires": 300, "Bucket": STAGING, "Key": f"held/{sid}/{path}"}
+        for path in ("data/a.csv", "README.md")
+    ]
+
+
+def test_the_files_route_is_refused_to_the_submitter_who_is_no_curator(world: World) -> None:
+    sid = _held(world, "in-review")
+
+    code, _ = world.call("GET", "/api/submissions/{id}/files", "alice", "contributor", sid=sid)
+
+    assert code == 403
+    assert world.s3.presigned == []
+
+
+def test_the_files_route_answers_404_for_an_unknown_submission(world: World) -> None:
+    code, _ = world.call("GET", "/api/submissions/{id}/files", "carol", "curator", sid="nope")
+
+    assert code == 404
+
+
+@pytest.mark.parametrize(
+    "status", [s for s in submissions.STATUSES if s not in ("in-review", "publishing")]
+)
+def test_the_files_route_answers_409_while_nothing_is_held(world: World, status: str) -> None:
+    sid = _held(world, status)
+
+    code, _ = world.call("GET", "/api/submissions/{id}/files", "carol", "curator", sid=sid)
+
+    assert code == 409
+    assert world.s3.presigned == []

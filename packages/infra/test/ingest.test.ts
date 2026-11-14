@@ -152,6 +152,7 @@ test("each submissions route has its method behind the Cognito authorizer", () =
     ["GET", policy],
     ["PUT", policy],
     ["GET", id],
+    ["GET", resource("files", id)],
     ["POST", resource("uploads", id)],
     ["POST", resource("submit", id)],
     ["POST", resource("decision", id)],
@@ -305,6 +306,15 @@ test("the submissions function may read incoming/, so submit can HEAD each decla
   expect(resources).toContain("/incoming/*");
   expect(resources).toContain("/reports/*");
   expect(resources).not.toMatch(/"\/\*"/);
+});
+
+test("only the submissions function's read of held/ is new, so the files route can sign links", () => {
+  const reads = statements(SUBMISSIONS).filter((s) => actions(s).includes("s3:GetObject"));
+  expect(JSON.stringify(reads.map((s) => s.Resource))).toContain("/held/*");
+  const writes = statements(SUBMISSIONS).filter((s) =>
+    actions(s).some((a) => a === "s3:PutObject" || a === "s3:DeleteObject"),
+  );
+  expect(JSON.stringify(writes.map((s) => s.Resource))).not.toContain("/held/*");
 });
 
 test("the ingest may claim a version on either catalog table with a conditional update", () => {
