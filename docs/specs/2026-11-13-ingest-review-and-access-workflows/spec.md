@@ -3,7 +3,7 @@ diazo: research-archive-in-a-box/ingest-review-and-access-workflows
 file: spec
 status: approved
 approved: 2026-11-13T22:34:11-06:00
-hash: 77c8145a55a6ae0e1672f01d03a3bebe4120ef5b01dd81e84a24daac75ac7eb2
+hash: d2f62a83de26e72462f915e95a9a54ea797058bb3d6e3ab59b9cc7222d69864b
 rests_on: [DCSN1, AGNT4, AGNT5, AGNT1, AGNT2, AGNT3, AGNT6, DCSN3, AGNT14, AGNT7, AGNT12, AGNT13, DCSN2, AGNT8, AGNT9, AGNT10, AGNT11]
 record: README.md
 ---
@@ -103,7 +103,7 @@ Rests on: DCSN2
 Publish is a series of steps, each safe to repeat:
 
 1. **Version.** A new dataset takes version 1. A new version takes the dataset item's `currentVersion` plus 1 from the active catalog table.
-2. **Fill in.** Set the manifest's `id`, `version`, publisher (from the config), publication year, and identifier `https://<domain>/datasets/<id>/v<version>`. Then regenerate `README.md` with the contract's readme export and rewrite `checksums.sha256` to match.
+2. **Fill in.** Set the manifest's `id`, `version`, `archive:published` (the publish time, ISO 8601 UTC, which the catalog's `publishedAt` and the exports' publication year come from, and which only publish writes), publisher (from the config), and identifier `https://<domain>/datasets/<id>/v<version>`. Then regenerate `README.md` with the contract's readme export and rewrite `checksums.sha256` to match.
 3. **Copy.** Write every file to `open/<id>/<version>/` (access `open`) or `restricted/<id>/<version>/` (every other level) in the archive bucket. Each file goes in one PUT with its full-object SHA-256 checksum, so the weekly integrity check holds. The manifest goes last, so a reader never finds a manifest without its files.
 4. **Catalog.** Put the version, file and dataset items into the active catalog table, named by its SSM parameter. They are built by the same `catalog_items` and `dataset_item` functions the reindex uses, so the two paths never differ. Catching up packages published during a reindex stays Plan 4's PARK5.
 5. **Page.** Write `site/datasets/<id>/index.html` in the derived bucket. It holds the title, description, citation, current version, file links (for open data), and schema.org JSON-LD from the contract's export, and it reads on its own. The CloudFront site function now sends `/datasets/<id>` and `/datasets/<id>/` to that file, and every other extensionless path to `/index.html` as before. Plan 8 adds the web app's takeover by rebuilding pages from the template.
