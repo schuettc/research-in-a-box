@@ -497,10 +497,16 @@ def test_the_page_step_writes_the_versions_zips_beside_it(world: World) -> None:
 
     root = "restricted/secret/1/"
     zips = world.s3.keys(ARCHIVE, root + "_zips/")
-    assert zips == [root + "_zips/depth.zip", root + "_zips/package.zip", root + "_zips/sites.zip"]
+    assert zips == [
+        root + "_zips/all/package.zip",
+        root + "_zips/depth.zip",
+        root + "_zips/sites.zip",
+    ]
     listed = world.s3.objects[(ARCHIVE, root + "checksums.sha256")].decode()
-    with zipfile.ZipFile(io.BytesIO(world.s3.objects[(ARCHIVE, root + "_zips/package.zip")])) as z:
+    with zipfile.ZipFile(
+        io.BytesIO(world.s3.objects[(ARCHIVE, root + "_zips/all/package.zip")])
+    ) as z:
         for line in listed.splitlines():
             digest, path = line.split(maxsplit=1)
             assert hashlib.sha256(z.read(path)).hexdigest() == digest
-    assert ("DATASET#secret", "V#000001#FILE#_zips/package.zip") in world.table()
+    assert ("DATASET#secret", "V#000001#FILE#_zips/all/package.zip") in world.table()

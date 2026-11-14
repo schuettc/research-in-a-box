@@ -319,12 +319,12 @@ def test_catalog_items_for_the_sample_package() -> None:
     expected = {r["path"] for r in manifest["resources"]} | {
         f["path"] for r in manifest["resources"] for f in r["archive:files"] or []
     }
-    zips = {"_zips/package.zip", "_zips/sites.zip", "_zips/depth.zip"}
+    zips = {"_zips/all/package.zip", "_zips/sites.zip", "_zips/depth.zip"}
     assert set(files) == expected | zips
     assert len(items) == 1 + len(expected) + len(zips)
     assert files["_zips/sites.zip"]["name"] == {"S": "sites"}
     assert files["_zips/sites.zip"]["format"] == {"S": "zip"}
-    assert files["_zips/package.zip"]["name"] == {"S": "package"}
+    assert files["_zips/all/package.zip"]["name"] == {"S": "package"}
     for path, item in files.items():
         assert item["PK"] == {"S": "DATASET#stream-temperature-sample"}
         assert item["SK"] == {"S": f"V#000001#FILE#{path}"}
@@ -706,11 +706,11 @@ def test_reindex_writes_every_versions_zips_once(monkeypatch: pytest.MonkeyPatch
 
     zips = sorted(k for k in world.s3.puts if "/_zips/" in k)
     assert zips == [
+        "open/stream/1/_zips/all/package.zip",
         "open/stream/1/_zips/depth.zip",
-        "open/stream/1/_zips/package.zip",
         "open/stream/1/_zips/sites.zip",
+        "restricted/stream/2/_zips/all/package.zip",
         "restricted/stream/2/_zips/depth.zip",
-        "restricted/stream/2/_zips/package.zip",
         "restricted/stream/2/_zips/sites.zip",
     ]
     table = world.dynamodb.tables[TABLE_B]

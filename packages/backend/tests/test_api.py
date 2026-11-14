@@ -511,7 +511,7 @@ def test_versions_and_one_version(world: World) -> None:
     assert one_status == 200
     assert one["version"] == 2
     assert one["manifest"]["title"] == "T"
-    assert [f["path"] for f in one["files"]] == ["_zips/package.zip"]
+    assert [f["path"] for f in one["files"]] == ["_zips/all/package.zip"]
 
 
 @pytest.mark.parametrize(
@@ -598,7 +598,7 @@ def test_a_restricted_zip_is_a_file_the_download_route_signs(world: World) -> No
         "Bucket": ARCHIVE,
         "Key": "restricted/ds/1/_zips/sites.zip",
     }
-    assert _download(world, "ds", "_zips/package.zip")[0] == 200
+    assert _download(world, "ds", "_zips/all/package.zip")[0] == 200
 
 
 @pytest.mark.parametrize(

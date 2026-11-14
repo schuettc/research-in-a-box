@@ -1,7 +1,10 @@
-"""The version's zips: `package.zip` and one `<resource>.zip` per multi-file resource.
+"""The version's zips: `all/package.zip` and one `<resource>.zip` per multi-file resource.
 
 They sit beside the version, at `<open|restricted>/<datasetId>/<version>/_zips/`, and are
-written by the page step at publish and by the reindex. `package.zip` holds every file
+written by the page step at publish and by the reindex. The version's zip is in its own
+folder because a resource name may be any string without a `/` (the contract sets no
+pattern), so `_zips/<resource>.zip` can never be `_zips/all/package.zip`, even for a resource
+named `package`; it still downloads as `package.zip`. `package.zip` holds every file
 `checksums.sha256` lists, and `checksums.sha256` itself; a resource's zip holds its paths and
 `archive:files` members. Each zip is built in a temporary file and written in one PUT with its
 full-object SHA-256, like every archived object, and carries the hash of its members' checksum
@@ -22,6 +25,7 @@ from botocore.exceptions import ClientError
 CHECKSUMS = "checksums.sha256"
 FOLDER = "_zips/"
 PACKAGE = "package"
+PACKAGE_PATH = f"{FOLDER}all/{PACKAGE}.zip"
 FINGERPRINT = "members-sha256"
 CHUNK = 8 * 1024 * 1024
 # Fixed, so the same members always make the same bytes.
@@ -66,11 +70,17 @@ def resource_zips(manifest: dict[str, Any]) -> list[tuple[str, list[str]]]:
     return found
 
 
+def zip_files(manifest: dict[str, Any]) -> list[tuple[str, str]]:
+    """`(name, version path)` of its zips, from the manifest alone: the version's, named
+    `package`, then each multi-file resource's, named for the resource."""
+    return [(PACKAGE, PACKAGE_PATH)] + [
+        (name, f"{FOLDER}{name}.zip") for name, _ in resource_zips(manifest)
+    ]
+
+
 def zip_paths(manifest: dict[str, Any]) -> list[str]:
     """The version paths of its zips, from the manifest alone."""
-    return [f"{FOLDER}{PACKAGE}.zip"] + [
-        f"{FOLDER}{name}.zip" for name, _ in resource_zips(manifest)
-    ]
+    return [path for _, path in zip_files(manifest)]
 
 
 def checksum_lines(text: str) -> dict[str, str]:
@@ -86,7 +96,7 @@ def checksum_lines(text: str) -> dict[str, str]:
 def plan(manifest: dict[str, Any], listed: dict[str, str]) -> list[Zip]:
     """The version's zips: the package's every listed file and checksums.sha256, then each
     multi-file resource's members."""
-    zips = [Zip(f"{FOLDER}{PACKAGE}.zip", (*sorted(listed), CHECKSUMS))]
+    zips = [Zip(PACKAGE_PATH, (*sorted(listed), CHECKSUMS))]
     zips += [
         Zip(f"{FOLDER}{name}.zip", tuple(members)) for name, members in resource_zips(manifest)
     ]

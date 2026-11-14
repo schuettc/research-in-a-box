@@ -37,7 +37,7 @@ from archive_backend.catalog_file import _scan, write_catalog_file
 from archive_backend.config import read_archive_config
 from archive_backend.embeddings import Bedrock, with_embedding
 from archive_backend.zips import FOLDER as ZIPS
-from archive_backend.zips import zip_paths
+from archive_backend.zips import zip_files
 from archive_contract.config import ArchiveConfig
 from archive_contract.manifest import Manifest
 
@@ -180,8 +180,7 @@ def catalog_items(
                 )
     # The version's zips, beside it under _zips/, as file items the download route accepts;
     # their size and hash aren't known until the page step writes them.
-    for path in zip_paths(manifest):
-        name = path.removeprefix(ZIPS).removesuffix(".zip")
+    for name, path in zip_files(manifest):
         files.setdefault(path, _file_item(pk, sk, path, name, "zip", None, None))
     items.extend(files.values())
     return items

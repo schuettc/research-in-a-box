@@ -218,7 +218,7 @@ interface FileProps {
 }
 
 /** The archive path of the version's zip of every file, and of one multi-file resource's. */
-const PACKAGE_ZIP = "_zips/package.zip";
+const PACKAGE_ZIP = "_zips/all/package.zip";
 const zipOf = (resource: Resource) => `_zips/${resource.name}.zip`;
 
 /** A file of a dataset that isn't open: signed in, its link comes from the API. */

@@ -92,7 +92,7 @@ def test_without_list_rights_a_missing_zip_is_an_error_not_a_missing_zip(s3: Fak
 def test_the_version_zip_holds_exactly_the_versions_files_and_their_checksums(s3: FakeS3) -> None:
     zips.write_zips(_s3(s3), BUCKET, ROOT, _manifest())
 
-    archive = _zip(s3, "package.zip")
+    archive = _zip(s3, "all/package.zip")
     listed = zips.checksum_lines((SAMPLE / "checksums.sha256").read_text())
     assert sorted(archive.namelist()) == sorted([*listed, "checksums.sha256"])
     assert "datapackage.json" in listed and "README.md" in listed
@@ -105,8 +105,8 @@ def test_a_shapefile_sets_zip_holds_its_four_members(s3: FakeS3) -> None:
     written = zips.write_zips(_s3(s3), BUCKET, ROOT, _manifest())
 
     assert sorted(written) == [
+        f"{ROOT}_zips/all/package.zip",
         f"{ROOT}_zips/depth.zip",
-        f"{ROOT}_zips/package.zip",
         f"{ROOT}_zips/sites.zip",
     ]
     assert sorted(_zip(s3, "sites.zip").namelist()) == [
@@ -139,7 +139,7 @@ def test_a_changed_member_rewrites_only_the_zips_that_hold_it(s3: FakeS3) -> Non
 
     written = zips.write_zips(_s3(s3), BUCKET, ROOT, _manifest())
 
-    assert sorted(written) == [f"{ROOT}_zips/package.zip", f"{ROOT}_zips/sites.zip"]
+    assert sorted(written) == [f"{ROOT}_zips/all/package.zip", f"{ROOT}_zips/sites.zip"]
 
 
 def test_a_version_without_checksums_gets_no_zips(s3: FakeS3) -> None:
@@ -150,7 +150,24 @@ def test_a_version_without_checksums_gets_no_zips(s3: FakeS3) -> None:
 
 def test_zip_paths_follow_the_manifest_alone() -> None:
     assert zips.zip_paths(_manifest()) == [
-        "_zips/package.zip",
+        "_zips/all/package.zip",
         "_zips/sites.zip",
         "_zips/depth.zip",
     ]
+
+
+def test_a_resource_named_package_keeps_its_own_zip_apart_from_download_all(s3: FakeS3) -> None:
+    manifest = _manifest()
+    sites = next(r for r in manifest["resources"] if r["name"] == "sites")
+    sites["name"] = "package"
+
+    paths = zips.zip_paths(manifest)
+    written = zips.write_zips(_s3(s3), BUCKET, ROOT, manifest)
+
+    assert len(set(paths)) == len(paths) == 3
+    assert sorted(written) == sorted(ROOT + path for path in paths)
+    assert ROOT + "_zips/package.zip" in written
+    whole = zipfile.ZipFile(io.BytesIO(s3.objects[(BUCKET, ROOT + "_zips/all/package.zip")]))
+    assert "checksums.sha256" in whole.namelist()
+    resource = zipfile.ZipFile(io.BytesIO(s3.objects[(BUCKET, ROOT + "_zips/package.zip")]))
+    assert "checksums.sha256" not in resource.namelist()

@@ -142,7 +142,7 @@ test("Download all and a multi-file row's Download fetch the version's zips", as
   const all = within(screen.getByTestId("summary-strip")).getByRole("link", {
     name: /^Download all/,
   });
-  expect(all.getAttribute("href")).toBe(`/data/${ID}/1/_zips/package.zip`);
+  expect(all.getAttribute("href")).toBe(`/data/${ID}/1/_zips/all/package.zip`);
   const sites = itemOf(files, "Sites");
   const whole = within(sites).getByRole("link", { name: /^Download Sites/ });
   expect(whole.getAttribute("href")).toBe(`/data/${ID}/1/_zips/sites.zip`);
@@ -163,7 +163,9 @@ test("signed in on a restricted page, Download all asks the API for the package 
 
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
   const [url] = fetchMock.mock.calls[2] as [string, RequestInit];
-  expect(url).toBe(`/api/datasets/${RESTRICTED_ID}/versions/1/download?path=_zips%2Fpackage.zip`);
+  expect(url).toBe(
+    `/api/datasets/${RESTRICTED_ID}/versions/1/download?path=_zips%2Fall%2Fpackage.zip`,
+  );
 });
 
 test("the page leads with the meta line, then the summary strip, files, columns and about", async () => {
