@@ -4,7 +4,9 @@ CloudFront writes standard logs to the derived bucket's `logs/` as gzip files na
 `<distribution>.<YYYY-MM-DD-HH>.<id>.gz`, possibly hours after the day ends, so the rollup counts
 through two days ago. A download is a `GET` under `/data/<datasetId>/` that answered 200; range
 reads (206) and `HEAD` don't count. Each day's counts are added, then the day is written to the
-Settings item `downloads-rolled-up-through`, so a rerun never counts a day twice.
+Settings item `downloads-rolled-up-through`, so a rerun reads only days not yet marked. Each
+increment also adds the day to the item's `countedDays` set on condition the day isn't there, so
+a run that stops before marking the day, or two runs that overlap, count each dataset's day once.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import boto3
+from botocore.exceptions import ClientError
 
 if TYPE_CHECKING:
     # Dev-only stubs: the Lambda asset is built without them.
@@ -84,6 +87,28 @@ def _days(last: str | None, through: date) -> list[date]:
     return [start + timedelta(n) for n in range((through - start).days + 1)]
 
 
+def _add(c: Clients, table: str, dataset_id: str, day: date, count: int) -> None:
+    """Add one dataset's count for a day, unless that day is already in its `countedDays`."""
+    try:
+        c.dynamodb.update_item(
+            TableName=table,
+            Key={"datasetId": {"S": dataset_id}, "month": {"S": day.strftime("%Y-%m")}},
+            UpdateExpression="ADD #n :count, countedDays :days",
+            ConditionExpression=(
+                "attribute_not_exists(countedDays) OR NOT contains(countedDays, :day)"
+            ),
+            ExpressionAttributeNames={"#n": "open"},
+            ExpressionAttributeValues={
+                ":count": {"N": str(count)},
+                ":days": {"SS": [day.isoformat()]},
+                ":day": {"S": day.isoformat()},
+            },
+        )
+    except ClientError as error:
+        if error.response.get("Error", {}).get("Code") != "ConditionalCheckFailedException":
+            raise
+
+
 def run(event: dict[str, Any], c: Clients) -> dict[str, Any]:
     bucket = os.environ["DERIVED_BUCKET"]
     counts_table = os.environ["DOWNLOAD_COUNTS_TABLE"]
@@ -108,13 +133,7 @@ def run(event: dict[str, Any], c: Clients) -> dict[str, Any]:
             body = c.s3.get_object(Bucket=bucket, Key=log)["Body"].read()
             counts += count_log(gzip.decompress(body).decode("utf-8", errors="replace"))
         for dataset_id, count in sorted(counts.items()):
-            c.dynamodb.update_item(
-                TableName=counts_table,
-                Key={"datasetId": {"S": dataset_id}, "month": {"S": day.strftime("%Y-%m")}},
-                UpdateExpression="ADD #n :count",
-                ExpressionAttributeNames={"#n": "open"},
-                ExpressionAttributeValues={":count": {"N": str(count)}},
-            )
+            _add(c, counts_table, dataset_id, day, count)
         c.dynamodb.put_item(TableName=settings, Item={**key, "value": {"S": day.isoformat()}})
         counted += sum(counts.values())
 

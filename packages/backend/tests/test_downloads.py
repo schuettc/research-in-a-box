@@ -5,6 +5,7 @@ from datetime import date
 from typing import Any
 
 import pytest
+from botocore.exceptions import ClientError
 
 from archive_backend import downloads
 
@@ -52,8 +53,10 @@ class FakeS3:
 class FakeDynamoDB:
     def __init__(self) -> None:
         self.counts: dict[tuple[str, str], int] = {}
+        self.days: dict[tuple[str, str], set[str]] = {}
         self.settings: dict[str, str] = {}
         self.events: list[str] = []
+        self.fail_after: int | None = None
 
     def get_item(self, *, TableName: str, Key: dict[str, Any], **_: Any) -> dict[str, Any]:
         assert TableName == SETTINGS
@@ -68,12 +71,28 @@ class FakeDynamoDB:
 
     def update_item(self, **kwargs: Any) -> dict[str, Any]:
         assert kwargs["TableName"] == COUNTS
-        assert kwargs["UpdateExpression"] == "ADD #n :count"
+        assert kwargs["UpdateExpression"] == "ADD #n :count, countedDays :days"
+        assert kwargs["ConditionExpression"] == (
+            "attribute_not_exists(countedDays) OR NOT contains(countedDays, :day)"
+        )
         assert kwargs["ExpressionAttributeNames"] == {"#n": "open"}
+        values = kwargs["ExpressionAttributeValues"]
         key = (kwargs["Key"]["datasetId"]["S"], kwargs["Key"]["month"]["S"])
-        added = int(kwargs["ExpressionAttributeValues"][":count"]["N"])
+        day = values[":day"]["S"]
+        assert values[":days"] == {"SS": [day]}
+        if day in self.days.get(key, set()):
+            raise ClientError(
+                {"Error": {"Code": "ConditionalCheckFailedException", "Message": "x"}},
+                "UpdateItem",
+            )
+        added = int(values[":count"]["N"])
         self.events.append(f"add:{key[0]}:{key[1]}:{added}")
         self.counts[key] = self.counts.get(key, 0) + added
+        self.days.setdefault(key, set()).add(day)
+        if self.fail_after is not None:
+            self.fail_after -= 1
+            if self.fail_after == 0:
+                raise RuntimeError("crashed after an increment")
         return {}
 
 
@@ -182,3 +201,26 @@ def test_a_day_with_no_logs_is_still_marked(world: World) -> None:
     assert result == {"days": ["2026-11-11"], "counted": 0}
     assert world.dynamodb.counts == {}
     assert world.dynamodb.settings["downloads-rolled-up-through"] == "2026-11-11"
+
+
+def test_a_rerun_after_a_crash_mid_day_counts_each_dataset_once(world: World) -> None:
+    day = "2026-11-11"
+    world.log(
+        day,
+        3,
+        [
+            _line(day, "GET", "/data/ds-1/1/a.csv", 200),
+            _line(day, "GET", "/data/ds-2/1/b.csv", 200),
+            _line(day, "GET", "/data/ds-2/1/b.csv", 200),
+        ],
+    )
+    world.dynamodb.fail_after = 1
+
+    with pytest.raises(RuntimeError):
+        world.run()
+    assert "downloads-rolled-up-through" not in world.dynamodb.settings
+    world.dynamodb.fail_after = None
+    world.run()
+
+    assert world.dynamodb.counts == {("ds-1", "2026-11"): 1, ("ds-2", "2026-11"): 2}
+    assert world.dynamodb.settings["downloads-rolled-up-through"] == day
