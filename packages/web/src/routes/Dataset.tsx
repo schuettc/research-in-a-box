@@ -482,7 +482,6 @@ function DatasetPage({ id, view }: { id: string; view: View }) {
     <article className="dataset">
       <div className="ds-grid">
         <div className="ds-main">
-          <p className="label">Dataset · version {view.version}</p>
           <PageHeading>{title}</PageHeading>
           <p className="ds-meta" data-testid="meta">
             {meta.join(" · ")}
