@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from botocore.exceptions import ClientError
 
-from archive_backend import api
+from archive_backend import api, submissions_api
 from archive_backend.reindex import catalog_items, dataset_item
 
 SAMPLE = Path(__file__).parents[3] / "examples" / "sample-package" / "datapackage.json"
@@ -720,6 +720,15 @@ def test_openapi_lists_every_route(tmp_path: Path) -> None:
         "/api/datasets/{id}/usage",
         "/api/projects/{id}",
         "/api/admin/usage",
+        "/api/submissions",
+        "/api/submissions/policy",
+        "/api/submissions/{id}",
+        "/api/submissions/{id}/uploads",
+        "/api/submissions/{id}/submit",
+        "/api/submissions/{id}/decision",
+        "/api/submissions/{id}/files",
+        "/api/people",
+        "/api/curators",
     }
     assert out.read_text() == json.dumps(spec, indent=2, sort_keys=True) + "\n"
 
@@ -761,3 +770,22 @@ def test_admin_usage_orders_one_month_by_time(world: World) -> None:
     _, body = world.call("GET", "/api/admin/usage", {"dataset": ["ds"]}, claims=ADMIN)
 
     assert [e["entry"] for e in body["entries"]] == ["2026-11#aaa", "2026-11#zzz", "2026-10#mmm"]
+
+
+def test_the_submissions_schemas_come_from_their_models(tmp_path: Path) -> None:
+    out = tmp_path / "openapi.json"
+    api.main([str(out)])
+    spec = json.loads(out.read_text())
+    schemas = spec["components"]["schemas"]
+
+    assert set(schemas["Submission"]["properties"]) == {
+        info.alias or name for name, info in submissions_api.Submission.model_fields.items()
+    }
+    assert "callbackId" not in schemas["Submission"]["properties"]
+    assert schemas["Finding"]["properties"]["severity"]["enum"] == ["error", "warning", "note"]
+    read = spec["paths"]["/api/submissions/{id}"]["get"]["responses"]["200"]
+    assert read["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/SubmissionRead"
+    }
+    # The read API's own components are still there, untouched.
+    assert "FileEntry" in schemas and "SearchAnswer" in schemas

@@ -164,9 +164,9 @@ def test_in_review_is_approved_once_its_wait_is_open_then_published(
     archive = FakeArchive(
         [
             {"status": "checking"},
-            {"status": "in-review"},
-            {"status": "in-review", "callbackId": "cb-1"},
-            {"status": "in-review", "callbackId": "cb-1"},
+            {"status": "in-review", "waiting": False},
+            {"status": "in-review", "waiting": True},
+            {"status": "in-review", "waiting": True},
             {"status": "publishing"},
             {"status": "published", "datasetId": DATASET},
         ],

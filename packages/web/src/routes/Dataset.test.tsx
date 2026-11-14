@@ -11,11 +11,13 @@ import type { Manifest } from "../generated/manifest";
 import { mount } from "../main";
 import { Dataset } from "./Dataset";
 
+const NO_GROUPS: string[] = [];
 vi.mock("../auth", () => ({
   apiToken: vi.fn(() => null),
   signIn: vi.fn(async () => {}),
   subscribe: vi.fn(() => () => {}),
   signedInEmail: vi.fn(() => null),
+  groups: vi.fn(() => NO_GROUPS),
 }));
 
 const SAMPLE = join(import.meta.dirname, "../../../../examples/sample-package");

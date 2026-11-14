@@ -12,68 +12,53 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import os
-import re
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Literal, Protocol, TypedDict, cast, get_args
+from typing import Any, Protocol, TypedDict, cast
 
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
+from archive_backend import people
+from archive_backend.people import Cognito as Cognito
+from archive_backend.submissions_api import STATUSES as STATUSES
+from archive_backend.submissions_api import (
+    CreateRequest,
+    Curator,
+    DecisionAnswer,
+    DecisionRequest,
+    Event,
+    EventType,
+    FilesRequest,
+    HeldFiles,
+    People,
+    Status,
+    SubmissionList,
+    SubmissionRead,
+    SubmitAnswer,
+    UploadsAnswer,
+    open_callback,
+)
+from archive_backend.submissions_api import Submission as SubmissionAnswer
 from archive_backend.whoami import _groups
 from archive_contract import ReviewPolicy
-
-Status = Literal[
-    "draft",
-    "checking",
-    "needs-changes",
-    "in-review",
-    "publishing",
-    "published",
-    "rejected",
-    "abandoned",
-    "expired",
-    "failed",
-]
-STATUSES: tuple[Status, ...] = get_args(Status)
-
-EventType = Literal[
-    "created",
-    "submitted",
-    "scanned",
-    "checked",
-    "held",
-    "entered-review",
-    "reminded",
-    "stale",
-    "decided",
-    "resubmitted",
-    "published",
-    "rejected",
-    "abandoned",
-    "expired",
-    "failed",
-]
-
-Decision = Literal["approve", "reject", "request-changes"]
-DECISIONS: tuple[Decision, ...] = get_args(Decision)
 
 CONTRIBUTOR = "contributor"
 CURATOR = "curator"
 ADMIN = "admin"
 POLICY_SETTING = "review-policy"
-MAX_PUT = 5 * 1024**3
-MAX_FILES = 1000
 URL_SECONDS = 3600
 HELD_URL_SECONDS = 300
 HELD: tuple[Status, ...] = ("in-review", "publishing")
-SHA256 = re.compile(r"[0-9a-fA-F]{64}")
+logger = logging.getLogger(__name__)
+
 S3_CONFIG = Config(signature_version="s3v4", s3={"addressing_style": "virtual"})
 
 
@@ -134,6 +119,7 @@ class Clients:
     reviews: Table
     settings: Table
     table: Callable[[str], Table]
+    cognito: Cognito
 
 
 @dataclass(frozen=True)
@@ -145,6 +131,7 @@ class Env:
     ingest_alias_arn: str
     active_catalog_parameter: str
     catalog_tables: dict[str, str]
+    user_pool_id: str
 
     @classmethod
     def from_environ(cls) -> Env:
@@ -156,6 +143,7 @@ class Env:
             ingest_alias_arn=os.environ["INGEST_ALIAS_ARN"],
             active_catalog_parameter=os.environ["ACTIVE_CATALOG_PARAMETER"],
             catalog_tables={"A": os.environ["CATALOG_TABLE_A"], "B": os.environ["CATALOG_TABLE_B"]},
+            user_pool_id=os.environ["USER_POOL_ID"],
         )
 
 
@@ -173,6 +161,7 @@ def clients(env: Env) -> Clients:
         reviews=table(env.reviews_table),
         settings=table(env.settings_table),
         table=table,
+        cognito=cast(Cognito, boto3.client("cognito-idp")),
     )
 
 
@@ -212,6 +201,10 @@ def _response(status: int, body: Any) -> dict[str, Any]:
     }
 
 
+def _answer(status: int, model: BaseModel) -> dict[str, Any]:
+    return _response(status, model.model_dump(mode="json", by_alias=True, exclude_none=True))
+
+
 def _plain(value: object) -> object:
     # The Table resource reads numbers back as Decimal.
     if isinstance(value, Decimal):
@@ -219,35 +212,66 @@ def _plain(value: object) -> object:
     raise TypeError(f"not JSON serializable: {type(value).__name__}")
 
 
-def _safe_path(path: object) -> bool:
-    if not isinstance(path, str) or not path or len(path) > 900:
-        return False
-    if path.startswith("/") or "\\" in path or any(ord(ch) < 32 for ch in path):
-        return False
-    return all(part not in ("", ".", "..") for part in path.split("/"))
+def _parse[M: BaseModel](model: type[M], body: dict[str, Any]) -> M:
+    """The body as `model`, or a 400 with the model's own message."""
+    try:
+        return model.model_validate(body)
+    except ValidationError as error:
+        first = error.errors()[0]
+        cause = (first.get("ctx") or {}).get("error")
+        raise Refused(400, str(cause) if cause is not None else first["msg"]) from error
 
 
-def validate_files(value: object) -> list[FileEntry]:
-    """A round's file list: relative safe paths, each once, sizes up to 5 GB, SHA-256 in hex."""
-    if not isinstance(value, list) or not value or len(value) > MAX_FILES:
-        raise Refused(400, f"files must list 1 to {MAX_FILES} files")
-    files: list[FileEntry] = []
-    seen: set[str] = set()
-    for entry in value:
-        if not isinstance(entry, dict):
-            raise Refused(400, "each file needs path, size and sha256")
-        path, size, digest = entry.get("path"), entry.get("size"), entry.get("sha256")
-        if not _safe_path(path) or not isinstance(path, str):
-            raise Refused(400, f"unsafe path: {path!r}")
-        if path in seen:
-            raise Refused(400, f"path listed twice: {path}")
-        if isinstance(size, bool) or not isinstance(size, int) or not 0 <= size <= MAX_PUT:
-            raise Refused(400, f"size of {path} must be 0 to {MAX_PUT} bytes")
-        if not isinstance(digest, str) or not SHA256.fullmatch(digest):
-            raise Refused(400, f"sha256 of {path} must be 64 hex digits")
-        seen.add(path)
-        files.append({"path": path, "size": size, "sha256": digest.lower()})
-    return files
+def _conditional(error: ClientError) -> bool:
+    return error.response["Error"]["Code"] == "ConditionalCheckFailedException"
+
+
+def _spend_callback(c: Clients, sid: str, callback: str) -> None:
+    """Mark the open callback spent as `closedCallbackId` before completing it, so `waiting`
+    reads false for it even if removing it afterwards fails; refused if it changed since read."""
+    try:
+        c.submissions.update_item(
+            Key={"submissionId": sid},
+            UpdateExpression="SET #d = :c",
+            ConditionExpression="#c = :c",
+            ExpressionAttributeNames={"#c": "callbackId", "#d": "closedCallbackId"},
+            ExpressionAttributeValues={":c": callback},
+        )
+    except ClientError as error:
+        if _conditional(error):
+            raise Refused(409, "the pipeline's wait changed; read the submission again") from error
+        raise
+
+
+def _unspend_callback(c: Clients, sid: str, callback: str) -> None:
+    """Undo `_spend_callback` when the callback could not be completed, so the wait reads open."""
+    try:
+        c.submissions.update_item(
+            Key={"submissionId": sid},
+            UpdateExpression="REMOVE #d",
+            ConditionExpression="#d = :c",
+            ExpressionAttributeNames={"#d": "closedCallbackId"},
+            ExpressionAttributeValues={":c": callback},
+        )
+    except ClientError:
+        logger.exception("could not reopen the spent callback of submission %s", sid)
+
+
+def _close_callback(c: Clients, sid: str, callback: str) -> None:
+    """Forget a callback this call completed; a wait the pipeline opened since is a different id
+    and is kept. Any other failure is logged and left: `closedCallbackId` already reads it spent,
+    and the pipeline already has the answer, so failing the request would mislead the caller."""
+    try:
+        c.submissions.update_item(
+            Key={"submissionId": sid},
+            UpdateExpression="REMOVE #c",
+            ConditionExpression="#c = :c",
+            ExpressionAttributeNames={"#c": "callbackId"},
+            ExpressionAttributeValues={":c": callback},
+        )
+    except ClientError as error:
+        if not _conditional(error):
+            logger.exception("could not remove the completed callback of submission %s", sid)
 
 
 def presigned_put(s3: S3, bucket: str, key: str, digest: str) -> dict[str, Any]:
@@ -271,6 +295,13 @@ def _uploads(c: Clients, env: Env, sid: str, round: int, files: list[FileEntry])
         }
         for f in files
     ]
+
+
+def _uploads_answer(
+    c: Clients, env: Env, sid: str, round: int, files: list[FileEntry]
+) -> UploadsAnswer:
+    uploads = _uploads(c, env, sid, round, files)
+    return UploadsAnswer.model_validate({"submissionId": sid, "round": round, "uploads": uploads})
 
 
 def _missing(c: Clients, env: Env, sid: str, round: int, files: list[Any]) -> list[str]:
@@ -365,13 +396,11 @@ def _published_by(c: Clients, user: str, dataset_id: str) -> bool:
 
 def create(c: Clients, env: Env, caller: Caller, body: dict[str, Any]) -> dict[str, Any]:
     caller.need(CONTRIBUTOR)
-    files = validate_files(body.get("files"))
+    request = _parse(CreateRequest, body)
+    files = cast(list[FileEntry], [f.model_dump() for f in request.files])
     record: dict[str, Any] = {"newVersion": False}
-    dataset_id = body.get("datasetId")
+    dataset_id = request.dataset_id
     if dataset_id is not None:
-        # No '.' or '/': the site function routes /datasets/<id> only for such an id.
-        if not isinstance(dataset_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", dataset_id):
-            raise Refused(400, "datasetId must be a dataset id")
         record["datasetId"] = dataset_id
         published = _dataset(c, env, dataset_id)
         if published is not None:
@@ -393,23 +422,24 @@ def create(c: Clients, env: Env, caller: Caller, body: dict[str, Any]) -> dict[s
     }
     c.submissions.put_item(Item=item, ConditionExpression="attribute_not_exists(submissionId)")
     put_event(c.reviews, sid, "created", caller.user, 1)
-    return _response(
-        201, {"submissionId": sid, "round": 1, "uploads": _uploads(c, env, sid, 1, files)}
-    )
+    return _answer(201, _uploads_answer(c, env, sid, 1, files))
 
 
 def uploads(c: Clients, env: Env, caller: Caller, sid: str | None, body: Any) -> dict[str, Any]:
-    """The next round's URLs while `needs-changes`; asked again before submit, the same round's."""
+    """The next round's URLs while `needs-changes`; asked again before submit, the same round's.
+
+    A round-1 draft asks again when its links expired before every file was uploaded.
+    """
     caller.need(CONTRIBUTOR)
     submission = _load(c, sid)
     _own(caller, submission)
-    files = validate_files(body.get("files"))
+    files = cast(list[FileEntry], [f.model_dump() for f in _parse(FilesRequest, body).files])
     current = int(submission["round"])
     status = submission.get("status")
     expect: Status
     if status == "needs-changes":
         round, expect = current + 1, "needs-changes"
-    elif status == "draft" and current > 1:
+    elif status == "draft":
         round, expect = current, "draft"
     else:
         raise Refused(409, f"no uploads while {status}")
@@ -417,9 +447,7 @@ def uploads(c: Clients, env: Env, caller: Caller, sid: str | None, body: Any) ->
     rounds = dict(submission.get("files") or {})
     rounds[str(round)] = files
     _update(c, sid, {"files": rounds, "round": round, "status": "draft"}, expect)
-    return _response(
-        200, {"submissionId": sid, "round": round, "uploads": _uploads(c, env, sid, round, files)}
-    )
+    return _answer(200, _uploads_answer(c, env, sid, round, files))
 
 
 def submit(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, Any]:
@@ -431,13 +459,20 @@ def submit(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, A
     round = int(submission["round"])
     if submission.get("status") != "draft":
         raise Refused(409, f"cannot submit while {submission.get('status')}")
-    callback = submission.get("callbackId")
+    callback = open_callback(submission)
     if round > 1 and not callback:
         raise Refused(409, "the pipeline is not waiting for a resubmit")
     missing = _missing(c, env, sid, round, (submission.get("files") or {}).get(str(round)) or [])
     if missing:
         raise Refused(409, f"not uploaded yet: {', '.join(missing)}")
-    _update(c, sid, {"status": "checking"}, "draft")
+    if callback and round > 1:
+        _spend_callback(c, sid, callback)
+    try:
+        _update(c, sid, {"status": "checking"}, "draft")
+    except Refused:
+        if callback and round > 1:
+            _unspend_callback(c, sid, callback)
+        raise
     try:
         if round == 1:
             c.lambda_.invoke(
@@ -453,21 +488,22 @@ def submit(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, A
             )
     except ClientError:
         _update(c, sid, {"status": "draft"}, "checking")
+        if callback and round > 1:
+            _unspend_callback(c, sid, callback)
         raise
+    if callback and round > 1:
+        _close_callback(c, sid, callback)
     put_event(c.reviews, sid, "submitted" if round == 1 else "resubmitted", caller.user, round)
-    return _response(202, {"submissionId": sid, "round": round, "status": "checking"})
+    return _answer(202, SubmitAnswer(submission_id=sid, round=round, status="checking"))
 
 
 def decide(c: Clients, caller: Caller, sid: str | None, body: dict[str, Any]) -> dict[str, Any]:
     caller.need(CURATOR)
     submission = _load(c, sid)
     sid = cast(str, sid)
-    decision, note = body.get("decision"), body.get("note")
-    if decision not in DECISIONS:
-        raise Refused(400, f"decision must be one of {', '.join(DECISIONS)}")
-    if note is not None and not isinstance(note, str):
-        raise Refused(400, "note must be text")
-    callback = submission.get("callbackId")
+    request = _parse(DecisionRequest, body)
+    decision, note = request.decision, request.note
+    callback = open_callback(submission)
     if submission.get("status") != "in-review" or not callback:
         raise Refused(409, f"not in review ({submission.get('status')})")
     if decision == "approve" and caller.user in (submission.get("approvals") or []):
@@ -477,6 +513,7 @@ def decide(c: Clients, caller: Caller, sid: str | None, body: dict[str, Any]) ->
         details["note"] = note
     if submission.get("submitter") == caller.user:
         details["selfReview"] = True
+    _spend_callback(c, sid, callback)
     put_event(c.reviews, sid, "decided", caller.user, int(submission["round"]), **details)
     result = {"kind": "decision", "decision": decision, "by": caller.user, "note": note}
     try:
@@ -484,8 +521,10 @@ def decide(c: Clients, caller: Caller, sid: str | None, body: dict[str, Any]) ->
             CallbackId=callback, Result=json.dumps(result).encode()
         )
     except ClientError as error:
+        _unspend_callback(c, sid, callback)
         raise Refused(409, "the review wait has already closed") from error
-    return _response(202, {"submissionId": sid, "decision": decision})
+    _close_callback(c, sid, callback)
+    return _answer(202, DecisionAnswer(submission_id=sid, decision=decision))
 
 
 def listing(c: Clients, caller: Caller, query: dict[str, str]) -> dict[str, Any]:
@@ -505,7 +544,8 @@ def listing(c: Clients, caller: Caller, query: dict[str, str]) -> dict[str, Any]
         ExpressionAttributeNames={"#k": field},
         ExpressionAttributeValues={":k": value},
     )
-    return _response(200, {"submissions": found.get("Items", [])})
+    listed = [SubmissionAnswer.of(item) for item in found.get("Items", [])]
+    return _answer(200, SubmissionList(submissions=listed))
 
 
 def read(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, Any]:
@@ -518,15 +558,22 @@ def read(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, Any
         ExpressionAttributeNames={"#k": "submissionId"},
         ExpressionAttributeValues={":k": sid},
     ).get("Items", [])
-    body: dict[str, Any] = {"submission": submission, "events": events}
     report = submission.get("reportKey")
-    if report:
-        body["reportUrl"] = c.s3.generate_presigned_url(
+    url = (
+        c.s3.generate_presigned_url(
             "get_object",
             Params={"Bucket": env.staging_bucket, "Key": report},
             ExpiresIn=URL_SECONDS,
         )
-    return _response(200, body)
+        if report
+        else None
+    )
+    answer = SubmissionRead(
+        submission=SubmissionAnswer.of(submission),
+        events=[Event.model_validate(event) for event in events],
+        report_url=url,
+    )
+    return _answer(200, answer)
 
 
 def files(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, Any]:
@@ -539,8 +586,7 @@ def files(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, An
         raise Refused(409, f"nothing is held while {status}")
     round = int(submission["round"])
     listed = (submission.get("files") or {}).get(str(round)) or []
-    return _response(
-        200,
+    held = HeldFiles.model_validate(
         {
             "round": round,
             "files": [
@@ -556,8 +602,9 @@ def files(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, An
                 }
                 for f in listed
             ],
-        },
+        }
     )
+    return _answer(200, held)
 
 
 def stored_policy(settings: Table) -> ReviewPolicy:
@@ -590,12 +637,32 @@ def put_policy(c: Clients, caller: Caller, body: Any) -> dict[str, Any]:
     return _response(200, policy.dump())
 
 
+def lookup_people(c: Clients, env: Env, caller: Caller, subs: list[str]) -> dict[str, Any]:
+    """Email addresses for the ids a curator or admin sees in submissions and events."""
+    caller.need(CURATOR, ADMIN)
+    if len(subs) > people.MAX_PEOPLE:
+        raise Refused(400, f"at most {people.MAX_PEOPLE} ids at once")
+    for sub in subs:
+        if not people.SUB.fullmatch(sub):
+            raise Refused(400, f"not a user id: {sub!r}")
+    found = People.model_validate({"people": people.emails(c.cognito, env.user_pool_id, subs)})
+    return _answer(200, found)
+
+
+def list_curators(c: Clients, env: Env, caller: Caller) -> dict[str, Any]:
+    """The curator group, for the admin choosing named reviewers."""
+    caller.need(ADMIN)
+    listed = [Curator.model_validate(p) for p in people.curators(c.cognito, env.user_pool_id)]
+    return _response(200, [curator.answer() for curator in listed])
+
+
 def handle(event: dict[str, Any], c: Clients, env: Env) -> dict[str, Any]:
     """Route one API Gateway proxy event by method and resource."""
     claims: dict[str, Any] = event["requestContext"]["authorizer"]["claims"]
     caller = Caller(str(claims["sub"]), frozenset(_groups(claims.get("cognito:groups"))))
     sid = (event.get("pathParameters") or {}).get("id")
     query = event.get("queryStringParameters") or {}
+    multi = event.get("multiValueQueryStringParameters") or {}
     route = (event.get("httpMethod"), event.get("resource"))
     try:
         body = json.loads(event.get("body") or "{}")
@@ -620,6 +687,10 @@ def handle(event: dict[str, Any], c: Clients, env: Env) -> dict[str, Any]:
                 return files(c, env, caller, sid)
             case ("POST", "/api/submissions/{id}/decision"):
                 return decide(c, caller, sid, body)
+            case ("GET", "/api/people"):
+                return lookup_people(c, env, caller, list(multi.get("sub") or []))
+            case ("GET", "/api/curators"):
+                return list_curators(c, env, caller)
         return _response(404, {"error": f"no route {route[0]} {route[1]}"})
     except json.JSONDecodeError:
         return _response(400, {"error": "the body must be JSON"})

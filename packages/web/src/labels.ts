@@ -100,3 +100,116 @@ export function formatSize(bytes: number): string {
   }
   return `${value.toFixed(1)} ${units[unit]}`;
 }
+
+/** The submission lifecycle's statuses and audit events, as the API names them. */
+export const STATUSES = [
+  "draft",
+  "checking",
+  "needs-changes",
+  "in-review",
+  "publishing",
+  "published",
+  "rejected",
+  "abandoned",
+  "expired",
+  "failed",
+] as const;
+export type Status = (typeof STATUSES)[number];
+
+export const EVENT_TYPES = [
+  "created",
+  "submitted",
+  "scanned",
+  "checked",
+  "held",
+  "entered-review",
+  "reminded",
+  "stale",
+  "decided",
+  "resubmitted",
+  "published",
+  "rejected",
+  "abandoned",
+  "expired",
+  "failed",
+] as const;
+export type EventType = (typeof EVENT_TYPES)[number];
+
+/** The statuses nothing moves on from. */
+export const FINAL_STATUSES: readonly Status[] = [
+  "published",
+  "rejected",
+  "abandoned",
+  "expired",
+  "failed",
+];
+
+const STATUS_LABELS: Record<Status, string> = {
+  draft: "Draft",
+  checking: "Being checked",
+  "needs-changes": "Changes requested",
+  "in-review": "In review",
+  publishing: "Publishing",
+  published: "Published",
+  rejected: "Rejected",
+  abandoned: "Abandoned",
+  expired: "Expired",
+  failed: "Failed",
+};
+
+/** A status as a short label: "In review", "Changes requested". */
+export function statusLabel(status: Status): string {
+  return STATUS_LABELS[status] ?? status;
+}
+
+const STATUS_LINES: Record<Status, string> = {
+  draft: "Not submitted yet: every file needs uploading, then submitting",
+  checking: "Checking the files",
+  "needs-changes": "Changes requested",
+  "in-review": "Waiting for a curator",
+  publishing: "Approved, publishing now",
+  published: "Published",
+  rejected: "Rejected",
+  abandoned: "Abandoned: no resubmission came within 30 days",
+  expired: "Expired: the submission was kept a year and closed",
+  failed: "Stopped by a fault on the archive's side",
+};
+
+/** Where a submission stands, as one line for its page. */
+export function statusLine(status: Status): string {
+  return STATUS_LINES[status] ?? status;
+}
+
+const EVENT_LABELS: Record<EventType, string> = {
+  created: "Created",
+  submitted: "Submitted",
+  scanned: "Scanned for malware",
+  checked: "Checked",
+  held: "Held for review",
+  "entered-review": "Entered review",
+  reminded: "Curators reminded",
+  stale: "Marked stale",
+  decided: "Decided",
+  resubmitted: "Resubmitted",
+  published: "Published",
+  rejected: "Rejected",
+  abandoned: "Abandoned",
+  expired: "Expired",
+  failed: "Failed",
+};
+
+/** An audit event's type in words. */
+export function eventLabel(type: EventType): string {
+  return EVENT_LABELS[type] ?? type;
+}
+
+const DECISION_LABELS: Record<string, string> = {
+  approve: "Approved",
+  reject: "Rejected",
+  "request-changes": "Changes requested",
+};
+
+/** A curator's decision in words: "Approved", "Changes requested". */
+export function decisionLabel(decision: string): string {
+  return DECISION_LABELS[decision] ?? decision;
+}

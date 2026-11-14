@@ -1,11 +1,17 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Link, NavLink, Route, Routes, useLocation, useParams } from "react-router";
-import { addPasskey, signedInEmail, signIn, signOut, subscribe } from "./auth";
+import { addPasskey, groups, signedInEmail, signIn, signOut, subscribe } from "./auth";
 import { NavigatedContext, PageHeading, useTitle } from "./page";
 import { About } from "./routes/About";
 import { Callback } from "./routes/Callback";
 import { Dataset } from "./routes/Dataset";
+import { MySubmissions } from "./routes/MySubmissions";
+import { Review } from "./routes/Review";
+import { ReviewQueue } from "./routes/ReviewQueue";
 import { Search } from "./routes/Search";
+import { Settings } from "./routes/Settings";
+import { Submission } from "./routes/Submission";
+import { Submit } from "./routes/Submit";
 import { BRAND, PUBLISHER } from "./site";
 
 function NotFound() {
@@ -26,6 +32,16 @@ function VersionedDataset() {
   const match = /^v([1-9]\d*)$/.exec(version);
   if (!match) return <NotFound />;
   return <Dataset id={id} version={Number(match[1])} />;
+}
+
+function SubmissionRoute() {
+  const { id = "" } = useParams();
+  return <Submission key={id} id={id} />;
+}
+
+function ReviewRoute() {
+  const { id = "" } = useParams();
+  return <Review key={id} id={id} />;
 }
 
 function CurrentDataset() {
@@ -122,6 +138,110 @@ function Account() {
   );
 }
 
+type Role = "contributor" | "curator" | "admin";
+
+/** The signed-in areas, in the order the nav lists them, each with the group it needs. */
+const AREAS: { role: Role; to: string; label: string }[] = [
+  { role: "contributor", to: "/submit", label: "Submit" },
+  { role: "curator", to: "/review", label: "Review" },
+  { role: "admin", to: "/settings", label: "Settings" },
+];
+
+/**
+ * The nav: Browse and About in their own slot, then the areas the reader's groups allow. The
+ * nav keeps one width whatever it lists, so its left edge, its first links and the Account
+ * button beside it never move when areas appear.
+ */
+function MainNav() {
+  const email = useSyncExternalStore(subscribe, signedInEmail);
+  const mine = useSyncExternalStore(subscribe, groups);
+  const areas = email ? AREAS.filter((area) => mine.includes(area.role)) : [];
+  return (
+    <nav aria-label="Main" className="nav">
+      <div className="nav-public">
+        <NavLink to="/" end>
+          Browse
+        </NavLink>
+        <NavLink to="/about">About the archive</NavLink>
+      </div>
+      <div className="nav-areas">
+        {areas.map((area) => (
+          <NavLink key={area.to} to={area.to}>
+            {area.label}
+          </NavLink>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+/** What an area's page says when the reader can't use it: its heading, then why. */
+function Gate({
+  heading,
+  title,
+  role,
+  email,
+}: {
+  heading: string;
+  title: string;
+  role: Role;
+  email: string | null;
+}) {
+  useTitle(title);
+  const { pathname, search } = useLocation();
+  return (
+    <div className="prose">
+      <PageHeading>{heading}</PageHeading>
+      {email ? (
+        <p className="note">
+          This page needs the {role} role, and your account ({email}) doesn't have it.{" "}
+          {BRAND.contact ? (
+            <>
+              Ask the archive's admin at <a href={`mailto:${BRAND.contact}`}>{BRAND.contact}</a> to
+              add it.
+            </>
+          ) : (
+            "Ask the archive's admin to add it."
+          )}
+        </p>
+      ) : (
+        <>
+          <p>Sign in to use this page.</p>
+          <p className="actions">
+            <button
+              type="button"
+              className="primary"
+              onClick={() => void signIn(`${pathname}${search}`)}
+            >
+              Sign in
+            </button>
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** A signed-in area: its page for a reader in `role`, else its heading with Sign in or why not. */
+function Area({
+  role,
+  heading,
+  title,
+  children,
+}: {
+  role: Role;
+  heading: string;
+  title: string;
+  children: ReactNode;
+}) {
+  const email = useSyncExternalStore(subscribe, signedInEmail);
+  const mine = useSyncExternalStore(subscribe, groups);
+  if (!email || !mine.includes(role)) {
+    return <Gate heading={heading} title={title} role={role} email={email} />;
+  }
+  return children;
+}
+
 function Masthead() {
   return (
     <header className="masthead">
@@ -130,12 +250,7 @@ function Masthead() {
           {BRAND.logo && <img src={BRAND.logo} alt="" width="44" height="44" />}
           <span className="name">{BRAND.name}</span>
         </Link>
-        <nav aria-label="Main">
-          <NavLink to="/" end>
-            Browse
-          </NavLink>
-          <NavLink to="/about">About the archive</NavLink>
-        </nav>
+        <MainNav />
         <Account />
       </div>
     </header>
@@ -162,6 +277,54 @@ export function AppRoutes() {
           <Route path="/datasets/:id" element={<CurrentDataset />} />
           <Route path="/datasets/:id/:version" element={<VersionedDataset />} />
           <Route path="/auth/callback" element={<Callback />} />
+          <Route
+            path="/submit"
+            element={
+              <Area role="contributor" heading="Submit a package" title="Submit">
+                <Submit />
+              </Area>
+            }
+          />
+          <Route
+            path="/submissions"
+            element={
+              <Area role="contributor" heading="My submissions" title="My submissions">
+                <MySubmissions />
+              </Area>
+            }
+          />
+          <Route
+            path="/submissions/:id"
+            element={
+              <Area role="contributor" heading="Submission" title="Submission">
+                <SubmissionRoute />
+              </Area>
+            }
+          />
+          <Route
+            path="/review"
+            element={
+              <Area role="curator" heading="Review queue" title="Review queue">
+                <ReviewQueue />
+              </Area>
+            }
+          />
+          <Route
+            path="/review/:id"
+            element={
+              <Area role="curator" heading="Review" title="Review">
+                <ReviewRoute />
+              </Area>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <Area role="admin" heading="Settings" title="Settings">
+                <Settings />
+              </Area>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

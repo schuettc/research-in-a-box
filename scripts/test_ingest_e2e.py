@@ -118,3 +118,11 @@ def test_a_day_one_reminder_is_due_a_day_and_an_hour_after_entering_review() -> 
 
     assert not e2e.reminder_due(entered, datetime(2026, 11, 14, 10, 59, tzinfo=UTC))
     assert e2e.reminder_due(entered, datetime(2026, 11, 14, 11, 0, tzinfo=UTC))
+
+
+def test_a_waiting_status_holds_only_once_the_pipeline_waits() -> None:
+    assert e2e.holds({"status": "in-review", "waiting": False}, "in-review") is False
+    assert e2e.holds({"status": "in-review", "waiting": True}, "in-review") is True
+    assert e2e.holds({"status": "needs-changes", "waiting": True}, "needs-changes") is True
+    assert e2e.holds({"status": "published", "waiting": False}, "published") is True
+    assert e2e.holds({"status": "checking", "waiting": True}, "in-review") is False

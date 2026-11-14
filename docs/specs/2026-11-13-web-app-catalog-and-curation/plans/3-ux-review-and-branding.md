@@ -1,7 +1,7 @@
 ---
 diazo: research-archive-in-a-box/web-app-catalog-and-curation
 file: PLAN3
-status: approved
+status: done
 approved: 2026-11-14T12:38:40-06:00
 hash: 63bf3048346f1cd5d4045a4196ffff2c8ef46dd10952d91579db83547db86ecc
 rests_on: [AGNT11, AGNT12, DCSN2, DCSN3, DCSN4]

@@ -48,3 +48,17 @@ test("sizes read in decimal units", () => {
   expect(formatSize(50_000)).toBe("50.0 kB");
   expect(formatSize(3_400_000)).toBe("3.4 MB");
 });
+
+test("every status and event has a plain label", async () => {
+  const { STATUSES, EVENT_TYPES, statusLabel, statusLine, eventLabel, decisionLabel } =
+    await import("./labels");
+  for (const status of STATUSES) {
+    expect(statusLabel(status)).toMatch(/^[A-Z][a-z ]+$/);
+    expect(statusLine(status)).not.toBe(status);
+  }
+  for (const type of EVENT_TYPES) expect(eventLabel(type)).toMatch(/^[A-Z]/);
+  expect(statusLabel("needs-changes")).toBe("Changes requested");
+  expect(statusLine("in-review")).toBe("Waiting for a curator");
+  expect(decisionLabel("request-changes")).toBe("Changes requested");
+  expect(eventLabel("entered-review")).toBe("Entered review");
+});

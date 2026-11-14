@@ -137,7 +137,7 @@ class Seed:
             if status in STOPPED:
                 raise Failed(f"stopped: {status}\n{self.details(answer)}")
             # A decision completes the review's wait, so it goes only once the wait is open.
-            if status == "in-review" and submission.get("callbackId") and not approved:
+            if status == "in-review" and submission.get("waiting") and not approved:
                 self.call(
                     "POST",
                     f"/{sid}/decision",

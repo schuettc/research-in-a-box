@@ -1,6 +1,19 @@
 {
   "components": {
     "schemas": {
+      "ApiError": {
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ApiError",
+        "type": "object"
+      },
       "CatalogRow": {
         "properties": {
           "access": {
@@ -187,6 +200,78 @@
         "title": "CatalogRow",
         "type": "object"
       },
+      "CheckCount": {
+        "additionalProperties": true,
+        "description": "How many of the checks that applied passed.",
+        "properties": {
+          "applicable": {
+            "minimum": 0,
+            "title": "Applicable",
+            "type": "integer"
+          },
+          "passed": {
+            "minimum": 0,
+            "title": "Passed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "passed",
+          "applicable"
+        ],
+        "title": "CheckCount",
+        "type": "object"
+      },
+      "CreateRequest": {
+        "description": "`POST /api/submissions`: the first round's files, and the dataset it is for.",
+        "properties": {
+          "datasetId": {
+            "anyOf": [
+              {
+                "pattern": "[A-Za-z0-9_-]{1,200}",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Datasetid"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/SubmittedFile"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "CreateRequest",
+        "type": "object"
+      },
+      "Curator": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "sub": {
+            "title": "Sub",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sub",
+          "email"
+        ],
+        "title": "Curator",
+        "type": "object"
+      },
       "DatasetAnswer": {
         "properties": {
           "access": {
@@ -273,6 +358,60 @@
         "title": "DatasetSummary",
         "type": "object"
       },
+      "DecisionAnswer": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject",
+              "request-changes"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "submissionId": {
+            "title": "Submissionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "submissionId",
+          "decision"
+        ],
+        "title": "DecisionAnswer",
+        "type": "object"
+      },
+      "DecisionRequest": {
+        "description": "`POST /api/submissions/{id}/decision`: a curator's decision and an optional note.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject",
+              "request-changes"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "DecisionRequest",
+        "type": "object"
+      },
       "DownloadAnswer": {
         "properties": {
           "url": {
@@ -284,6 +423,341 @@
           "url"
         ],
         "title": "DownloadAnswer",
+        "type": "object"
+      },
+      "Event": {
+        "description": "One audit event; the details present depend on `type`.\n\nscanned: files, threats. checked: errors, warnings, notes, reportKey, blocked. held: files.\nentered-review: rule, outcome, audience. reminded: day, audience. stale: days, audience.\ndecided: decision, note, selfReview. rejected: note. published: rule, datasetId, version.\nabandoned and expired: days. failed: error.",
+        "properties": {
+          "actor": {
+            "description": "A user id, or `pipeline`.",
+            "title": "Actor",
+            "type": "string"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "audience": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A curator's user id, or `all`.",
+            "title": "Audience"
+          },
+          "blocked": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blocked"
+          },
+          "datasetId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Datasetid"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Day"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Days"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "approve",
+                  "reject",
+                  "request-changes"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Decision"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Errors"
+          },
+          "eventKey": {
+            "title": "Eventkey",
+            "type": "string"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Files"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notes"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "one",
+                  "two"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Outcome"
+          },
+          "reportKey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reportkey"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rule"
+          },
+          "selfReview": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Selfreview"
+          },
+          "submissionId": {
+            "title": "Submissionid",
+            "type": "string"
+          },
+          "threats": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Threats"
+          },
+          "type": {
+            "enum": [
+              "created",
+              "submitted",
+              "scanned",
+              "checked",
+              "held",
+              "entered-review",
+              "reminded",
+              "stale",
+              "decided",
+              "resubmitted",
+              "published",
+              "rejected",
+              "abandoned",
+              "expired",
+              "failed"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Version"
+          },
+          "warnings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Warnings"
+          }
+        },
+        "required": [
+          "submissionId",
+          "eventKey",
+          "type",
+          "actor",
+          "round",
+          "at"
+        ],
+        "title": "Event",
+        "type": "object"
+      },
+      "Evidence": {
+        "additionalProperties": true,
+        "description": "The rows or values that show the problem or justify the change.\n\n`count` is how many rows show it, since a problem on thousands of rows can't list them all.",
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Count"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rows"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Values"
+          }
+        },
+        "title": "Evidence",
         "type": "object"
       },
       "FileEntry": {
@@ -343,6 +817,133 @@
         "title": "FileEntry",
         "type": "object"
       },
+      "FilesRequest": {
+        "description": "`POST /api/submissions/{id}/uploads`: the round's files.",
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/SubmittedFile"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "FilesRequest",
+        "type": "object"
+      },
+      "Finding": {
+        "additionalProperties": true,
+        "description": "One problem found in a package, by the rule with id `ruleId`.",
+        "properties": {
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Evidence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ruleId": {
+            "title": "Ruleid",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning",
+              "note"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "suggestedFix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Suggestedfix"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Target"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "ruleId",
+          "severity",
+          "message"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "FindingsReport": {
+        "description": "The JSON at `reportUrl`: a round's checks. Both verdicts are null when the scan\nblocked the round, and `quality` is null when the manifest can't be read.",
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QualityVerdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "validation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValidationVerdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "round",
+          "validation",
+          "quality",
+          "findings"
+        ],
+        "title": "FindingsReport",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -354,6 +955,86 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HeldFile": {
+        "description": "A held file with a five-minute download link.",
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "size",
+          "sha256",
+          "url"
+        ],
+        "title": "HeldFile",
+        "type": "object"
+      },
+      "HeldFiles": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/HeldFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "round",
+          "files"
+        ],
+        "title": "HeldFiles",
+        "type": "object"
+      },
+      "People": {
+        "description": "`GET /api/people`: each known id's email; unknown ids are left out.",
+        "properties": {
+          "people": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Person"
+            },
+            "title": "People",
+            "type": "object"
+          }
+        },
+        "required": [
+          "people"
+        ],
+        "title": "People",
+        "type": "object"
+      },
+      "Person": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "Person",
         "type": "object"
       },
       "ProjectAnswer": {
@@ -378,6 +1059,87 @@
         "title": "ProjectAnswer",
         "type": "object"
       },
+      "QualityVerdict": {
+        "additionalProperties": true,
+        "description": "The counts of findings by severity from the last audit, and the completeness score.\n\n`score` is the share of checks passed, as a whole percent rounded down; `find`,\n`understand` and `trust` count the checks for each of the three questions.",
+        "properties": {
+          "auditedAt": {
+            "format": "date-time",
+            "title": "Auditedat",
+            "type": "string"
+          },
+          "errors": {
+            "minimum": 0,
+            "title": "Errors",
+            "type": "integer"
+          },
+          "find": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckCount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "notes": {
+            "minimum": 0,
+            "title": "Notes",
+            "type": "integer"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Score"
+          },
+          "trust": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckCount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "understand": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckCount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "warnings": {
+            "minimum": 0,
+            "title": "Warnings",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "errors",
+          "warnings",
+          "notes",
+          "auditedAt"
+        ],
+        "title": "QualityVerdict",
+        "type": "object"
+      },
       "ResponseValidationError": {
         "properties": {
           "detail": {
@@ -389,6 +1151,137 @@
           }
         },
         "title": "ResponseValidationError",
+        "type": "object"
+      },
+      "ReviewPolicy": {
+        "additionalProperties": true,
+        "description": "The admin's review policy, the Settings item `review-policy`.\n\n`rules` are tried in order and the first match wins; with no match the outcome is `one`\nwhen `required` is true and `skip` when it is false. `reviewers` maps a theme to the\ncurators asked first. `reminders` are the days after entering review on which to remind,\neach before `staleDays`, when a waiting review is marked stale.",
+        "properties": {
+          "reminders": {
+            "items": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            "title": "Reminders",
+            "type": "array"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "reviewers": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Reviewers",
+            "type": "object"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/Rule"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "staleDays": {
+            "default": 14,
+            "exclusiveMinimum": 0,
+            "title": "Staledays",
+            "type": "integer"
+          }
+        },
+        "title": "ReviewPolicy",
+        "type": "object"
+      },
+      "Rule": {
+        "additionalProperties": true,
+        "description": "One policy rule. Every matcher it sets must hold; a rule that sets none matches all.\n\n`submitters` lists user ids, or `curators` for the curator group; `themes` matches when\nthe submission has any of them.",
+        "properties": {
+          "access": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "open",
+                    "restricted",
+                    "by-request",
+                    "description-only"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Access"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "new-dataset",
+                  "new-version"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Kind"
+          },
+          "outcome": {
+            "enum": [
+              "skip",
+              "one",
+              "two"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "submitters": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Submitters"
+          },
+          "themes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Themes"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "title": "Rule",
         "type": "object"
       },
       "SearchAnswer": {
@@ -421,6 +1314,333 @@
           "facets"
         ],
         "title": "SearchAnswer",
+        "type": "object"
+      },
+      "Submission": {
+        "description": "A submission as the API shows it.\n\n`waiting` is true while the pipeline holds an open callback: a resubmit or a decision is\ntaken only then. `files` maps each round (as a string) to its files.",
+        "properties": {
+          "approvals": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Approvals",
+            "type": "array"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "datasetId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Datasetid"
+          },
+          "files": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/SubmittedFile"
+              },
+              "type": "array"
+            },
+            "title": "Files",
+            "type": "object"
+          },
+          "newVersion": {
+            "title": "Newversion",
+            "type": "boolean"
+          },
+          "reportKey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reportkey"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rule"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "checking",
+              "needs-changes",
+              "in-review",
+              "publishing",
+              "published",
+              "rejected",
+              "abandoned",
+              "expired",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submissionId": {
+            "title": "Submissionid",
+            "type": "string"
+          },
+          "submitter": {
+            "title": "Submitter",
+            "type": "string"
+          },
+          "submitterIsCurator": {
+            "title": "Submitteriscurator",
+            "type": "boolean"
+          },
+          "waiting": {
+            "title": "Waiting",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "submissionId",
+          "submitter",
+          "submitterIsCurator",
+          "status",
+          "createdAt",
+          "round",
+          "files",
+          "newVersion",
+          "approvals",
+          "stale",
+          "waiting"
+        ],
+        "title": "Submission",
+        "type": "object"
+      },
+      "SubmissionList": {
+        "properties": {
+          "submissions": {
+            "items": {
+              "$ref": "#/components/schemas/Submission"
+            },
+            "title": "Submissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "submissions"
+        ],
+        "title": "SubmissionList",
+        "type": "object"
+      },
+      "SubmissionRead": {
+        "description": "A submission, its events in order, and a link to its latest findings report.",
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "reportUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reporturl"
+          },
+          "submission": {
+            "$ref": "#/components/schemas/Submission"
+          }
+        },
+        "required": [
+          "submission",
+          "events"
+        ],
+        "title": "SubmissionRead",
+        "type": "object"
+      },
+      "SubmitAnswer": {
+        "properties": {
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "status": {
+            "const": "checking",
+            "title": "Status",
+            "type": "string"
+          },
+          "submissionId": {
+            "title": "Submissionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "submissionId",
+          "round",
+          "status"
+        ],
+        "title": "SubmitAnswer",
+        "type": "object"
+      },
+      "SubmittedFile": {
+        "description": "One file of a round: a relative path, its size in bytes and its SHA-256 in hex.",
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "[0-9a-fA-F]{64}",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "maximum": 5368709120,
+            "minimum": 0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "size",
+          "sha256"
+        ],
+        "title": "SubmittedFile",
+        "type": "object"
+      },
+      "Target": {
+        "additionalProperties": true,
+        "description": "What a finding or a change is about: a resource and field, or a file in the package.",
+        "properties": {
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Field"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          },
+          "resource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resource"
+          }
+        },
+        "title": "Target",
+        "type": "object"
+      },
+      "Upload": {
+        "description": "A presigned PUT: send the file to `url` with `headers`, or S3 refuses it.",
+        "properties": {
+          "headers": {
+            "$ref": "#/components/schemas/UploadHeaders"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "url",
+          "headers"
+        ],
+        "title": "Upload",
+        "type": "object"
+      },
+      "UploadHeaders": {
+        "properties": {
+          "x-amz-checksum-sha256": {
+            "title": "X-Amz-Checksum-Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "x-amz-checksum-sha256"
+        ],
+        "title": "UploadHeaders",
+        "type": "object"
+      },
+      "UploadsAnswer": {
+        "properties": {
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "submissionId": {
+            "title": "Submissionid",
+            "type": "string"
+          },
+          "uploads": {
+            "items": {
+              "$ref": "#/components/schemas/Upload"
+            },
+            "title": "Uploads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "submissionId",
+          "round",
+          "uploads"
+        ],
+        "title": "UploadsAnswer",
         "type": "object"
       },
       "UsageAnswers": {
@@ -581,6 +1801,32 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "ValidationVerdict": {
+        "additionalProperties": true,
+        "description": "Whether the package is structurally valid, by which contract version, and when.",
+        "properties": {
+          "checkedAt": {
+            "format": "date-time",
+            "title": "Checkedat",
+            "type": "string"
+          },
+          "contractVersion": {
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "contractVersion",
+          "checkedAt"
+        ],
+        "title": "ValidationVerdict",
+        "type": "object"
+      },
       "VersionAnswer": {
         "properties": {
           "files": {
@@ -714,6 +1960,37 @@
           }
         },
         "summary": "GET /api/admin/usage"
+      }
+    },
+    "/api/curators": {
+      "get": {
+        "operationId": "list_the_curators",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Curator"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "List the curators"
       }
     },
     "/api/datasets/{id}": {
@@ -939,6 +2216,60 @@
           }
         },
         "summary": "GET /api/datasets/{id}/versions/{version}/download"
+      }
+    },
+    "/api/people": {
+      "get": {
+        "operationId": "look_up_people",
+        "parameters": [
+          {
+            "explode": true,
+            "in": "query",
+            "name": "sub",
+            "required": false,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/People"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "Look up people"
       }
     },
     "/api/projects/{id}": {
@@ -1175,6 +2506,514 @@
           }
         },
         "summary": "GET /api/search"
+      }
+    },
+    "/api/submissions": {
+      "get": {
+        "operationId": "list_submissions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "draft",
+                "checking",
+                "needs-changes",
+                "in-review",
+                "publishing",
+                "published",
+                "rejected",
+                "abandoned",
+                "expired",
+                "failed"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mine",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "List submissions"
+      },
+      "post": {
+        "operationId": "create_a_submission",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadsAnswer"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "Create a submission"
+      }
+    },
+    "/api/submissions/policy": {
+      "get": {
+        "operationId": "read_the_review_policy",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewPolicy"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "Read the review policy"
+      },
+      "put": {
+        "operationId": "save_the_review_policy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewPolicy"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewPolicy"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "Save the review policy"
+      }
+    },
+    "/api/submissions/{id}": {
+      "get": {
+        "operationId": "read_a_submission",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionRead"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "Read a submission"
+      }
+    },
+    "/api/submissions/{id}/decision": {
+      "post": {
+        "operationId": "decide_a_submission",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionAnswer"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "Decide a submission"
+      }
+    },
+    "/api/submissions/{id}/files": {
+      "get": {
+        "operationId": "list_the_held_files",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldFiles"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "List the held files"
+      }
+    },
+    "/api/submissions/{id}/submit": {
+      "post": {
+        "operationId": "submit_a_round",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitAnswer"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "Submit a round"
+      }
+    },
+    "/api/submissions/{id}/uploads": {
+      "post": {
+        "operationId": "renew_upload_links",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadsAnswer"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Refused"
+          }
+        },
+        "summary": "Renew upload links"
       }
     }
   },

@@ -161,13 +161,23 @@ dd {
   font: 600 1.3rem/1.15 var(--font-heading);
 }
 
+/* The nav keeps one width whatever areas the reader's groups add, and lists the public links
+   first in their own slot, so Browse, About and the Account button never move. */
 .masthead nav {
   margin-left: auto;
+  width: 27.5rem;
+  max-width: 100%;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 1.5rem;
   font-size: 0.95rem;
+}
+
+.nav-public,
+.nav-areas {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
 }
 
 .masthead nav a {
@@ -376,10 +386,28 @@ section.block > h2 {
     padding: 0.9rem 1rem;
   }
 
+  /* On a phone the areas take the row the Account button sits at the end of, kept even when
+     empty, so the masthead is one height whatever the reader's groups. */
+  .masthead .inner {
+    position: relative;
+  }
+
   .masthead nav {
     margin-left: 0;
     width: 100%;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+  }
+
+  .nav-public,
+  .nav-areas {
     gap: 0.5rem 1.25rem;
+  }
+
+  .nav-areas {
+    flex-basis: 100%;
+    min-height: 2.3rem;
+    padding-right: 8.5rem;
   }
 
   .mark .name {
@@ -1085,6 +1113,409 @@ table.cols tbody th {
   background: var(--soft);
 }
 
+/* Submissions: the contributor's and curator's pages */
+
+.page-actions {
+  margin: 0 0 1.5rem;
+}
+
+.status-line {
+  margin: 0 0 0.35rem;
+  font: 600 1.3rem/1.35 var(--font-heading);
+}
+
+.problem {
+  max-width: var(--measure);
+  margin: 1rem 0 0;
+  padding: 0.6rem 0.9rem;
+  border-left: 4px solid var(--danger);
+  background: #fff;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.curator-note {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
+}
+
+.note .label {
+  margin: 0;
+}
+
+.note > p:first-child {
+  margin-top: 0;
+}
+
+.note .actions {
+  margin-top: 0.75rem;
+}
+
+.dropzone {
+  max-width: 44rem;
+  padding: 1.5rem;
+  border: 2px dashed var(--field);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.dropzone.over {
+  border-color: var(--brand);
+  background: var(--soft);
+}
+
+.dropzone > p:first-child {
+  margin-top: 0;
+}
+
+.dropzone .choose:focus-within {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.package {
+  max-width: 44rem;
+}
+
+.overall {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.overall progress {
+  flex: 1;
+}
+
+progress {
+  accent-color: var(--brand);
+  height: 0.75rem;
+}
+
+.uploads {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.88rem;
+}
+
+.uploads li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8rem;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.2rem 0;
+}
+
+.uploads progress {
+  width: 100%;
+}
+
+table.listing tbody th {
+  font-weight: 600;
+}
+
+.checks-summary {
+  margin: 0 0 1rem;
+}
+
+.finding-group h3 {
+  font-size: 1.15rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.finding-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: var(--measure);
+}
+
+.finding {
+  padding: 0.7rem 0 0.7rem 0.9rem;
+  border-left: 4px solid var(--field);
+  margin-bottom: 0.6rem;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--rule);
+}
+
+.severity-error .finding {
+  border-left-color: var(--danger);
+}
+
+.severity-warning .finding {
+  border-left-color: var(--restricted);
+}
+
+.finding p {
+  margin: 0 0.9rem 0.2rem 0;
+}
+
+.finding-message {
+  font-weight: 600;
+}
+
+.finding-meta {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.rule-id {
+  margin-left: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.finding-fix {
+  font-size: 0.92rem;
+}
+
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: var(--measure);
+}
+
+.history li {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px dotted var(--rule);
+  font-size: 0.95rem;
+}
+
+.history time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.history-note {
+  display: block;
+  margin-top: 0.2rem;
+  font-style: italic;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  vertical-align: middle;
+  font-family: var(--font-body);
+}
+
+.tag.stale {
+  color: var(--restricted);
+}
+
+.queue-filter {
+  max-width: 16rem;
+  margin: 0 0 1.5rem;
+}
+
+.queue-id {
+  display: block;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+table.queue td,
+table.queue th {
+  white-space: normal;
+}
+
+.decision {
+  margin: 1.25rem 0 0;
+}
+
+.held .file-action {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.preview {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.preview table.cols {
+  min-width: 0;
+}
+
+.preview td {
+  white-space: nowrap;
+}
+
+/* The admin's review policy */
+
+.policy {
+  max-width: 52rem;
+}
+
+.policy .block:first-child {
+  margin-top: 1.5rem;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+}
+
+.rule {
+  margin: 0 0 1rem;
+  padding: 1rem 1.2rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+  min-width: 0;
+}
+
+.rule > legend {
+  padding: 0 0.4rem;
+  font: 600 1.05rem/1.2 var(--font-heading);
+}
+
+.rule-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.choices {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.choices > legend {
+  padding: 0;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.choices .hint {
+  margin-top: 0.2rem;
+}
+
+.rule-fields {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.field input[type="text"],
+.field input[type="number"] {
+  width: 100%;
+  font: inherit;
+  font-weight: 400;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--field);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.rule-actions {
+  margin-top: 0.75rem;
+}
+
+.rule-actions button {
+  min-height: 2rem;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.88rem;
+}
+
+.theme {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.theme .actions {
+  margin-top: 0.4rem;
+}
+
+.add-theme,
+.timing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.add-theme .field,
+.timing .field {
+  flex: 0 1 16rem;
+}
+
+.save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.save-row p {
+  margin: 0;
+  flex: 1 1 20rem;
+}
+
+.saved {
+  color: var(--open);
+  font-weight: 600;
+}
+
+/* Questions and confirmations are modal dialogs: they overlay the page, so opening one moves
+   nothing on it. */
+.modal {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  margin: auto;
+  padding: 1.5rem 1.6rem;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.2);
+}
+
+.modal.wide {
+  width: min(48rem, calc(100vw - 2rem));
+}
+
+.modal::backdrop {
+  background: rgb(20 24 32 / 0.45);
+}
+
+.modal h2 {
+  font-size: 1.25rem;
+  margin: 0 0 0.75rem;
+}
+
+.modal .dropzone,
+.modal .package {
+  max-width: none;
+}
+
 @media (max-width: 51rem) {
   .ds-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1097,6 +1528,27 @@ table.cols tbody th {
 }
 
 @media (max-width: 40rem) {
+  .rule-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .history li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .uploads li {
+    grid-template-columns: minmax(0, 1fr) 5rem;
+  }
+
+  /* After the account slot's own rule: on a phone it ends the areas' row. */
+  .account {
+    position: absolute;
+    right: 1rem;
+    bottom: 0.9rem;
+    margin-left: 0;
+  }
+
   .file {
     grid-template-columns: minmax(0, 1fr);
     padding: 1rem;

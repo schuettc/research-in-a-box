@@ -25,7 +25,8 @@ function allow(actions: string[], resources: string[], conditions?: Record<strin
 
 /**
  * The ingest pipeline: the durable `IngestFunction` (one execution per submission, from submit
- * to its end), the `SubmissionsFunction` behind `/api/submissions`, the curators' topic, and
+ * to its end), the `SubmissionsFunction` behind `/api/submissions`, `/api/people` and
+ * `/api/curators`, the curators' topic, and
  * GuardDuty Malware Protection on the staging bucket's `incoming/` prefix.
  */
 export class Ingest extends Construct {
@@ -132,7 +133,12 @@ export class Ingest extends Construct {
 
     const api = archive.pythonFunction("SubmissionsFunction", {
       handler: "archive_backend.submissions.handler",
-      environment: { ...recordEnv, ...catalogEnv, INGEST_ALIAS_ARN: aliasArn },
+      environment: {
+        ...recordEnv,
+        ...catalogEnv,
+        INGEST_ALIAS_ARN: aliasArn,
+        USER_POOL_ID: archive.userPool.userPoolId,
+      },
     });
     // Presigned PUTs are signed with the function's own role, so it needs the PUT itself.
     api.addToRolePolicy(allow(["s3:PutObject"], objects(staging, "incoming/")));
@@ -161,12 +167,23 @@ export class Ingest extends Construct {
       allow(["lambda:SendDurableExecutionCallbackSuccess"], [`${functionArn}:*`]),
     );
 
+    // /api/people turns ids into emails; /api/curators lists the curator group.
+    api.addToRolePolicy(
+      allow(
+        ["cognito-idp:ListUsers", "cognito-idp:ListUsersInGroup"],
+        [archive.userPool.userPoolArn],
+      ),
+    );
+
     const integration = new apigateway.LambdaIntegration(api);
     const auth: apigateway.MethodOptions = {
       authorizationType: apigateway.AuthorizationType.COGNITO,
       authorizer: archive.authorizer,
     };
-    const submissions = archive.api.root.getResource("api")!.addResource("submissions");
+    const root = archive.api.root.getResource("api")!;
+    root.addResource("people").addMethod("GET", integration, auth);
+    root.addResource("curators").addMethod("GET", integration, auth);
+    const submissions = root.addResource("submissions");
     submissions.addMethod("POST", integration, auth);
     submissions.addMethod("GET", integration, auth);
     const policy = submissions.addResource("policy");

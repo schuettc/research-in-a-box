@@ -109,3 +109,53 @@ test("write-once locking appears only when objectLock is set, in governance mode
     Rule: { DefaultRetention: { Mode: "GOVERNANCE", Days: 3650 } },
   });
 });
+
+function stagingCors(stage: string) {
+  const { archive: a, template } = archive(stage);
+  const calls = Object.values(template.findResources("Custom::AWS"));
+  const cors = calls.filter((r) => JSON.stringify(r.Properties.Create).includes("putBucketCors"));
+  expect(cors).toHaveLength(1);
+  // The call is a JSON string joined around the bucket's and the distribution's tokens.
+  const create = JSON.stringify(cors[0]!.Properties.Create);
+  expect(JSON.stringify(cors[0]!.Properties.Update)).toEqual(create);
+  return { a, create };
+}
+
+test("the staging bucket lets the site's origin PUT uploads and GET reports and held files", () => {
+  const { a, create } = stagingCors("prod");
+  const stack = Stack.of(a);
+  const distribution = stack.getLogicalId(a.distribution.node.defaultChild as CfnBucket);
+
+  expect(create).toContain(JSON.stringify({ Ref: bucketOf(a, "stagingBucket") }));
+  expect(create).toContain(JSON.stringify({ "Fn::GetAtt": [distribution, "DomainName"] }));
+  for (const part of [
+    '\\"AllowedMethods\\":[\\"PUT\\",\\"GET\\"]',
+    '\\"AllowedHeaders\\":[\\"x-amz-checksum-sha256\\",\\"content-type\\",\\"range\\"]',
+    '\\"ExposeHeaders\\":[\\"ETag\\"]',
+    '\\"AllowedOrigins\\":[\\"https://',
+  ]) {
+    expect(create).toContain(part);
+  }
+  expect(create).not.toContain("localhost");
+});
+
+test("a non-prod stage's staging bucket also allows the local web app", () => {
+  const { create } = stagingCors("dev");
+
+  expect(create).toContain('\\"http://localhost:5199\\"');
+});
+
+test("the CORS call may set only the staging bucket's CORS", () => {
+  const { archive: a, template } = archive();
+  const statements = Object.values(template.findResources("AWS::IAM::Policy")).flatMap(
+    (p) => p.Properties.PolicyDocument.Statement as { Action: unknown; Resource: unknown }[],
+  );
+  const cors = statements.filter((s) => JSON.stringify(s.Action).includes("PutBucketCORS"));
+
+  expect(cors).toEqual([
+    expect.objectContaining({
+      Action: "s3:PutBucketCORS",
+      Resource: { "Fn::GetAtt": [bucketOf(a, "stagingBucket"), "Arn"] },
+    }),
+  ]);
+});
