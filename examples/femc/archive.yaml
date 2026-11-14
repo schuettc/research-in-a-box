@@ -1,0 +1,5 @@
+# FEMC's archive config: the Forest Ecosystem Monitoring Cooperative's archive, as converted
+# from its public data archive by the femc converter. Not deployed: it has no infrastructure.
+publisher: Forest Ecosystem Monitoring Cooperative
+profiles: [core, ecology]
+themes: [air, climate change, forest, soil, water, wildlife]
