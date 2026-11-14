@@ -1,12 +1,6 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import "./styles.css";
+import { mount } from "./App";
 
-const root = document.getElementById("root");
-if (!root) throw new Error("missing #root element");
-
-createRoot(root).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+const app = document.getElementById("app");
+if (!app) throw new Error("missing #app element");
+mount(app);

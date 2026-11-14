@@ -1,0 +1,57 @@
+:root {
+  --text: #1f2328;
+  --muted: #59636e;
+  --line: #d1d9e0;
+  --surface: #f6f8fa;
+  --accent: #0b5cad;
+  --danger: #a40e26;
+  --radius: 6px;
+  --gap: 1rem;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+}
+
+.site-header {
+  padding: 0.75rem var(--gap);
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.site-header a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+main {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: var(--gap);
+}
+
+button {
+  font: inherit;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  color: var(--muted);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

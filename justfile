@@ -2,6 +2,7 @@ schema_file := "packages/web/src/schema/archive-contract.schema.json"
 config_type_file := "packages/infra/src/generated/archive-config.ts"
 config_type_generator := "packages/infra/scripts/generate-config-type.ts"
 openapi_file := "packages/web/src/schema/openapi.json"
+web_types_dir := "packages/web/src/generated"
 
 # Run every check in both languages, plus the schema drift check
 check: check-python check-ts check-schema
@@ -104,6 +105,8 @@ check-schema:
     diff -u {{config_type_file}} "$tmp/archive-config.ts"
     uv run python -m archive_backend.api "$tmp/openapi.json"
     diff -u {{openapi_file}} "$tmp/openapi.json"
+    just web-types "$tmp/web"
+    diff -ru {{web_types_dir}} "$tmp/web"
 
 # Rewrite the committed JSON Schema and the construct's config type from the contract
 schema:
@@ -113,6 +116,18 @@ schema:
 # Rewrite the committed OpenAPI spec from the read API's routes
 openapi:
     uv run python -m archive_backend.api {{openapi_file}}
+
+# Write the web app's API and manifest types from the committed OpenAPI spec and JSON Schema
+web-types out=web_types_dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "{{out}}"
+    out="$(cd "{{out}}" && pwd)"
+    root="$PWD"
+    (cd packages/web && npx openapi-typescript "$root/{{openapi_file}}" -o "$out/api.ts" >/dev/null)
+    npx json2ts -i {{schema_file}} -o "$out/manifest.ts" --no-format \
+        --bannerComment="// Generated from the archive contract's JSON Schema by \`just web-types\`. Do not edit."
+    npx prettier --config .prettierrc --write "$out/api.ts" "$out/manifest.ts" >/dev/null
 
 # Format Python and TypeScript in place
 fmt:
