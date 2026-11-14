@@ -565,3 +565,27 @@ def test_download_of_an_open_file_encodes_its_path(world: World) -> None:
 
     assert status == 200
     assert body == {"url": f"https://{DOMAIN}/data/ds/1/data/results%20%231%3F.csv"}
+
+
+def test_admin_usage_orders_one_month_by_time(world: World) -> None:
+    world.publish("ds", {"title": "T"})
+    # The later answer has the lower uuid, so the sort key alone would put it second.
+    for uid, at in (("zzz", "2026-11-02T00:00:00Z"), ("aaa", "2026-11-20T00:00:00Z")):
+        world.dynamodb.load(
+            USAGE,
+            [{"datasetId": {"S": "ds"}, "entry": {"S": f"2026-11#{uid}"}, "at": {"S": at}}],
+        )
+    world.dynamodb.load(
+        USAGE,
+        [
+            {
+                "datasetId": {"S": "ds"},
+                "entry": {"S": "2026-10#mmm"},
+                "at": {"S": "2026-10-31T00:00:00Z"},
+            }
+        ],
+    )
+
+    _, body = world.call("GET", "/api/admin/usage", {"dataset": ["ds"]}, claims=ADMIN)
+
+    assert [e["entry"] for e in body["entries"]] == ["2026-11#aaa", "2026-11#zzz", "2026-10#mmm"]

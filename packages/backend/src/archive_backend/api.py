@@ -488,7 +488,9 @@ def list_usage(dataset: Annotated[str, Query()]) -> UsageList:
         ExpressionAttributeValues={":pk": {"S": dataset}},
         ScanIndexForward=False,
     )
-    return UsageList(entries=[UsageEntry.model_validate(_plain(item)) for item in items])
+    entries = [UsageEntry.model_validate(_plain(item)) for item in items]
+    # The sort key is `<month>#<uuid>`, so within a month only `at` gives the order.
+    return UsageList(entries=sorted(entries, key=lambda e: e.at, reverse=True))
 
 
 def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
