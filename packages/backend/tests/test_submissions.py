@@ -259,34 +259,68 @@ def test_create_refuses_a_bad_file(world: World, file: dict[str, Any]) -> None:
 
 
 def _publish(world: World, dataset_id: str, submitter: str) -> None:
+    # The catalog's dataset item carries no submitter; ownership is a published submission.
     world.catalog["catalog-b"].items[(f"DATASET#{dataset_id}", "META")] = {
         "PK": f"DATASET#{dataset_id}",
         "SK": "META",
         "currentVersion": 1,
+    }
+    world.submissions.items[(f"published-{dataset_id}",)] = {
+        "submissionId": f"published-{dataset_id}",
         "submitter": submitter,
+        "status": "published",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "datasetId": dataset_id,
     }
 
 
-def test_a_new_version_is_refused_to_anyone_but_its_owner_or_a_curator(world: World) -> None:
-    _publish(world, "rain", "alice")
-    files = [{"path": "a.csv", "size": 4, "sha256": DIGEST}]
+FILES = [{"path": "a.csv", "size": 4, "sha256": DIGEST}]
 
-    status, _ = world.call(
-        "POST", "/api/submissions", "bob", "contributor", {"files": files, "datasetId": "rain"}
-    )
-    assert status == 403
+
+def test_a_new_version_is_allowed_to_the_submitter_who_published_it(world: World) -> None:
+    _publish(world, "rain", "alice")
 
     own = world.create("alice", datasetId="rain")
+
     assert world.submissions.items[(own,)]["newVersion"] is True
+
+
+def test_a_new_version_is_refused_to_a_stranger(world: World) -> None:
+    _publish(world, "rain", "alice")
+    # bob's own submission of rain that never published gives no ownership.
+    world.submissions.items[("bob-draft",)] = {
+        "submissionId": "bob-draft",
+        "submitter": "bob",
+        "status": "rejected",
+        "createdAt": "2026-01-02T00:00:00Z",
+        "datasetId": "rain",
+    }
+
+    status, body = world.call(
+        "POST", "/api/submissions", "bob", "contributor", {"files": FILES, "datasetId": "rain"}
+    )
+
+    assert status == 403, body
+
+
+def test_a_curator_may_always_version_a_dataset(world: World) -> None:
+    _publish(world, "rain", "alice")
+
     status, body = world.call(
         "POST",
         "/api/submissions",
         "carol",
         "contributor,curator",
-        {"files": files, "datasetId": "rain"},
+        {"files": FILES, "datasetId": "rain"},
     )
+
     assert status == 201, body
+    assert world.submissions.items[(body["submissionId"],)]["newVersion"] is True
+
+
+def test_an_unknown_dataset_id_is_a_new_dataset(world: World) -> None:
     fresh = world.create("bob", datasetId="snow")
+
     assert world.submissions.items[(fresh,)]["newVersion"] is False
     assert world.submissions.items[(fresh,)]["datasetId"] == "snow"
 

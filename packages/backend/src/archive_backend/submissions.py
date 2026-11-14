@@ -322,6 +322,29 @@ def _dataset(c: Clients, env: Env, dataset_id: str) -> dict[str, Any] | None:
     return cast(dict[str, Any] | None, item)
 
 
+def _published_by(c: Clients, user: str, dataset_id: str) -> bool:
+    """Whether one of `user`'s own submissions published `dataset_id`.
+
+    The catalog's dataset items are rebuilt from manifests by the reindex, so ownership comes
+    from the Submissions table, never from the catalog.
+    """
+    query: dict[str, Any] = {
+        "IndexName": "bySubmitter",
+        "KeyConditionExpression": "#k = :k",
+        "ExpressionAttributeNames": {"#k": "submitter"},
+        "ExpressionAttributeValues": {":k": user},
+    }
+    while True:
+        page = c.submissions.query(**query)
+        for item in page.get("Items", []):
+            if item.get("status") == "published" and item.get("datasetId") == dataset_id:
+                return True
+        last = page.get("LastEvaluatedKey")
+        if not last:
+            return False
+        query["ExclusiveStartKey"] = last
+
+
 def create(c: Clients, env: Env, caller: Caller, body: dict[str, Any]) -> dict[str, Any]:
     caller.need(CONTRIBUTOR)
     files = validate_files(body.get("files"))
@@ -335,7 +358,7 @@ def create(c: Clients, env: Env, caller: Caller, body: dict[str, Any]) -> dict[s
         record["datasetId"] = dataset_id
         published = _dataset(c, env, dataset_id)
         if published is not None:
-            if published.get("submitter") != caller.user and CURATOR not in caller.groups:
+            if CURATOR not in caller.groups and not _published_by(c, caller.user, dataset_id):
                 raise Refused(403, f"only {dataset_id}'s submitter or a curator may version it")
             record["newVersion"] = True
     sid = str(uuid.uuid4())
