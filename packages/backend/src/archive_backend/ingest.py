@@ -683,6 +683,8 @@ def _page(
         Key=key,
         Body=html.encode("utf-8"),
         ContentType="text/html; charset=utf-8",
+        # Short, so a later version's page shows within five minutes.
+        CacheControl="max-age=300",
     )
     return key
 

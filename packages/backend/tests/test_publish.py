@@ -324,6 +324,8 @@ def test_the_page_is_written_with_its_json_ld(world: World) -> None:
     [put] = [p for p in world.s3.puts if p["Bucket"] == DERIVED]
     assert put["Key"] == "site/datasets/stream/index.html"
     assert put["ContentType"].startswith("text/html")
+    # A later version's page must show within five minutes, not CloudFront's default TTL.
+    assert put["CacheControl"] == "max-age=300"
     page = world.s3.objects[(DERIVED, put["Key"])].decode()
     block = page.split('<script type="application/ld+json">', 1)[1].split("</script>", 1)[0]
     assert json.loads(block)["identifier"] == f"https://{DOMAIN}/datasets/stream/v1"

@@ -352,9 +352,8 @@ def create(c: Clients, env: Env, caller: Caller, body: dict[str, Any]) -> dict[s
     record: dict[str, Any] = {"newVersion": False}
     dataset_id = body.get("datasetId")
     if dataset_id is not None:
-        if not isinstance(dataset_id, str) or not re.fullmatch(
-            r"[A-Za-z0-9._-]{1,200}", dataset_id
-        ):
+        # No '.' or '/': the site function routes /datasets/<id> only for such an id.
+        if not isinstance(dataset_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", dataset_id):
             raise Refused(400, "datasetId must be a dataset id")
         record["datasetId"] = dataset_id
         published = _dataset(c, env, dataset_id)

@@ -329,6 +329,23 @@ def test_create_records_whether_the_submitter_is_a_curator(world: World) -> None
     assert world.submissions.items[(body["submissionId"],)]["submitterIsCurator"] is True
 
 
+@pytest.mark.parametrize("dataset_id", ["rain.v2", "rain/2", "", "a" * 201, 7])
+def test_create_refuses_a_dataset_id_the_site_could_not_route(
+    world: World, dataset_id: object
+) -> None:
+    # The site function routes /datasets/<id> only for an id with no '.' or '/'.
+    status, body = world.call(
+        "POST",
+        "/api/submissions",
+        "alice",
+        "contributor",
+        {"files": FILES, "datasetId": dataset_id},
+    )
+
+    assert status == 400, body
+    assert world.submissions.items == {}
+
+
 def test_an_unknown_dataset_id_is_a_new_dataset(world: World) -> None:
     fresh = world.create("bob", datasetId="snow")
 
