@@ -19,15 +19,19 @@ ROOT = "open/stream/1/"
 class FakeS3:
     """Objects with their metadata; every put must carry its full-object SHA-256."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, can_list: bool = True) -> None:
         self.objects: dict[tuple[str, str], bytes] = {}
         self.metadata: dict[tuple[str, str], dict[str, str]] = {}
         self.puts: list[dict[str, Any]] = []
+        # Without s3:ListBucket, S3 answers a missing key with 403 rather than 404.
+        self.can_list = can_list
 
     def _missing(self, operation: str) -> ClientError:
-        return ClientError(
-            {"Error": {"Code": "404" if operation == "HeadObject" else "NoSuchKey"}}, operation
-        )
+        if not self.can_list:
+            code = "403" if operation == "HeadObject" else "AccessDenied"
+        else:
+            code = "404" if operation == "HeadObject" else "NoSuchKey"
+        return ClientError({"Error": {"Code": code}}, operation)
 
     def get_object(self, *, Bucket: str, Key: str) -> dict[str, Any]:
         if (Bucket, Key) not in self.objects:
@@ -73,6 +77,16 @@ def _manifest() -> dict[str, Any]:
 
 def _zip(s3: FakeS3, name: str) -> zipfile.ZipFile:
     return zipfile.ZipFile(io.BytesIO(s3.objects[(BUCKET, f"{ROOT}_zips/{name}")]))
+
+
+def test_without_list_rights_a_missing_zip_is_an_error_not_a_missing_zip(s3: FakeS3) -> None:
+    s3.can_list = False
+
+    with pytest.raises(ClientError) as raised:
+        zips.write_zips(_s3(s3), BUCKET, ROOT, _manifest())
+
+    assert raised.value.response["Error"]["Code"] == "403"
+    assert s3.puts == []
 
 
 def test_the_version_zip_holds_exactly_the_versions_files_and_their_checksums(s3: FakeS3) -> None:
