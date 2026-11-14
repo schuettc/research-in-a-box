@@ -60,7 +60,14 @@ def _values(row: Row, name: str) -> list[str]:
     return [str(value)] if value is not None else []
 
 
+MIN_WORD = 3
+"""Shorter reduced words are dropped: "is" or "ga" would match almost every row."""
+
+
 def _reduce(word: str) -> str:
+    """The word without a plural ending, when it is long enough to have one."""
+    if len(word) <= MIN_WORD:
+        return word
     for suffix in ("ies", "es", "s"):
         if word.endswith(suffix):
             return word[: -len(suffix)]
@@ -72,7 +79,7 @@ def _words(q: str | None) -> list[str]:
     words: list[str] = []
     for run in re.findall(r"[a-z0-9]+", (q or "").lower()):
         word = _reduce(run) if run not in STOP_WORDS else ""
-        if word and word not in words:
+        if len(word) >= MIN_WORD and word not in words:
             words.append(word)
     return words
 

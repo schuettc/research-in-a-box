@@ -58,6 +58,18 @@ def test_plurals_match_their_singular() -> None:
     assert _ids(rows, q="bats") == ["bat"]
 
 
+def test_short_words_do_not_match_everything() -> None:
+    rows = [
+        _row("ozone", title="Ozone injury", description="This is foliar damage"),
+        _row("soil", title="Soil cores", description="It is organic matter"),
+        _row("lake", title="Lake chemistry", description="Water is sampled"),
+    ]
+
+    assert _ids(rows, q="what is ozone") == ["ozone"]
+    assert search(rows, SearchQuery(q="what is ozone")).total == 1
+    assert _ids(rows, q="gas") == []
+
+
 def test_common_words_alone_match_nothing() -> None:
     rows = [_row("a", title="On the lake", description="the shore")]
 
