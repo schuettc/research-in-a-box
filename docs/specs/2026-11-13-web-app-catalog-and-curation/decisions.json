@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "Web app (Plan 8)",
   "expect": 1,
-  "agent_at": "2026-11-14T06:49:21.097116Z",
+  "agent_at": "2026-11-14T17:35:03.438778Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 6, the API and search, and Plan 7, the ingest pipeline, for the submission screens.)\n\nBrief: Plan 8 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the web app (Plan 8): a static React with Vite app on S3 and CloudFront, backed by the API. Start with the reader's flow from search to dataset page to download, since findability is the main problem we set out to fix. The generated `README.md` in `practice-data/packages/ozone-bioindicators/` shows what a dataset page has to present."
@@ -143,6 +143,134 @@
       }
     ]
   },
+  "steps": [
+    {
+      "id": "STEP1",
+      "what": "Walk the web app on a web-test stage with me",
+      "why": "Task 7, the last task of PLAN1: proves search, the dataset page and both downloads work for a reader on a real deploy",
+      "how": "One action at a time; the current one opens on its own. Screenshots from the headless walk are in this folder's screenshots/ (walk-search.png, walk-open-dataset.png, walk-restricted-signed-in.png).",
+      "done": true,
+      "done_at": "2026-11-14T11:35:03.438778-06:00",
+      "actions": [
+        {
+          "id": "A1",
+          "who": "user",
+          "what": "Go for deploying ResearchArchive-web-test",
+          "how": "This deploys a whole archive stack named `ResearchArchive-web-test` into account 316091283514 (profile `personal`, us-east-1). It costs cents while it runs and is destroyed at the end, on your second Go.\n\nPress **Go**, or name a different profile in a note.",
+          "state": "done",
+          "answered_at": "2026-11-14T10:04:17.851243-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "The agent deploys the stage now"
+            },
+            {
+              "id": "NOGO",
+              "label": "No go",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A2",
+          "who": "agent",
+          "what": "Deploy web-test from main, publish the sample package open and again as restricted through Plan 7's pipeline, and invite you",
+          "state": "done",
+          "result": "deployed in 316 s at https://dckg0gpr35vyc.cloudfront.net; both published through submit, scan, checks, approve; /app.js no-cache, /auth-config.json four fields, dataset pages carry div id app; search empty until just reindex web-test (Plan 7's publish doesn't rewrite catalog.json, raised with the coordinator); invitation sent"
+        },
+        {
+          "id": "A3",
+          "who": "user",
+          "what": "Sign in for the first time and set your password",
+          "how": "The invitation email to court@subaud.io (from no-reply@verificationemail.com) holds a **temporary password**, not a link. You set your own on the archive's sign-in page:\n\n1. Open the restricted copy:\n```\nhttps://dckg0gpr35vyc.cloudfront.net/datasets/stream-temperature-at-three-invented-sites-restricted-copy-lhgeye\n```\n2. Press **Sign in to download** on any file.\n3. Enter `court@subaud.io` and the temporary password from the email.\n4. The sign-in page asks for a new password: set it.\n5. You land back on the dataset page, signed in. Press **Done**.",
+          "state": "done",
+          "answered_at": "2026-11-14T10:29:33.163653-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "DONE",
+              "label": "Done"
+            },
+            {
+              "id": "NOLAND",
+              "label": "Didn't land back on the page",
+              "hands_back": true
+            }
+          ],
+          "choice": "NOLAND"
+        },
+        {
+          "id": "A3F",
+          "who": "agent",
+          "what": "Fix the blank page after sign-in and the layout the static page's CSS broke, redeploy web-test, rewrite the dataset pages, and walk it in a headless browser",
+          "state": "done",
+          "result": "three bugs fixed test-first on plan8/walk-fixes (blank page on mount, static CSS leaking into the app, restricted downloads sent the access token instead of the ID token: 401); redeployed, just reindex web-test SUCCEEDED (pages 2); headless walk 13 of 13 checks pass, including sign-in through managed login back to the page and the restricted logger.csv download; throwaway user deleted"
+        },
+        {
+          "id": "A4",
+          "who": "user",
+          "what": "Look at it in your browser",
+          "how": "Everything below passed headless; this is your look, not a test. Reload any tab you had open first, so it picks up the new app.\n\n1. Open https://dckg0gpr35vyc.cloudfront.net and search **stream temperature**; tick a facet.\n2. Open the open dataset: citation, Copy, About, files, columns. Download `logger.csv`; the usage panel appears below the files.\n3. Open the restricted copy and press **Download** on `logger.csv`. If it says **Sign in to download**, press it; you're already signed in to the sign-in page, so it comes straight back.\n\nWhat I'd most like your eye on: whether the pages look right to you now.",
+          "state": "done",
+          "result": "it works but is not very attractive.  if we're doing that later, that's ok.  we should have a plan for that though.",
+          "answered_at": "2026-11-14T11:10:21.617438-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "OK",
+              "label": "Looks good"
+            },
+            {
+              "id": "CHANGES",
+              "label": "Needs changes",
+              "hands_back": true
+            }
+          ],
+          "choice": "OK",
+          "note": "it works but is not very attractive.  if we're doing that later, that's ok.  we should have a plan for that though."
+        },
+        {
+          "id": "A5",
+          "who": "agent",
+          "what": "Open the PR with the walk fixes, merge it, and confirm /auth-config.json and /datasets/\u003cid\u003e after just reindex",
+          "state": "done",
+          "result": "research-in-a-box#49 merged (54d96c0); /auth-config.json answers exactly cliClientId, cognitoDomain, region, webClientId; /datasets/\u003copen id\u003e 200 after the reindex that wrote 2 pages"
+        },
+        {
+          "id": "A6",
+          "who": "user",
+          "what": "Go for the teardown",
+          "how": "This destroys `ResearchArchive-web-test`: its stack, buckets, tables and user pool, including your invited account on it.",
+          "state": "done",
+          "answered_at": "2026-11-14T11:29:15.693428-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "The agent destroys the stage now"
+            },
+            {
+              "id": "NOGO",
+              "label": "Not yet",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A7",
+          "who": "agent",
+          "what": "Destroy ResearchArchive-web-test and confirm nothing is left",
+          "state": "done",
+          "result": "just destroy web-test exit 0; no web-test buckets, tables, functions, user pool or /research-archive/web-test parameters left; the site upload helper's log group was left behind and deleted by hand (PARK9)"
+        }
+      ]
+    }
+  ],
   "decisions": [
     {
       "id": "DCSN1",
@@ -376,7 +504,43 @@
     {
       "id": "PARK4",
       "name": "Branding from the config",
-      "text": "Themes, logo and colours from the archive config, once an adopter asks for them.",
+      "text": "Folded into PLAN3 (visual design): themes, logo and colours from the archive config come with the designed look.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK5",
+      "name": "Content-Disposition on restricted links",
+      "text": "Plan 6's presigned link for a restricted file sets no Content-Disposition, so a CSV or Markdown file may open in the tab and drop the in-memory sign-in. Add ResponseContentDisposition attachment in Plan 6's download route.",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK6",
+      "name": "Reindex pages match ingest pages",
+      "text": "Pages the reindex writes link only the version's data files (from the catalog items); ingest's pages also link datapackage.json, README.md and checksums.sha256. Feed both from the same file list so the two paths write the same page.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK7",
+      "name": "Alert when the page step fails",
+      "text": "The reindex's catalog step alerts on failure; its page step doesn't. Add the same alert.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK8",
+      "name": "Small dataset page fixes",
+      "text": "From the final review: a description-only dataset's 404 should say there is no file; limit manifest URLs in href to http(s); don't fail the versioned page when only the versions call fails; tighten the synth test's site/ filter.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK9",
+      "name": "Destroy cleans the upload helper's logs",
+      "text": "just destroy deletes the S3 auto-delete helper's log group but not the one CDK's BucketDeployment helper leaves (/aws/lambda/ResearchArchive-\u003cstage\u003e-CustomCDKBucketDeployment-*), which Plan 8 added. Delete both prefixes in the recipe.",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK10",
+      "name": "A signed-in mark in the header",
+      "text": "Nothing on the page says the reader is signed in; only the restricted buttons change from Sign in to download to Download. Show who is signed in, with Sign out, in the header.",
       "kind": "improvement"
     }
   ],
@@ -503,7 +667,7 @@
       "id": "PLAN1",
       "topic": "reader-search-page-download",
       "covers": "The reader's flow: search, the dataset page and downloads, shipped with the stage's deploy",
-      "hash": "6a2225b2f88bcdc74b5267a323be878c350fea0760bc3022fb33481945e3bca0",
+      "hash": "f082f033dae320321876f533922e70d4a2eafcb99e663a571c400d3fe4632264",
       "tasks": [
         {
           "id": "TASK1",
@@ -511,7 +675,10 @@
           "does": "Dependencies, generated API and manifest types under the drift check, the router with four routes, the API helpers, the header with the publisher, plain CSS, and the stable /app.js loader.",
           "pulls_in": "React Router, oidc-client-ts, openapi-typescript, json-schema-to-typescript, axe-core; a just web-types recipe",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "29c0954: router, generated types under check-schema, api helpers, /app.js loader; web typecheck, test, build, check-schema exit 0",
+          "build_at": "2026-11-14T01:10:37.497738-06:00"
         },
         {
           "id": "TASK2",
@@ -519,7 +686,10 @@
           "does": "Search over GET /api/search: debounced box, facets with counts, date range, paging, result cards from row fields, state in the URL, no-results and unreachable states.",
           "pulls_in": "Nothing new",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "3f8d9d9: search page with facets, date range, paging, URL state; web typecheck and test exit 0",
+          "build_at": "2026-11-14T01:10:37.497738-06:00"
         },
         {
           "id": "TASK3",
@@ -529,7 +699,10 @@
           "serves": [
             "DCSN1"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "e1dabbd: dataset page, citation, open downloads, usage panel, static takeover; web typecheck and test exit 0",
+          "build_at": "2026-11-14T01:10:37.497738-06:00"
         },
         {
           "id": "TASK4",
@@ -537,7 +710,10 @@
           "does": "Managed login with PKCE from /auth-config.json, tokens in memory only, the callback route, and restricted downloads through the five-minute link.",
           "pulls_in": "oidc-client-ts",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "d8f2d46: oidc-client-ts sign-in, tokens in memory, restricted downloads; web tests 34/34 exit 0",
+          "build_at": "2026-11-14T01:10:37.497738-06:00"
         },
         {
           "id": "TASK5",
@@ -545,7 +721,10 @@
           "does": "One BucketDeployment, pruning off, writes the web build and /auth-config.json into site/ with the cache headers; Auth exposes its domain; check-ts builds the web app before the tests.",
           "pulls_in": "aws-cdk-lib's s3-deployment and its helper Lambda at deploy time",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "e917c7a: two site BucketDeployments, prune false, auth-config.json with four fields; infra tests 55/55 exit 0; just check exit 0 (457 Python, 55 infra, 34 web)",
+          "build_at": "2026-11-14T01:10:37.497738-06:00"
         },
         {
           "id": "TASK6",
@@ -553,7 +732,10 @@
           "does": "After Plan 7's PLAN1 merges: the template gains div id app and the /app.js script, and the reindex renders and writes every dataset page as its own step, with the put grant and SITE_DOMAIN.",
           "pulls_in": "Plan 7's archive_backend.pages",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "6ee8f5e (rebased on Plan 7 PLAN1 and Plan 6 PLAN3): template gains div id app and /app.js, write_page added, reindex page step with put grant and SITE_DOMAIN; pytest backend 173, infra 81, just check exit 0",
+          "build_at": "2026-11-14T01:23:38.278893-06:00"
         },
         {
           "id": "TASK7",
@@ -563,19 +745,31 @@
           "serves": [
             "DCSN1"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "#41 and #49 merged; ResearchArchive-web-test deployed, both samples published through Plan 7, headless walk 13/13 after three fixes (blank page, static CSS, ID token), Court's look: works, not attractive yet (PLAN3); destroyed, nothing left",
+          "build_at": "2026-11-14T11:35:03.438778-06:00"
         }
       ],
       "approved": {
         "hash": "6a2225b2f88bcdc74b5267a323be878c350fea0760bc3022fb33481945e3bca0",
         "at": "2026-11-14T00:49:48.900195-06:00",
         "body": "# PLAN1: The reader's flow\n\n## Spec\n\n`spec.md` in this folder, approved. This plan builds everything it describes for readers: routes, search, the dataset page, downloads and sign-in, the usage panel, the takeover of the static dataset page, the reindex rewriting every dataset page, and shipping the app and `/auth-config.json` with the stage's deploy. The submission, review and policy screens are PLAN2.\n\n## The change\n\n`packages/web` goes from a stub to the reader's app: React Router with four routes, a search page over `GET /api/search`, a dataset page laid out like the generated README, open downloads from `/data`, restricted downloads after Cognito managed login, and the optional usage panel. Its API and manifest types are generated from the committed OpenAPI spec and the contract's JSON Schema, under the drift check. The build emits a stable `/app.js` loader.\n\n`packages/infra` gains one BucketDeployment in the `Web` construct that writes the build and `/auth-config.json` into the derived bucket's `site/`, with pruning off. `Auth` exposes its managed login domain for that file.\n\n`packages/backend` changes in two places once Plan 7's PLAN1 has merged: the dataset page template gains `\u003cdiv id=\"app\"\u003e` and the `/app.js` script, and the reindex gains a step that renders and writes every dataset's page.\n\nRisk is low (spec, Risk and cost): the app only reads, pruning is off and pinned by a synth test, and Plan 7's `test_pages` pins the template's escaping. Gates are unit tests with the API mocked, the synth test, the reindex test, `just check`, and one walk on a test stage.\n\n## Left out\n\n- Theme and species facets, the map view, the in-browser data preview, and branding from the config (PARK1 to PARK4).\n- The contributor, curator and admin screens (PLAN2).\n- Tokens that survive a reload.\n- Any change to Plan 6's API or to Plan 7's ingest.\n\n## Where\n\n| Path | What changes |\n| --- | --- |\n| `packages/web/` | The app: `src/routes/`, `src/api.ts`, `src/auth.ts`, `src/generated/`, `src/styles.css`, `vite.config.ts` (the loader and the publisher), `package.json` |\n| `justfile` | `check-schema` and a new `web-types` recipe regenerate and diff the web types; `check-ts` builds the web app before the tests |\n| `packages/infra/src/web.ts`, `auth.ts`, `research-archive.ts`, `reindex.ts` | The site deployment, the managed login domain, the reindex's page permission and domain |\n| `packages/infra/test/web.test.ts`, `reindex.test.ts` | Synth tests for the deployment and the reindex's new grant |\n| `packages/backend/src/archive_backend/pages.py`, `reindex.py` and their tests | The template takeover and the reindex's page step |\n| `docs/planning-handoff.md` | Already holds the three Decision log rows (research-in-a-box#31) |\n\n### Task 1: The web app's groundwork\n\n**Does:** Adds React Router, oidc-client-ts, and as dev dependencies openapi-typescript, json-schema-to-typescript and axe-core. Generates `src/generated/api.ts` from `src/schema/openapi.json` and `src/generated/manifest.ts` from `src/schema/archive-contract.schema.json`, through a `just web-types` recipe that `just check-schema` also runs and diffs. Adds `src/api.ts` (typed fetch helpers for the four routes the reader uses, and one error type for an unreachable API), the router with `/`, `/datasets/:id`, `/datasets/:id/v:version`, `/auth/callback` and a not-found page, a header showing the publisher, and `src/styles.css` with a few variables. The publisher is read at build time in `vite.config.ts` from the archive config (`ARCHIVE_CONFIG`, else the root `archive.yaml`) and injected with `define`. A small Vite plugin emits `dist/app.js`, a loader that imports the hashed entry chunk and adds the hashed stylesheet link, and `index.html` loads the app only through `/app.js`. The app mounts into `#app`.\n**Files:** `packages/web/package.json`, `packages/web/vite.config.ts`, `packages/web/index.html`, `packages/web/src/main.tsx`, `packages/web/src/App.tsx`, `packages/web/src/api.ts`, `packages/web/src/generated/*`, `packages/web/src/styles.css`, `justfile`, `package-lock.json`\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`, `npm run build -w packages/web` (and `test -f packages/web/dist/app.js`), `just check-schema`\n**Serves:** none (rests on calls AGNT3, AGNT4, AGNT8)\n\n- A test renders each route and finds its heading; the not-found page renders for an unknown path.\n- `just check-schema` fails when `openapi.json` changes and `src/generated/api.ts` doesn't.\n- The loader must work for both `index.html` and a dataset page: it resolves the hashed files from the build's manifest at build time, not at run time.\n\n### Task 2: The search page\n\n**Does:** Builds `/` over `GET /api/search`: the search box (`q`, debounced 300 ms), checkboxes for access, licence, format and project with the endpoint's counts, a from and to year, twenty results a page with Previous and Next, and result cards from the row's fields alone (title linking to `/datasets/\u003cid\u003e`, description cut to three lines, badges for access, licences, formats, the date range, project or creators). Every part of the search lives in the query string, so the back button and a shared link restore it. No results says so with a Clear filters button. An unreachable API shows one line and Try again.\n**Files:** `packages/web/src/routes/Search.tsx`, `packages/web/src/routes/Search.test.tsx`, `packages/web/src/styles.css`\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`\n**Serves:** none (rests on calls AGNT4, AGNT7)\n\n- Tests with fetch mocked: typing sends one request after the debounce; checking a facet adds a repeated parameter and keeps the others; a search URL loaded fresh sends the same request; no results; unreachable API; an axe check of the page finds no violations.\n\n### Task 3: The dataset page, open downloads and the usage panel\n\n**Does:** Builds `/datasets/:id` (calls `GET /api/datasets/{id}`) and `/datasets/:id/v:version` (calls `GET /api/datasets/{id}/versions/{version}`, and `/versions` to show a note linking to the newer version when there is one). Lays the manifest out as one page: title and description with badges for access, licence or rights status and the published date; Cite this dataset, built as the generated README builds the citation and ending with the versioned URL, with a Copy button; About (creators, purpose, rights, project, keywords, temporal and spatial coverage); Files (title, kind, file and member count, size, Download, or Open link for a linked resource's own URL); a column dictionary for each table resource, saying when a column has no description. An open file's Download is a link to `/data/\u003cid\u003e/\u003cversion\u003e/\u003cpath\u003e`. When a download starts, the usage panel appears under the file list with the three optional answers from `UsageAnswers`, Send (posts to `POST /api/datasets/{id}/usage`) and No thanks; it never blocks the download, and once answered or dismissed it isn't shown again in the visit (sessionStorage). On a static dataset page, the app leaves the static content in `#app` until it has the dataset, then renders over it; if the API can't be reached, the static content stays.\n**Files:** `packages/web/src/routes/Dataset.tsx`, `packages/web/src/routes/Dataset.test.tsx`, `packages/web/src/UsagePanel.tsx`, `packages/web/src/citation.ts` and its test, `packages/web/src/main.tsx`, `packages/web/src/styles.css`\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`\n**Serves:** DCSN1 (rests on calls AGNT2, AGNT6, AGNT7)\n\n- Tests use the sample package's `datapackage.json` (`examples/sample-package/`) as the mocked manifest: every resource kind shows; the citation matches the one in the sample package's README apart from the URL; Copy writes it; the versioned route shows the newer-version note; the usage panel appears after a download, sends the answers, and stays gone after No thanks; with the API failing, existing `#app` content is kept; an axe check finds no violations.\n\n### Task 4: Sign-in and restricted downloads\n\n**Does:** Adds `src/auth.ts` on oidc-client-ts: settings from `/auth-config.json` (`region`, `cognitoDomain`, `webClientId`), code with PKCE, redirect to `/auth/callback`, user store in memory (`InMemoryWebStorage`), the refresh token not requested or kept, and only the PKCE state and return path in sessionStorage. `/auth/callback` finishes sign-in and returns to the page the reader came from. A restricted dataset's Download reads Sign in to download until the reader is signed in; then it calls `GET /api/datasets/{id}/versions/{version}/download?path=` with the access token and follows the link. A 401 means sign in again; a 403 says the file isn't available to this account.\n**Files:** `packages/web/src/auth.ts`, `packages/web/src/auth.test.ts`, `packages/web/src/routes/Callback.tsx`, `packages/web/src/routes/Dataset.tsx`, `packages/web/src/routes/Dataset.test.tsx`\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`\n**Serves:** none (rests on call AGNT5)\n\n- Tests: the sign-in redirect carries the client id, PKCE challenge and callback URL from a mocked `/auth-config.json`; after the callback, the download request carries the bearer token; nothing token-shaped is written to localStorage or sessionStorage.\n\n### Task 5: Shipping the app and auth-config.json\n\n**Does:** `Auth` exposes its managed login domain (`cognitoDomain`, the domain's base URL). `Web` gains one `s3deploy.BucketDeployment` into the derived bucket under `site/`, with `prune: false`: the web build's `dist/` (with `Cache-Control: no-cache` on `index.html` and `app.js`, and a year, immutable, on `assets/`) and `Source.jsonData('auth-config.json', { region, cognitoDomain, webClientId, cliClientId })` with no-cache. The deployment runs after the app clients exist and invalidates `/index.html`, `/app.js` and `/auth-config.json`. Synth fails with a plain message when `packages/web/dist` is missing. `check-ts` builds the web app before the workspace tests, so the infra tests synth against a real build.\n**Files:** `packages/infra/src/web.ts`, `packages/infra/src/auth.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/test/web.test.ts`, `justfile`\n**Checks:** `npm run build -w packages/web`, `npm test -w packages/infra`, `npm run typecheck -w packages/infra`\n**Serves:** none (rests on call AGNT1)\n\n- The synth test asserts the deployment's prune is false, its destination prefix is `site/`, and its sources include the JSON with exactly the four fields; and that no other deployment writes into `site/`.\n- If two BucketDeployments are needed for the two cache settings, both keep `prune: false`; the test covers both.\n\n### Task 6: The page takeover and the reindex's page step\n\n**Does:** Once Plan 7's PLAN1 has merged (its `archive_backend.pages` with `render_page` and `write_page`), wraps the template's readable content in `\u003cdiv id=\"app\"\u003e` and adds `\u003cscript type=\"module\" src=\"/app.js\"\u003e\u003c/script\u003e`, keeping every escape and the JSON-LD. Adds a checkpointed step to the reindex, after it writes `catalog.json`, that reads every dataset's current version from the newly active table and calls `render_page(manifest, dataset_id=, version=, domain=, files=)` then `write_page(...)`. The `Reindex` construct grants put on the derived bucket's `site/datasets/*` and passes the distribution's domain as `SITE_DOMAIN`.\n**Files:** `packages/backend/src/archive_backend/pages.py`, `packages/backend/tests/test_pages.py`, `packages/backend/src/archive_backend/reindex.py`, `packages/backend/tests/test_reindex.py`, `packages/infra/src/reindex.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/test/reindex.test.ts`\n**Checks:** `uv run pytest packages/backend`, `uv run mypy packages`, `npm test -w packages/infra`, `just check`\n**Serves:** none (rests on calls AGNT2, AGNT10)\n\n- `test_pages` gains: the root element and the script are present; a title with `\u003cscript\u003e` is still escaped inside `#app`.\n- `test_reindex` gains: after a run over two datasets, two pages are written at `site/datasets/\u003cid\u003e/index.html`; a replay doesn't write them twice.\n- The synth test shows the reindex's put grant on `site/datasets/*` and its `SITE_DOMAIN`.\n\n### Task 7: The walk on a test stage\n\n**Does:** Opens the PR with tasks 1 to 6 and enables auto-merge; after it merges, deploys `ResearchArchive-test` from main with `ARCHIVE_CONFIG` pointing at a test config, publishes the sample package through Plan 7's pipeline as an open dataset and again under another id as restricted, invites a test user, and walks with the user: a search for words in the title finds it and a facet narrows it with counts; `/datasets/\u003cid\u003e` shows the citation, files and columns, and Copy works; the versioned URL opens that version; `/auth-config.json` answers the four fields; an open file downloads and the usage panel sends; the restricted file asks for sign-in and downloads after it; with JavaScript off the page shows the title, citation and file links; after `just reindex`, `/datasets/\u003cid\u003e` still opens; a keyboard pass through search and the page. Then destroys the stage and checks nothing is left.\n**Files:** none changed; the walk's notes go in the task's result\n**Checks:** `just check` on main, `cdk deploy` and `cdk destroy` of `ResearchArchive-test` exit 0\n**Serves:** DCSN1 (rests on calls AGNT1, AGNT9, AGNT10)\n\n- The walk is a step on this folder's page, with the user's actions and the agent's in order.\n- On any AWS auth error, stop and report; never copy or export credentials.\n"
-      }
+      },
+      "edited": "2026-11-14T00:50:36.636335-06:00"
     },
     {
       "id": "PLAN2",
       "topic": "submission-review-and-policy-screens",
       "covers": "Contributor submission, the curator's queue and decision, and the admin's review policy, once Plan 7's /api/submissions is built",
+      "waits_on": [
+        "PLAN1"
+      ]
+    },
+    {
+      "id": "PLAN3",
+      "topic": "visual-design",
+      "covers": "Make the reader's screens look good: a designed look for search and the dataset page, shown as mockups first, with themes from the archive config",
       "waits_on": [
         "PLAN1"
       ]
@@ -729,6 +923,136 @@
       "at": "2026-11-14T00:49:48.900195-06:00",
       "state": "answered",
       "claim": "7c741736f9bf4807"
+    },
+    {
+      "id": 14,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A1",
+      "answer": "GO",
+      "at": "2026-11-14T10:04:17.851243-06:00",
+      "state": "answered",
+      "claim": "a9d156dda04b53eb"
+    },
+    {
+      "id": 15,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session, at Court's word: main on schuettc/research-in-a-box is now protected. Every change goes through a pull request (direct pushes and force pushes are refused, admins included), and a merge needs the python, typescript and security checks green. Branches don't have to be up to date with main. Auto-merge is on for the repo (gh pr merge \u003cn\u003e --auto), and head branches are deleted on merge.",
+      "at": "2026-11-14T10:18:53.036179-06:00",
+      "state": "answered",
+      "claim": "8e697e91f89f34d3",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 16,
+      "card": "STEP1",
+      "from": "user",
+      "action": "note",
+      "text": "where am i setting the password?",
+      "at": "2026-11-14T10:25:42.231728-06:00",
+      "state": "answered",
+      "claim": "cba9c280db4a6bd6"
+    },
+    {
+      "id": 17,
+      "card": "STEP1",
+      "from": "agent",
+      "action": "reply",
+      "text": "On the archive's sign-in page, the first time you sign in. The invitation email (from no-reply@verificationemail.com, subject along the lines of \"Your temporary password\") holds a temporary password, not a link. Open the restricted copy (https://dckg0gpr35vyc.cloudfront.net/datasets/stream-temperature-at-three-invented-sites-restricted-copy-lhgeye), press Sign in to download, enter court@subaud.io and that temporary password, and the sign-in page then asks you for a new one. That lands you back on the dataset page signed in. I've reworded the action to say this.",
+      "at": "2026-11-14T10:26:04.471761-06:00",
+      "answers": [
+        16
+      ]
+    },
+    {
+      "id": 18,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A3",
+      "answer": "NOLAND",
+      "at": "2026-11-14T10:29:33.163653-06:00",
+      "state": "answered",
+      "claim": "67f80d5a7c82d873"
+    },
+    {
+      "id": 19,
+      "card": "STEP1",
+      "from": "agent",
+      "action": "reply",
+      "text": "The stage's logs say the sign-in itself worked, so I need to know what you saw. Your account is now confirmed with the password you set (10:27:12). The same second, the browser reached /auth/callback with a sign-in code, and a second later the app fetched the restricted copy's details again, which it only does when it goes back to that dataset's page. At 10:27:19 the dataset page was reloaded, which clears an in-memory sign-in, and at 10:27:22 a second sign-in went straight through on managed login's session and back again. So the redirect is landing somewhere, but I don't know what it looked like. What was on the screen after you set the password: the dataset page with Sign in to download still showing, a page saying \"Signing in\" or \"Sign-in didn't finish\", or something else? A screenshot works too. One gap I can already see: the header shows nothing when you're signed in, so the only sign is that the restricted files' buttons change from Sign in to download to Download.",
+      "at": "2026-11-14T10:30:51.004111-06:00",
+      "answers": [
+        18
+      ]
+    },
+    {
+      "id": 20,
+      "card": "STEP1",
+      "from": "user",
+      "action": "note",
+      "text": "what are we proving here.  because this page looks bad.  if we just need to ensure it works, i am logged in and click the sign in to download button\n\nit redirects to a blank page.  even though i've logged in \n\ncan you drive this with playwright?",
+      "at": "2026-11-14T10:32:51.629251-06:00",
+      "state": "answered",
+      "claim": "33f7a11ee28ee961",
+      "attachments": [
+        {
+          "path": "screenshots/shot-38ccc0c22915.png"
+        },
+        {
+          "path": "screenshots/shot-55bc76e92e1f.png"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "card": "STEP1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Your screenshots showed both bugs, and they're mine. What we're proving: a reader can find a dataset, read its page, and download an open file and a restricted one. It doesn't work yet, so it isn't proven.\n\n1. Blank page: the app crashed (\"the new child element contains the parent\") whenever it started on a page without static content (the sign-in callback, or arriving from search) and then showed a dataset. A one-line fix; the test now reproduces it and passes.\n2. The layout: Plan 7's static page carries its own CSS (a narrow body, every dl as a two-column grid), and it kept applying after the app took over. That's what squeezed the header and spread About into four columns. The static CSS now only reaches the static content.\n\nBoth fixes are committed on plan8/walk-fixes and redeploying to web-test now (about 5 minutes); then I'll rewrite the dataset pages with just reindex web-test. After that I'll drive the whole walk myself in a headless browser with a throwaway invited user, screenshot each screen, and only hand it back for a look once it passes.\n\nWhy you were asked to sign in again: the sign-in lives in memory only (call AGNT5), so the reload at 10:27:19 dropped it. If that's not what you want, reverse AGNT5 and the sign-in survives a reload in the tab's session storage.",
+      "at": "2026-11-14T10:41:05.702347-06:00",
+      "answers": [
+        20
+      ]
+    },
+    {
+      "id": 22,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A4",
+      "answer": "OK",
+      "text": "it works but is not very attractive.  if we're doing that later, that's ok.  we should have a plan for that though.",
+      "at": "2026-11-14T11:10:21.617438-06:00",
+      "state": "answered",
+      "claim": "198104d3a46aa879"
+    },
+    {
+      "id": 23,
+      "card": "STEP1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Taken: PLAN3, Visual design, is declared on this folder. It's written once PLAN1 is built, starting from mockups of search and the dataset page for you to choose from, and it takes in theming from the archive config (the old PARK4). Opening the walk fixes' PR now (research-in-a-box#49).",
+      "at": "2026-11-14T11:10:48.501052-06:00",
+      "answers": [
+        22
+      ]
+    },
+    {
+      "id": 24,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A6",
+      "answer": "GO",
+      "at": "2026-11-14T11:29:15.693428-06:00",
+      "state": "answered",
+      "claim": "3bda5bef5e9c7848"
     }
   ],
   "planned_history": [

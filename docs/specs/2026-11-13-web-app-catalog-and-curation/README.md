@@ -4,16 +4,22 @@
 
 `research-archive-in-a-box/web-app-catalog-and-curation` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 wait** → **Build · 0 of 7** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 2 to write** → **Build · 7 of 7** → Sign off
 
-PLAN1 building · 0 of 7 done · PLAN2 waits on PLAN1 being built
+PLAN1 built · PLAN2 can be written now · PLAN3 can be written now
 
 ## Pick up next
 
 - **PARK1 Theme and species facets:** Add theme and species facets to search once the contract holds them (Plan 2's PARK5 and PARK6) and the search endpoint returns them.
 - **PARK2 Map view:** A map of results from each row's bounding box, and drawing a box to filter search by bbox. Picks the map library then.
 - **PARK3 In-browser data preview:** Preview a table's first rows on the dataset page with DuckDB-Wasm, reading the open file by range from /data, loaded on the dataset page only. Plan 7's PARK4 (previews derived at publish) is the other route.
-- **PARK4 Branding from the config:** Themes, logo and colours from the archive config, once an adopter asks for them.
+- **PARK4 Branding from the config:** Folded into PLAN3 (visual design): themes, logo and colours from the archive config come with the designed look.
+- **PARK5 Content-Disposition on restricted links:** Plan 6's presigned link for a restricted file sets no Content-Disposition, so a CSV or Markdown file may open in the tab and drop the in-memory sign-in. Add ResponseContentDisposition attachment in Plan 6's download route.
+- **PARK6 Reindex pages match ingest pages:** Pages the reindex writes link only the version's data files (from the catalog items); ingest's pages also link datapackage.json, README.md and checksums.sha256. Feed both from the same file list so the two paths write the same page.
+- **PARK7 Alert when the page step fails:** The reindex's catalog step alerts on failure; its page step doesn't. Add the same alert.
+- **PARK8 Small dataset page fixes:** From the final review: a description-only dataset's 404 should say there is no file; limit manifest URLs in href to http(s); don't fail the versioned page when only the versions call fails; tighten the synth test's site/ filter.
+- **PARK9 Destroy cleans the upload helper's logs:** just destroy deletes the S3 auto-delete helper's log group but not the one CDK's BucketDeployment helper leaves (/aws/lambda/ResearchArchive-&lt;stage>-CustomCDKBucketDeployment-*), which Plan 8 added. Delete both prefixes in the recipe.
+- **PARK10 A signed-in mark in the header:** Nothing on the page says the reader is signed in; only the restricted buttons change from Sign in to download to Download. Show who is signed in, with Sign out, in the header.
 
 ## What was asked
 
@@ -58,15 +64,28 @@ PLAN1 building · 0 of 7 done · PLAN2 waits on PLAN1 being built
 
 ## Plans
 
-- [PLAN1](plans/1-reader-search-page-download.md) The reader's flow: building · 0 of 7 done
-  - TASK1 Task 1: The web app's groundwork: not started
-  - TASK2 Task 2: The search page: not started
-  - TASK3 Task 3: The dataset page, open downloads and the usage panel: not started
-  - TASK4 Task 4: Sign-in and restricted downloads: not started
-  - TASK5 Task 5: Shipping the app and auth-config.json: not started
-  - TASK6 Task 6: The page takeover and the reindex's page step: not started
-  - TASK7 Task 7: The walk on a test stage: not started
-- PLAN2 Submission review and policy screens: waits on PLAN1 being built
+- [PLAN1](plans/1-reader-search-page-download.md) The reader's flow: built
+  - TASK1 Task 1: The web app's groundwork: done. 29c0954: router, generated types under check-schema, api helpers, /app.js loader; web typecheck, test, build, check-schema exit 0
+  - TASK2 Task 2: The search page: done. 3f8d9d9: search page with facets, date range, paging, URL state; web typecheck and test exit 0
+  - TASK3 Task 3: The dataset page, open downloads and the usage panel: done. e1dabbd: dataset page, citation, open downloads, usage panel, static takeover; web typecheck and test exit 0
+  - TASK4 Task 4: Sign-in and restricted downloads: done. d8f2d46: oidc-client-ts sign-in, tokens in memory, restricted downloads; web tests 34/34 exit 0
+  - TASK5 Task 5: Shipping the app and auth-config.json: done. e917c7a: two site BucketDeployments, prune false, auth-config.json with four fields; infra tests 55/55 exit 0; just check exit 0 (457 Python, 55 infra, 34 web)
+  - TASK6 Task 6: The page takeover and the reindex's page step: done. 6ee8f5e (rebased on Plan 7 PLAN1 and Plan 6 PLAN3): template gains div id app and /app.js, write_page added, reindex page step with put grant and SITE_DOMAIN; pytest backend 173, infra 81, just check exit 0
+  - TASK7 Task 7: The walk on a test stage: done. #41 and #49 merged; ResearchArchive-web-test deployed, both samples published through Plan 7, headless walk 13/13 after three fixes (blank page, static CSS, ID token), Court's look: works, not attractive yet (PLAN3); destroyed, nothing left
+- PLAN2 Submission review and policy screens: can be written now
+- PLAN3 Visual design: can be written now
+
+## Steps
+
+- STEP1 Walk the web app on a web-test stage with me: done
+  1. The user · Go for deploying ResearchArchive-web-test · done: Go (2026-11-14 10:04, on the page)
+  2. agent · Deploy web-test from main, publish the sample package open and again as restricted through Plan 7's pipeline, and invite you · done. deployed in 316 s at https://dckg0gpr35vyc.cloudfront.net; both published through submit, scan, checks, approve; /app.js no-cache, /auth-config.json four fields, dataset pages carry div id app; search empty until just reindex web-test (Plan 7's publish doesn't rewrite catalog.json, raised with the coordinator); invitation sent
+  3. The user · Sign in for the first time and set your password · done: Didn't land back on the page (2026-11-14 10:29, on the page)
+  4. agent · Fix the blank page after sign-in and the layout the static page's CSS broke, redeploy web-test, rewrite the dataset pages, and walk it in a headless browser · done. three bugs fixed test-first on plan8/walk-fixes (blank page on mount, static CSS leaking into the app, restricted downloads sent the access token instead of the ID token: 401); redeployed, just reindex web-test SUCCEEDED (pages 2); headless walk 13 of 13 checks pass, including sign-in through managed login back to the page and the restricted logger.csv download; throwaway user deleted
+  5. The user · Look at it in your browser · done: Looks good. “it works but is not very attractive. if we're doing that later, that's ok. we should have a plan for that though.” (2026-11-14 11:10, on the page)
+  6. agent · Open the PR with the walk fixes, merge it, and confirm /auth-config.json and /datasets/&lt;id> after just reindex · done. research-in-a-box#49 merged (54d96c0); /auth-config.json answers exactly cliClientId, cognitoDomain, region, webClientId; /datasets/&lt;open id> 200 after the reindex that wrote 2 pages
+  7. The user · Go for the teardown · done: Go (2026-11-14 11:29, on the page)
+  8. agent · Destroy ResearchArchive-web-test and confirm nothing is left · done. just destroy web-test exit 0; no web-test buckets, tables, functions, user pool or /research-archive/web-test parameters left; the site upload helper's log group was left behind and deleted by hand (PARK9)
 
 ## Files
 
@@ -78,6 +97,7 @@ PLAN1 building · 0 of 7 done · PLAN2 waits on PLAN1 being built
 | `spec.md` | the agent, header by diazo | The spec. |
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
+| `screenshots/` | the user | The screenshots the user pasted into a note or the opening. |
 
 ## Ids
 
