@@ -4,9 +4,32 @@
 
 `research-archive-in-a-box/archive-infrastructure-cdk-construct` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → ✓ Build → **Sign off · due**
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → ✓ Build → ✓ Sign off
+
+Signed off 2026-11-13 21:13.
 
 PLAN1 built · PLAN2 built · PLAN3 built
+
+## Wrap-up
+
+### A fork can now deploy a working, empty research archive to its own AWS account from one config file.
+
+#### How it works now
+
+You edit the `infrastructure` section of `archive.yaml` (stages, alert email, budget, and switches for WAF and write-once locking), then `cdk deploy` builds one `ResearchArchive-<stage>` stack per stage. The deploy holds the staging, archive and derived buckets, the catalog and operational tables, Cognito sign-in with email, an API behind CloudFront at `/api`, open downloads at `/data/<dataset>/<version>/<file>`, a budget, alarms and a dashboard, and a weekly integrity check that emails you when an archived file no longer matches its package. `just reindex <stage>` rebuilds the catalog from the packages in S3 into the spare table and switches to it only when the load completes cleanly; `just reindex-status <stage>` shows how it went. Plans 6 and 7 attach their endpoints and pipeline to the tables, buckets, user pool and API the construct exposes, and build Python Lambdas the same way through `pythonFunction`.
+
+#### Results
+
+- The config section, the generated TypeScript config type and one stack per stage, with the buckets and tables: PLAN1, research-in-a-box#10
+- Lambda packaging, operations, Cognito, the API, CloudFront and the integrity check: PLAN2, research-in-a-box#12
+- The reindex and its just recipes: PLAN3, research-in-a-box#13
+- Four fixes the test deploy found on real AWS (the bulk load's response shape and permission, and two in the status recipe): PLAN3, research-in-a-box#14 and #15
+- The test deploy: every check in the spec passed on a stack in account 316091283514, which was then destroyed with nothing left behind: PLAN3
+- The decision-log lines Plans 6, 7 and 10a build on, and the planning record: research-in-a-box#7, #8 and #16
+
+#### Different from the plan
+
+The coordinating session's review moved the custom domain, ORCID and university sign-in, the vector index and the embeddings setting, download counting and the reindex's catch-up out of Plan 4, to Plan 6 or to follow-ups, before the spec was approved. The final review of PLAN3's code fell back to a Claude reviewer when the OpenAI reviewer hit its usage limit. The test deploy took one extra round: the reindex's first live run failed at the load step, and after #14 and #15 it completed.
 
 ## Pick up next
 
@@ -111,6 +134,7 @@ PLAN1 built · PLAN2 built · PLAN3 built
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `wrap-up.md` | the agent, header by diazo | What was built, how it works now, and what went differently from the plan. |
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `screenshots/` | the user | The screenshots the user pasted into a note or the opening. |

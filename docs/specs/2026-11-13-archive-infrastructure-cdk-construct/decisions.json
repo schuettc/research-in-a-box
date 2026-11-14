@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "Archive infrastructure (Plan 4)",
   "expect": 4,
-  "agent_at": "2026-11-14T03:13:03.684793Z",
+  "agent_at": "2026-11-14T03:14:11.690889Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 1, repo layout, folder d65ecf18be29, and the manifest shape from Plan 2, folder 8da653f233f9.)\n\nBrief: Plan 4 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the archive infrastructure as a TypeScript CDK construct (Plan 4). The service choices are decided and listed under \"Infrastructure\". Do not reopen them. Plan the resources, the DynamoDB design and the construct's interface, and take the open questions with me one at a time."
@@ -1027,8 +1027,28 @@
       }
     }
   ],
+  "wrap_up": {
+    "file": "wrap-up.md",
+    "hash": "d7d217dc63bbfe05ae3e45983e067edc3626c6f1b658a5a53fa5deb30f11457a",
+    "printed_at": "2026-11-13T21:14:11.690889-06:00",
+    "due_at": "2026-11-13T21:13:44.425023-06:00",
+    "plans_at_print": [
+      "PLAN1",
+      "PLAN2",
+      "PLAN3"
+    ]
+  },
   "signoff": {
-    "due_at": "2026-11-13T21:13:03.684793-06:00"
+    "due_at": "2026-11-13T21:13:03.684793-06:00",
+    "built": "The ResearchArchive CDK construct, driven by the infrastructure section of archive.yaml: buckets, catalog tables A and B with five operational tables, Cognito, the REST API behind CloudFront, operations defaults, the weekly integrity check and the reindex with just reindex and just reindex-status. Built in research-in-a-box#10, #12 and #13; the test deploy found four bugs, fixed in #14 and #15. A test stack in account 316091283514 passed every check in the spec and was destroyed.",
+    "try": [
+      "Read the walk's results on STEP1: every check with what it returned, from health and throttling to the reindex and the integrity alert you received",
+      "Run just check in a clone of main: 344 Python and 41 infra tests, and cdk synth from the default app with archive.yaml",
+      "Read the Decision log at the end of docs/planning-handoff.md on main: the lines Plans 6, 7 and 10a build on (tables, package layout, API path, app clients, reindex, durable functions behind an alias)",
+      "Look over the follow-ups (Later) on the Overview: twelve, from ORCID and SAML sign-in to the reindex's scale limits"
+    ],
+    "posted_at": "2026-11-13T21:13:22.351647-06:00",
+    "signed_at": "2026-11-13T21:13:44.425023-06:00"
   },
   "messages": [
     {
@@ -1281,6 +1301,15 @@
       "at": "2026-11-13T21:07:08.275557-06:00",
       "state": "answered",
       "claim": "b1caccce0963c719"
+    },
+    {
+      "id": 25,
+      "card": "SIGNOFF",
+      "from": "user",
+      "action": "sign-off",
+      "at": "2026-11-13T21:13:44.425023-06:00",
+      "state": "answered",
+      "claim": "3d956aeb05993e9b"
     }
   ],
   "planned_history": [
