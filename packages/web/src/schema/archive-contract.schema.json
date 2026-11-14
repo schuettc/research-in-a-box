@@ -1415,6 +1415,50 @@
       "title": "Resource",
       "type": "object"
     },
+    "ReviewPolicy": {
+      "additionalProperties": true,
+      "description": "The admin's review policy, the Settings item `review-policy`.\n\n`rules` are tried in order and the first match wins; with no match the outcome is `one`\nwhen `required` is true and `skip` when it is false. `reviewers` maps a theme to the\ncurators asked first. `reminders` are the days after entering review on which to remind,\neach before `staleDays`, when a waiting review is marked stale.",
+      "properties": {
+        "reminders": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "title": "Reminders",
+          "type": "array"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "reviewers": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Reviewers",
+          "type": "object"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/Rule"
+          },
+          "title": "Rules",
+          "type": "array"
+        },
+        "staleDays": {
+          "default": 14,
+          "exclusiveMinimum": 0,
+          "title": "Staledays",
+          "type": "integer"
+        }
+      },
+      "title": "ReviewPolicy",
+      "type": "object"
+    },
     "RightsStatus": {
       "additionalProperties": true,
       "description": "`archive:rightsStatus`: the rights of a package that has no license.\n\n`third-party` needs a statement of where the terms are set, `all-rights-reserved` the\nrights statement itself.",
@@ -1446,6 +1490,93 @@
         "status"
       ],
       "title": "RightsStatus",
+      "type": "object"
+    },
+    "Rule": {
+      "additionalProperties": true,
+      "description": "One policy rule. Every matcher it sets must hold; a rule that sets none matches all.\n\n`submitters` lists user ids, or `curators` for the curator group; `themes` matches when\nthe submission has any of them.",
+      "properties": {
+        "access": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "open",
+                  "restricted",
+                  "by-request",
+                  "description-only"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Access"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "new-dataset",
+                "new-version"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "outcome": {
+          "enum": [
+            "skip",
+            "one",
+            "two"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "submitters": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Submitters"
+        },
+        "themes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Themes"
+        }
+      },
+      "required": [
+        "outcome"
+      ],
+      "title": "Rule",
       "type": "object"
     },
     "SpatialCoverage": {
@@ -1854,6 +1985,19 @@
       ],
       "default": null,
       "title": "Archive:Project"
+    },
+    "archive:published": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Archive:Published"
     },
     "archive:purpose": {
       "anyOf": [

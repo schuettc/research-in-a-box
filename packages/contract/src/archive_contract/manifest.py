@@ -206,6 +206,8 @@ class Manifest(ArchiveModel):
     )
     validation: ValidationVerdict | None = PydanticField(default=None, alias="archive:validation")
     quality: QualityVerdict | None = PydanticField(default=None, alias="archive:quality")
+    published: datetime | None = PydanticField(default=None, alias="archive:published")
+    """When the package was published, in UTC. Only publish writes it."""
 
     @field_validator("version", mode="before")
     @classmethod

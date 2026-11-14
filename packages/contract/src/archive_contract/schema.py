@@ -1,7 +1,7 @@
 """Write the JSON Schema of the archive contract.
 
-The root is the package manifest; the project record, change log line, finding and archive
-config sit under `$defs` beside the manifest's own definitions.
+The root is the package manifest; the project record, change log line, finding, archive
+config and review policy sit under `$defs` beside the manifest's own definitions.
 
 Usage: python -m archive_contract.schema <path>
 """
@@ -20,9 +20,10 @@ from archive_contract.config import ArchiveConfig
 from archive_contract.findings import Finding
 from archive_contract.manifest import Manifest
 from archive_contract.project import Project
+from archive_contract.review import ReviewPolicy
 
 ROOT: type[BaseModel] = Manifest
-ALSO: tuple[type[BaseModel], ...] = (Project, Change, Finding, ArchiveConfig)
+ALSO: tuple[type[BaseModel], ...] = (Project, Change, Finding, ArchiveConfig, ReviewPolicy)
 
 
 def build() -> dict[str, Any]:

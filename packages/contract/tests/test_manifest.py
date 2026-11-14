@@ -292,6 +292,15 @@ def test_citation_and_purpose_parse_and_dump() -> None:
     assert manifest.dump()["archive:purpose"] == "To track."
 
 
+def test_published_is_the_publish_time_and_absent_until_publish() -> None:
+    manifest = Manifest.model_validate({"archive:published": "2026-11-13T09:30:00Z"})
+
+    assert manifest.published is not None
+    assert manifest.published.year == 2026
+    assert manifest.dump()["archive:published"] == "2026-11-13T09:30:00Z"
+    assert Manifest.model_validate({}).published is None
+
+
 def test_quality_verdict_carries_the_score_and_its_three_parts() -> None:
     verdict = QualityVerdict.model_validate(
         {
