@@ -1,3 +1,4 @@
+import io
 import json
 from collections.abc import Iterator
 from pathlib import Path
@@ -79,6 +80,18 @@ class FakeDynamoDB:
             name: {} for name in self.KEYS
         }
         self.queries: list[dict[str, Any]] = []
+        self.vector_searches: list[dict[str, Any]] = []
+        self.nearest: list[str] = []
+
+    def search_vectors(self, **kwargs: Any) -> dict[str, Any]:
+        """Answers as botocore's SearchVectors does: keys-only items, most similar first."""
+        self.vector_searches.append(kwargs)
+        return {
+            "SearchResults": [
+                {"Item": {"PK": {"S": f"DATASET#{d}"}, "SK": {"S": "META"}}, "Score": 0.1 * n}
+                for n, d in enumerate(self.nearest)
+            ]
+        }
 
     def load(self, table: str, items: list[dict[str, Any]]) -> None:
         for item in items:
@@ -141,13 +154,32 @@ class FakeSSM:
         return {"Parameter": {"Value": self.value}}
 
 
+class FakeBedrock:
+    def __init__(self) -> None:
+        self.texts: list[str] = []
+        self.error: Exception | None = None
+
+    def invoke_model(self, **kwargs: Any) -> dict[str, Any]:
+        if self.error:
+            raise self.error
+        body = json.loads(kwargs["body"])
+        self.texts.append(body["inputText"])
+        return {"body": io.BytesIO(json.dumps({"embedding": [0.25] * 1024}).encode())}
+
+
 class World:
     def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self.s3 = FakeS3()
         self.dynamodb = FakeDynamoDB()
         self.ssm = FakeSSM()
+        self.bedrock = FakeBedrock()
         self.now = 1000.0
-        clients = api.Clients(s3=self.s3, dynamodb=self.dynamodb, ssm=self.ssm)  # type: ignore[arg-type]
+        clients = api.Clients(
+            s3=self.s3,  # type: ignore[arg-type]
+            dynamodb=self.dynamodb,  # type: ignore[arg-type]
+            ssm=self.ssm,  # type: ignore[arg-type]
+            bedrock=self.bedrock,
+        )
         monkeypatch.setattr(api, "clients", lambda: clients)
         monkeypatch.setattr(api, "_monotonic", lambda: self.now)
         api.reset_caches()
@@ -160,6 +192,7 @@ class World:
             "DOWNLOAD_COUNTS_TABLE": COUNTS,
             "USAGE_TABLE": USAGE,
             "SITE_DOMAIN_PARAMETER": DOMAIN_PARAMETER,
+            "STAGE": "test",
         }.items():
             monkeypatch.setenv(name, value)
 
@@ -298,6 +331,79 @@ def test_search_without_a_catalog_file_finds_nothing(world: World) -> None:
 
     assert status == 200
     assert body["total"] == 0 and body["rows"] == []
+
+
+SEMANTIC_ROWS = [
+    *ROWS,
+    {"id": "aerosol", "version": 1, "title": "IMPROVE aerosol", "access": "open"},
+]
+
+
+def test_semantic_search_merges_the_nearest_datasets(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(api, "embeddings_enabled", lambda: True)
+    world.s3.put(DERIVED, "site/catalog.json", SEMANTIC_ROWS)
+    world.dynamodb.nearest = ["aerosol", "stream"]
+
+    _, body = world.call("GET", "/api/search", {"q": ["air pollution"]})
+    _, filtered = world.call("GET", "/api/search", {"q": ["lake"], "access": ["restricted"]})
+
+    assert [r["id"] for r in body["rows"]] == ["aerosol", "stream"]
+    assert body["total"] == 2
+    assert world.bedrock.texts == ["air pollution", "lake"]
+    [first, _] = world.dynamodb.vector_searches
+    assert first["TableName"] == TABLE_B
+    assert first["IndexName"] == "datasets"
+    assert first["TopK"] == 50
+    assert first["SearchVector"] == [{"N": "0.25"}] * 1024
+    assert [r["id"] for r in filtered["rows"]] == ["stream"]
+
+
+def test_semantic_search_needs_a_q(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(api, "embeddings_enabled", lambda: True)
+    world.s3.put(DERIVED, "site/catalog.json", SEMANTIC_ROWS)
+
+    _, body = world.call("GET", "/api/search", {"q": [" "]})
+
+    assert body["total"] == 3
+    assert world.bedrock.texts == []
+
+
+def test_semantic_errors_answer_the_keyword_ranking_and_count_a_fallback(
+    world: World, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(api, "embeddings_enabled", lambda: True)
+    world.s3.put(DERIVED, "site/catalog.json", SEMANTIC_ROWS)
+    world.bedrock.error = ClientError(
+        {"Error": {"Code": "ThrottlingException", "Message": "slow"}}, "InvokeModel"
+    )
+
+    status, body = world.call("GET", "/api/search", {"q": ["lake"]})
+
+    assert status == 200
+    assert [r["id"] for r in body["rows"]] == ["lake", "stream"]
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    [metric] = [line for line in lines if "_aws" in line]
+    assert metric["SemanticFallback"] == 1
+    assert metric["Stage"] == "test"
+    [directive] = metric["_aws"]["CloudWatchMetrics"]
+    assert directive == {
+        "Namespace": "ResearchArchive",
+        "Dimensions": [["Stage"]],
+        "Metrics": [{"Name": "SemanticFallback", "Unit": "Count"}],
+    }
+    assert isinstance(metric["_aws"]["Timestamp"], int)
+
+
+def test_search_never_embeds_with_the_setting_off(world: World) -> None:
+    world.s3.put(DERIVED, "site/catalog.json", SEMANTIC_ROWS)
+
+    _, body = world.call("GET", "/api/search", {"q": ["lake"]})
+
+    assert [r["id"] for r in body["rows"]] == ["lake", "stream"]
+    assert world.bedrock.texts == []
+    assert world.dynamodb.vector_searches == []
 
 
 def test_dataset_reads_the_active_table(world: World) -> None:

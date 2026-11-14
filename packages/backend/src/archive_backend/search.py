@@ -28,6 +28,9 @@ STOP_WORDS = frozenset("a an and the of on in near from for to with by at as or"
 TITLE_WEIGHT = 0.5
 """What a word found in the title adds on top of being found at all."""
 
+FUSION_K = 60
+"""Reciprocal rank fusion's constant: a place p in a list scores 1 / (FUSION_K + p)."""
+
 
 @dataclass(frozen=True)
 class SearchQuery:
@@ -170,9 +173,33 @@ def keyword_ranking(rows: list[Row], q: str | None) -> list[str]:
     return [str(r.get("id")) for r in _order(matched, scores)]
 
 
-def search(rows: list[Row], query: SearchQuery) -> SearchResult:
-    """The page of matching rows, the total, and each facet value's count under the others."""
-    scores = _scores(rows, query.q)
+def fuse(keyword_ids: list[str], semantic_ids: list[str]) -> list[str]:
+    """Reciprocal rank fusion: each id scores the sum of 1 / (60 + place) over the lists it is
+    in, places counting from 1; ties go by id."""
+    fused: dict[str, float] = {}
+    for ids in (keyword_ids, semantic_ids):
+        for place, row_id in enumerate(ids, start=1):
+            fused[row_id] = fused.get(row_id, 0.0) + 1 / (FUSION_K + place)
+    return sorted(fused, key=lambda row_id: (-fused[row_id], row_id))
+
+
+def _fused_scores(rows: list[Row], q: str | None, semantic: list[str]) -> dict[int, float]:
+    """Scores keyed by the row object that order the fused list: above 0 only for its members."""
+    order = fuse(keyword_ranking(rows, q), semantic)
+    place = {row_id: n for n, row_id in enumerate(order)}
+    return {id(r): float(len(order) - place.get(str(r.get("id")), len(order))) for r in rows}
+
+
+def search(rows: list[Row], query: SearchQuery, semantic: list[str] | None = None) -> SearchResult:
+    """The page of matching rows, the total, and each facet value's count under the others.
+
+    With `semantic`, the ids of the nearest datasets, `q` keeps the keyword matches and those ids,
+    ordered by `fuse`.
+    """
+    if semantic is None:
+        scores = _scores(rows, query.q)
+    else:
+        scores = _fused_scores(rows, query.q, semantic)
     checks = _filters(query, scores)
     matched = [r for r in rows if all(check(r) for check in checks.values())]
     facets: dict[str, dict[str, int]] = {}

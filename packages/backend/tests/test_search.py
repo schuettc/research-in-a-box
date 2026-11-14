@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Any
 
-from archive_backend.search import SearchQuery, keyword_ranking, search
+from archive_backend.search import SearchQuery, fuse, keyword_ranking, search
 
 
 def _row(dataset_id: str, **fields: Any) -> dict[str, Any]:
@@ -10,8 +10,8 @@ def _row(dataset_id: str, **fields: Any) -> dict[str, Any]:
     )
 
 
-def _ids(rows: list[dict[str, Any]], **query: Any) -> list[str]:
-    return [r["id"] for r in search(rows, SearchQuery(**query)).rows]
+def _ids(rows: list[dict[str, Any]], semantic: list[str] | None = None, **query: Any) -> list[str]:
+    return [r["id"] for r in search(rows, SearchQuery(**query), semantic).rows]
 
 
 def test_any_word_of_q_matches_ignoring_case() -> None:
@@ -158,3 +158,34 @@ def test_pages_split_the_ordered_rows() -> None:
     assert first.total == 25 and len(first.rows) == 20
     assert [r["id"] for r in second.rows] == [f"ds-{n:02d}" for n in range(10, 20)]
     assert past.rows == [] and past.total == 25
+
+
+def test_fuse_sums_reciprocal_ranks_and_breaks_ties_by_id() -> None:
+    assert fuse(["a", "b"], ["b", "c"]) == ["b", "a", "c"]
+    assert fuse(["d", "a"], ["a", "d"]) == ["a", "d"]
+    assert fuse([], ["z", "y"]) == ["z", "y"]
+
+
+def test_semantic_ids_join_the_keyword_matches_in_fused_order() -> None:
+    rows = [
+        _row("lake", title="Lake chemistry", access="open"),
+        _row("aerosol", title="IMPROVE aerosol", access="open"),
+        _row("haze", title="Regional haze", access="restricted"),
+        _row("soil", title="Soil cores"),
+    ]
+
+    assert _ids(rows, ["aerosol", "haze", "lake"], q="lake") == ["lake", "aerosol", "haze"]
+    assert _ids(rows, ["aerosol", "haze", "gone"], q="lake", access=["restricted"]) == ["haze"]
+
+
+def test_facets_and_total_count_the_merged_list() -> None:
+    rows = [
+        _row("lake", title="Lake chemistry", access="open"),
+        _row("aerosol", title="IMPROVE aerosol", access="restricted"),
+        _row("soil", title="Soil cores", access="open"),
+    ]
+
+    result = search(rows, SearchQuery(q="lake"), ["aerosol"])
+
+    assert result.total == 2
+    assert result.facets["access"] == {"open": 1, "restricted": 1}
