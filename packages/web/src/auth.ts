@@ -76,8 +76,11 @@ export function completeSignIn(url: string = location.href): Promise<string> {
   return callback;
 }
 
-/** The access token while the reader is signed in, else null. */
-export function accessToken(): string | null {
+/**
+ * The token the API accepts while the reader is signed in, else null: the ID token, since the
+ * API's Cognito authorizer has no OAuth scopes and so checks ID tokens, not access tokens.
+ */
+export function apiToken(): string | null {
   if (!user || user.expired) return null;
-  return user.access_token;
+  return user.id_token ?? null;
 }

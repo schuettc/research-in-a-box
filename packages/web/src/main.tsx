@@ -13,7 +13,7 @@ import { ShownContext } from "./routes/Dataset";
 export function mount(app: HTMLElement): Root {
   const target = app.childElementCount > 0 ? document.createElement("div") : app;
   const shown = () => {
-    if (target.parentNode !== app) app.replaceChildren(target);
+    if (target !== app && target.parentNode !== app) app.replaceChildren(target);
   };
   const root = createRoot(target);
   root.render(
