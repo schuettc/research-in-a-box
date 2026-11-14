@@ -53,10 +53,10 @@ from aws_durable_execution_sdk_python.waits import (
 from botocore.exceptions import ClientError
 
 from archive_backend import pages
+from archive_backend.config import read_archive_config
 from archive_backend.reindex import catalog_items, dataset_item
 from archive_backend.submissions import Table, put_event, stored_policy
 from archive_contract import SubmissionFacts, match, reminder_schedule
-from archive_contract.config import ArchiveConfig
 from archive_contract.exports.readme import render_readme
 from archive_contract.findings import Finding, Target
 from archive_contract.manifest import AccessLevel, Manifest
@@ -337,8 +337,7 @@ def _check(
     findings = _scan_findings(tags)
     facts = _facts({})
     if not findings:
-        value = c.ssm.get_parameter(Name=env.archive_config_parameter)["Parameter"]["Value"]
-        config = ArchiveConfig.model_validate_json(value)
+        config = read_archive_config(c.ssm, env.archive_config_parameter)
         with tempfile.TemporaryDirectory(prefix="ingest-") as tmp:
             folder = Path(tmp)
             _download(c, env, sid, round, paths, folder)
@@ -518,11 +517,6 @@ def _expire(_: StepContext, c: Clients, env: Env, sid: str) -> int:
     return round
 
 
-def _config(c: Clients, env: Env) -> ArchiveConfig:
-    value = c.ssm.get_parameter(Name=env.archive_config_parameter)["Parameter"]["Value"]
-    return ArchiveConfig.model_validate_json(value)
-
-
 def _held(sid: str, path: str = "") -> str:
     return f"held/{sid}/{path}"
 
@@ -624,7 +618,7 @@ def _fill(_: StepContext, c: Clients, env: Env, sid: str, target: dict[str, Any]
     raw["id"] = dataset_id
     raw["version"] = str(version)
     raw["archive:published"] = _clock().strftime("%Y-%m-%dT%H:%M:%SZ")
-    raw["archive:publisher"] = _config(c, env).publisher
+    raw["archive:publisher"] = read_archive_config(c.ssm, env.archive_config_parameter).publisher
     raw["archive:identifier"] = pages.identifier(env.site_domain, dataset_id, version)
     manifest = Manifest.model_validate(raw)
     changed = {
