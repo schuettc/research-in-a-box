@@ -1,0 +1,750 @@
+{
+  "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
+  "schema": 4,
+  "title": "Ingest, review and access workflows (Plan 7)",
+  "expect": 3,
+  "working": {
+    "text": "Committing the approved spec with its Decision log rows, then writing PLAN1",
+    "since": "2026-11-13T22:34:20.405748-06:00"
+  },
+  "agent_at": "2026-11-14T04:34:20.405748Z",
+  "start": {
+    "opening": {
+      "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 2, folder 8da653f233f9, Plan 3, the quality rules and local tool, and Plan 4, the archive infrastructure.)\n\nBrief: Plan 7 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the ingest pipeline and the review and access workflows (Plan 7). It is one Lambda durable function in Python with a callback wait for curator review. That is decided. Plan the steps, the review policy an admin controls, and the request-changes loop. Take the open questions with me one at a time."
+    },
+    "findings": [
+      {
+        "text": "Plan 4 already gives Plan 7 a staging bucket (objects expire after 30 days), the versioned archive bucket with open/ and restricted/ prefixes, the derived bucket's site/ prefix for pages and the catalog file, and the Submissions table (indexes byStatus and bySubmitter), the Reviews table (eventKey `\u003cat\u003e#\u003ceventId\u003e`) and the Settings table, all exposed on the construct.",
+        "source": "origin/main packages/infra/src/research-archive.ts, tables.ts, storage.ts",
+        "cases": "1 construct"
+      },
+      {
+        "text": "A durable function is built with archive.pythonFunction(..., durableConfig) and invoked through its `live` alias. The reindex is a working example: checkpointed steps, wait_for_condition, an SNS alert on failure.",
+        "source": "origin/main packages/infra/src/reindex.ts, packages/backend/src/archive_backend/reindex.py",
+        "cases": "1 durable function built"
+      },
+      {
+        "text": "cruise.diagnose(path, profiles, required) already runs the structure check, every quality rule and the score, and counts the errors that block. Errors block publishing and warnings never do, and Plan 7 uses the same rule (decision log, Plans 3 and 7). archive-backend doesn't depend on cruise yet.",
+        "source": "origin/main packages/tool/src/cruise/diagnose.py; packages/backend/pyproject.toml",
+        "cases": "1 entry point"
+      },
+      {
+        "text": "The durable SDK's callback wait is context.wait_for_callback(submitter, name=..., config=WaitForCallbackConfig(timeout=...)). The submitter gets a callback id that an outside caller completes. Every callback needs a timeout, and a timeout raises an error the code can catch.",
+        "source": "https://docs.aws.amazon.com/durable-execution/patterns/best-practices/pause-resume/",
+        "cases": "AWS docs"
+      },
+      {
+        "text": "No plan says how a package gets into the staging bucket, who creates the Submission record, or who owns the submission and review endpoints. Plan 6 proposed building them in a later plan of its own. I've sent the coordinating session a proposal that Plan 7 own everything under /api/submissions.",
+        "source": "Plan 2 record message 33; Plan 4 spec.md:55, 82; a survey of all ten planning folders",
+        "cases": "10 of 10 folders"
+      },
+      {
+        "text": "Publishing must refuse a package whose rights are undetermined, and fill in publisher, publication year, identifier and resource type from the config. The contract has missing_core_fields(manifest) for the publish check to call.",
+        "source": "Plan 2 spec.md:45, 64; DCSN1; plans/1:51",
+        "cases": "Plan 2 spec"
+      },
+      {
+        "text": "Plan 7 also owns: where project.json lives in the archive bucket (Plan 4's PARK6 waits on it), changing the CloudFront site function for per-dataset pages, moving a dataset between open/ and restricted/ on an access change, the DOI setting and its credentials, and reindex catch-up for publishes during a run (PARK5).",
+        "source": "origin/main docs/planning-handoff.md decision log rows on Plans 4 and 7",
+        "cases": "decision log"
+      },
+      {
+        "text": "Nothing in the deploy sends email to users. The only email is the SNS alert topic to the admin. SES isn't set up.",
+        "source": "origin/main packages/infra/src (no SES); Plan 4 AGNT5",
+        "cases": "1 construct"
+      }
+    ],
+    "rounds": [
+      {
+        "take": "## What Plan 7 is, and what to build first\n\nThe brief lists about fifteen pieces: receive, scan, checksums, structure, quality rules, previews and spatial extent, review, publish (copy, version, page, EML and schema.org, DOI, catalog file), index, notify, the review policy, the audit log, by-request access, extension checks, new versions and takedown. The coordinating session asks every plan to build only what works end to end now, and to put the rest in follow-ups or later plans.\n\nHere is the smallest version that works end to end. **A contributor submits a package, a curator approves, rejects or asks for changes, and an approved package is published and findable.**\n\n1. **Submit.** A signed-in contributor creates a submission and gets upload links into `staging/\u003csubmissionId\u003e/`, then calls submit. Submit starts the durable function through its `live` alias.\n2. **Check.** One step runs `cruise.diagnose` (checksums, structure, every rule, the score) and the rights check. If anything blocks, the submission goes back to the contributor as *needs changes* with the findings, and never reaches a curator.\n3. **Review.** The function waits on a callback, with a timeout, and the submission shows in the curator queue. The curator's decision completes the callback: **approve**, **reject** (it ends), or **request changes** (it goes back to the contributor with a note).\n4. **Request changes loop.** The function waits on a second callback until the contributor uploads a fixed package and resubmits, then goes back to step 2. The same execution and the same submission id carry it through every round.\n5. **Publish.** The function assigns the next version, fills in publisher, year and identifier, copies everything to `open|restricted/\u003cdatasetId\u003e/\u003cversion\u003e/` (one PUT each, with the SHA-256 checksum), writes the catalog items into the active table, writes the dataset's HTML page, and calls Plan 6's catalog-file writer.\n6. **Record.** Every state change and decision is an event in the Reviews table. That is the audit log, and the queue reads it.\n\nThe diagram below shows the flow.\n\n**Later plans in this folder**, once the first one has been used: by-request access, takedown and access-level changes, DOIs, previews and spatial extent, malware scanning, extension checks from the config, and in-place metadata edits. Reminders and the finer review-policy rules come up as decisions in this round's understanding, not as their own plans.\n\nThere are two questions behind this that I'll bring as decision cards once you agree on the direction: what the review policy holds at first (I lean towards review always on, any curator, one timeout, and nothing else yet), and how people learn that something happened (no email set up yet, so the queue and the submission page, or a small email setup).",
+        "visuals": [
+          {
+            "kind": "mermaid",
+            "caption": "The first plan's path for one submission: one durable execution from submit to publish",
+            "mermaid": "flowchart TD\n  A[Contributor creates submission\u003cbr/\u003euploads to staging] --\u003e B[Submit: start durable function]\n  B --\u003e C[Check: cruise diagnose + rights]\n  C --\u003e|errors| N[Needs changes\u003cbr/\u003efindings to contributor]\n  C --\u003e|no errors| R[Review: callback wait with timeout]\n  R --\u003e|approve| P[Publish: version, archive copy,\u003cbr/\u003ecatalog items, page, catalog file]\n  R --\u003e|reject| X[Rejected: ends]\n  R --\u003e|request changes| N\n  R --\u003e|timeout| S[Stale: curators alerted]\n  N --\u003e W[Wait: contributor resubmits]\n  W --\u003e C\n  P --\u003e D[Published]"
+          }
+        ],
+        "recommendation": "Build Plan 7's first plan as this thin end-to-end path: submit, check, review with approve, reject and request changes, the request-changes loop, publish (version, archive copy, catalog items, dataset page, catalog file) and the audit log. Every other piece of the brief becomes a later plan in this folder or a follow-up."
+      }
+    ],
+    "direction": {
+      "round": 1,
+      "at": "2026-11-13T21:33:09.398243-06:00",
+      "by": "user"
+    }
+  },
+  "understanding": {
+    "points": [
+      {
+        "kind": "outcome",
+        "text": "The publish pipeline is one Lambda durable function in Python. Curator review is a callback wait inside it.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "The first plan is the thin path from round 1. A contributor submits a package, the checks run, and a curator approves, rejects or requests changes. The request-changes loop goes back through the checks, and an approved package is published and findable. Every decision is recorded.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "An admin controls the full review policy at run time, stored in the Settings table: whether review is required, skip rules, stricter cases (such as two curators), named reviewers per theme, and reminders before the stale mark (DCSN1 C).",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "Publish assigns the version (a new dataset, or the next version of an existing one), copies the package to open/ or restricted/\u003cdatasetId\u003e/\u003cversion\u003e/, writes the catalog items to the active table, writes the dataset's HTML page, and calls Plan 6's catalog-file writer.",
+        "source": "assumed"
+      },
+      {
+        "kind": "constraint",
+        "text": "Build on Plans 1 to 4 and don't rebuild them: the construct's buckets, tables and pythonFunction, cruise.diagnose, and the contract's models and exports.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Errors block publishing and warnings never do. This is the same rule cruise uses (decision log, Plans 3 and 7). Undetermined rights block publishing (Plan 2).",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Anything non-deterministic sits inside a durable step, every invocation stays under 15 minutes, and every callback wait has a timeout.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Plan only what the path needs now. By-request access, takedown, access-level changes, DOIs, previews and spatial extent, extension checks and in-place metadata edits become later plans in this folder or follow-ups.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "The client side of submitting (CLI, MCP, the web app's screens, the admin's policy screen) belongs to Plans 8 and 9. Plan 7 delivers the API and the pipeline.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "On a deployed test stage, a scripted run takes a submission of the sample package through four paths and each ends right: approve (published, readable at /data and on its dataset page), reject, request changes then approve, and a blocking error that returns as needs changes.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "Under a set policy, the same scripted run shows a skip rule publishing without review, a two-curator case that waits for a second, different curator, and a named reviewer getting the reminder.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "The Reviews table holds one event per state change and decision for each of those runs, including which policy rule applied.",
+        "source": "assumed"
+      }
+    ],
+    "confirmed": true,
+    "revisions": [
+      {
+        "at": "0001-01-01T00:00:00Z",
+        "text": "The review policy is now the full policy (skip rules, stricter cases, named reviewers, reminders), with a success point for it.",
+        "because": "DCSN1"
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "DCSN1",
+      "name": "Review policy at first",
+      "question": "What should the review policy an admin controls hold in the first plan?",
+      "example": "A one-person archive wants its own uploads published as soon as they pass the checks. A group like FEMC wants a curator to see every submission and to be told when one has waited two weeks. The policy setting decides which of these the archive does, and an admin can change it without a deploy.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Review always on, admin sets the timeout",
+          "includes": "Every submission that passes the checks waits for a curator. Any curator can decide it. The admin sets one value: how many days before a waiting review is marked stale and the stale alert goes out (default 14).",
+          "pulls_in": "One `review-policy` item in Settings and an admin endpoint to read and change it."
+        },
+        {
+          "id": "B",
+          "title": "A, plus an on/off switch for review",
+          "includes": "Everything in A, plus `required: true|false`. When it is off, a package that passes the checks is published at once, and the audit log records that review was skipped by policy.",
+          "pulls_in": "The same setting and endpoint, plus a branch in the function that skips the wait."
+        },
+        {
+          "id": "C",
+          "title": "The full policy from the handoff",
+          "includes": "B, plus skip rules (for example, trusted submitters or metadata-only versions), stricter cases (for example, restricted data needs two curators), named reviewers per theme, and reminders before the stale mark.",
+          "pulls_in": "A rules model, an assignment model, reminder waits in the function, and admin screens for each (Plan 8). No archive has asked for any of these yet."
+        }
+      ],
+      "recommendation": {
+        "option": "B",
+        "why": "The handoff settles that an admin decides when review is required, and on/off is the smallest form of that. It costs one boolean and one branch. A's always-on review leaves a one-person archive approving its own uploads by hand. C builds rules that no real archive has asked for yet, so they go in a follow-up.",
+        "evidence": [
+          {
+            "text": "Review control is decided in the handoff",
+            "source": "docs/planning-handoff.md, Decisions already made, Infrastructure",
+            "output": "Review is controlled by an admin at run time: when review is required, rules for skipping it, stricter cases, who reviews, reminders."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "C"
+    },
+    {
+      "id": "DCSN2",
+      "name": "Telling people",
+      "question": "How do curators learn that a submission is waiting for them (including reminders and their named-reviewer assignments), and contributors learn that it was decided?",
+      "example": "The policy names Dana as the reviewer for the Forest Health theme, with a reminder at 7 days. A Forest Health submission enters review on Monday, and on day 7 the reminder must reach Dana, not every curator. Meanwhile the contributor waits to hear whether changes were requested.",
+      "options": [
+        {
+          "id": "B",
+          "title": "A curators' topic, targeted per reviewer; contributors check status",
+          "includes": "One SNS topic for curators. Each curator subscribes by email, confirms once, and their subscription carries a filter on their own name. A message for a named reviewer reaches only them. A message with no named reviewer reaches every curator. Messages go out on entering review, on each reminder, and on the stale mark. Contributors read their submission's status.",
+          "pulls_in": "One SNS topic with filtered email subscriptions, and a just recipe that adds a curator's subscription with their filter. No SES setup."
+        },
+        {
+          "id": "C",
+          "title": "Email to everyone through SES",
+          "includes": "B's messages sent to curators through SES instead, plus email to the contributor on every decision (needs changes, approved and published, rejected), from the archive's own address.",
+          "pulls_in": "SES with a verified domain or address, a request to AWS to move out of the SES sandbox (a step for you), bounce handling, and email templates. Contributors are arbitrary addresses, so the sandbox blocks this until AWS approves it."
+        }
+      ],
+      "recommendation": {
+        "option": "B",
+        "why": "SNS subscription filters can reach one named curator with no SES setup and no wait on AWS, which covers everything DCSN1's reminders and named reviewers need. Contributor email (C) can't send to arbitrary addresses until AWS lifts the sandbox, so it stays a follow-up.",
+        "evidence": [
+          {
+            "text": "The deploy has no email to users today. Its only email is the admin alert topic.",
+            "source": "origin/main packages/infra/src/operations.ts and research-archive.ts (alertTopic, no SES)"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "B",
+      "revisions": [
+        {
+          "at": "2026-11-13T22:16:01.729674-06:00",
+          "text": "Revised after DCSN1: dropped the no-notifications option, since reminders and named reviewers need a way to reach one person. B now targets a named reviewer.",
+          "because": "DCSN1"
+        }
+      ]
+    },
+    {
+      "id": "DCSN3",
+      "name": "Malware scanning",
+      "question": "Should the first plan scan uploads for malware before they can be published?",
+      "example": "A contributor's account is used to upload a zip that holds malware, inside an open dataset. Once it is approved, CloudFront serves it from the archive's own domain at a stable /data URL, and anyone who downloads it gets it.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Not yet, a follow-up before a public launch",
+          "includes": "No scanning. Curator review is the only guard. A follow-up records that scanning must be in place before any archive accepts submissions from the public.",
+          "pulls_in": "Nothing now."
+        },
+        {
+          "id": "B",
+          "title": "GuardDuty Malware Protection on the staging bucket",
+          "includes": "AWS scans each uploaded object and tags it. The check step waits until every file is tagged. A file tagged as a threat blocks the submission with an error finding.",
+          "pulls_in": "A GuardDuty malware protection plan for the staging bucket (CDK CfnMalwareProtectionPlan), its IAM role, a wait-for-condition on the tags, and a charge per GB scanned, which is small at these sizes."
+        },
+        {
+          "id": "C",
+          "title": "ClamAV in our own Lambda",
+          "includes": "A container Lambda with ClamAV scans each file in the check step.",
+          "pulls_in": "A container image, signature updates we maintain, and a second way of packaging Lambdas besides Plan 4's."
+        }
+      ],
+      "recommendation": {
+        "option": "B",
+        "why": "Any open dataset is served publicly from the archive's own domain, so one bad file harms the archive's reputation, and a curator can't see inside a binary. B is managed, needs no code beyond waiting for a tag, and keeps Plan 4's single way of packaging Lambdas. A is a fair choice while only test stages exist, if you'd rather add it just before FEMC or anyone else goes live. C costs more than B to keep running.",
+        "evidence": [
+          {
+            "text": "The handoff leaves the scanning approach open for Plan 7",
+            "source": "docs/planning-handoff.md, Plan 7, Open questions",
+            "output": "Malware scanning approach."
+          },
+          {
+            "text": "Approved open files are served at stable public URLs on the CloudFront domain",
+            "source": "origin/main packages/infra/src/web.ts (/data/* behavior)"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "B"
+    }
+  ],
+  "calls": [
+    {
+      "id": "AGNT1",
+      "name": "Plan 7 owns submission endpoints",
+      "question": "Which plan builds the submission, review and policy endpoints?",
+      "took": "Plan 7 builds everything under /api/submissions: create a submission and get upload links, submit, the queue, one submission's status and events, the curator's decision and the review-policy setting. Plan 6 keeps every read of the catalog. Publish calls Plan 6's catalog-file writer. If that writer isn't built yet, publish writes the catalog items now and the call is added when the writer lands. That is build order, not a second path.",
+      "instead": "Plan 6 builds these endpoints in a later plan of its own, and Plan 7 only exposes the callback.",
+      "why": "These endpoints are the pipeline's controls and the only callers of the durable callback, so one plan should write submission records. The coordinating session agreed and is telling Plan 6.",
+      "evidence": [
+        {
+          "text": "Plan 6 proposed a later plan of its own for them, and left the choice open",
+          "source": "Plan 2 record, message 33"
+        },
+        {
+          "text": "The coordinating session agreed to the split",
+          "source": "muster thread 940",
+          "output": "Endpoint split (note 34): yes. Splitting by who owns the record is right, since only the pipeline sends the durable callbacks, so one plan writes submission records."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT2",
+      "name": "Presigned PUT per file",
+      "question": "How does a package get into the staging bucket, and what about large files?",
+      "took": "Create-submission returns one presigned PUT URL per file under staging/incoming/\u003csubmissionId\u003e/\u003cround\u003e/. A single PUT holds up to 5 GB. Multipart upload is a follow-up for when a real file goes over that.",
+      "instead": "Multipart uploads from the start.",
+      "why": "The largest practice file is 155 MB, far under 5 GB.",
+      "evidence": [
+        {
+          "text": "The largest practice file",
+          "source": "docs/planning-handoff.md, From the six practice datasets",
+          "output": "The largest file is 155 MB, which a single Lambda step can handle."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT3",
+      "name": "Held packages outlive staging expiry",
+      "question": "Staging objects expire after 30 days, but a review plus a round of changes can take longer. How do approved files survive until publish?",
+      "took": "The staging lifecycle rule applies only to incoming/. Once the checks pass, a step copies the round into staging/held/\u003csubmissionId\u003e/, which never expires. Publish and reject delete it. Plan 7 changes Plan 4's lifecycle rule in storage.ts and keeps its synth test true.",
+      "instead": "Keep expiry on the whole bucket and cap review plus resubmission at under 30 days in total.",
+      "why": "Otherwise a slow review would lose the files it is reviewing. The coordinating session agreed.",
+      "evidence": [
+        {
+          "text": "Staging expires every object after 30 days",
+          "source": "origin/main packages/infra/src/storage.ts",
+          "output": "lifecycleRules: [{ expiration: Duration.days(30) }]"
+        },
+        {
+          "text": "The coordinating session agreed",
+          "source": "muster thread 940",
+          "output": "AGNT3 (held/ in staging, incoming/ expiring after 30 days): fine. It's a real need, because a review can outlast 30 days. Plan 4 is complete, so you change its lifecycle rule yourself. Keep its synth test true."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT4",
+      "name": "Stale means alert and keep waiting",
+      "question": "What happens when a review passes its timeout?",
+      "took": "The submission is marked stale and the alert goes out (by DCSN2). The function then waits again with the same timeout, so the submission stays in the queue until someone decides it.",
+      "instead": "The submission expires at the timeout and the contributor has to submit again.",
+      "why": "A slow curator shouldn't cost the contributor their submission.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT5",
+      "name": "Resubmit wait ends as abandoned",
+      "question": "How long does the function wait for a contributor to fix and resubmit?",
+      "took": "30 days. After that the submission ends as abandoned, its files are deleted, and the event is recorded.",
+      "instead": "Wait up to the execution's one-year limit.",
+      "why": "It bounds how long an execution and held files can sit untouched. A contributor can always start a new submission.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT6",
+      "name": "New version by manifest id",
+      "question": "How does a submission become a new version of an existing dataset rather than a new dataset?",
+      "took": "If the manifest's id matches a published dataset, the submission is that dataset's next version, and only the dataset's original submitter or a curator may submit it. The curator sees that it is a new version of an existing dataset. With no id, the archive gives it one at publish, made from the title plus a short random suffix.",
+      "instead": "Any contributor may submit a new version, with review as the only guard.",
+      "why": "With review off (DCSN1 B), ownership is the only guard against someone versioning another person's dataset.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT7",
+      "name": "Self-review allowed, logged",
+      "question": "May a curator decide their own submission?",
+      "took": "Yes, and the audit log records it. Where the policy asks for two curators, the two approvals must come from two different curators, and the submitter can be at most one of them.",
+      "instead": "Block self-review, so every submission needs a second person.",
+      "why": "A one-person archive would otherwise be stuck, and an archive that sets a two-curator rule wants two people. The record makes self-review visible.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT8",
+      "name": "Project records location",
+      "question": "Where does project.json live in the archive bucket?",
+      "took": "projects/\u003cprojectId\u003e/project.json. The first plan doesn't create projects: a package's archive:project is kept in the manifest and the catalog item as it is. Creating and editing projects is a follow-up. This location goes in the decision log, for Plan 4's PARK6 and Plan 6's project reads.",
+      "instead": "Build project creation and editing into the first plan.",
+      "why": "Other plans need the location now. Nothing in the submission path needs to create a project yet. The coordinating session agreed.",
+      "evidence": [
+        {
+          "text": "The coordinating session agreed",
+          "source": "muster thread 940",
+          "output": "AGNT8 (projects/\u003cprojectId\u003e/project.json in the archive bucket): fine. Put it in the Decision log, since Plan 4's PARK6 and Plan 6's project reads both depend on it."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT9",
+      "name": "Static dataset page",
+      "question": "What does the per-dataset HTML page hold, and at what URL?",
+      "took": "site/datasets/\u003cid\u003e/index.html, served at /datasets/\u003cid\u003e. It holds the title, description, citation, version and file links, with the schema.org JSON-LD in the head, and reads on its own. The CloudFront site function sends /datasets/\u003cid\u003e to that file. How the web app takes over from the page is Plan 8's to add, by rebuilding the page from its template.",
+      "instead": "Write the page with a hook into the web app now.",
+      "why": "The web app doesn't exist yet, and a page that reads on its own is findable today.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT10",
+      "name": "Publish writes the active catalog",
+      "question": "Which catalog table does publish write?",
+      "took": "The active one, named by the SSM parameter. Reindex catch-up for packages published during a run stays Plan 4's PARK5, and a reindex stays something an admin runs while publishing is quiet.",
+      "instead": "Write both tables A and B on every publish.",
+      "why": "Writing both doesn't close the race either, because a reindex first empties the inactive table.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT11",
+      "name": "Identifier is the stable URL",
+      "question": "What identifier does publish fill in when DOIs are off?",
+      "took": "https://\u003cdomain\u003e/datasets/\u003cid\u003e/v\u003cversion\u003e, plus the publisher from the config and the publication year. DOIs are a later plan.",
+      "instead": "Leave the identifier empty until DOIs exist.",
+      "why": "Plan 2 says the archive fills in an identifier at publish, and the stable URL is the decided identifier when DOIs are off.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT12",
+      "name": "Policy is a contract model",
+      "question": "Where is the review policy defined, stored and edited?",
+      "took": "A ReviewPolicy Pydantic model in archive_contract, so the web app gets it through the generated JSON Schema. It is stored as the Settings item `review-policy`, read once per submission when it enters review, and edited with GET and PUT /api/submissions/policy by the admin group. Until Plan 8's admin screen exists, the admin edits it through that endpoint. With no item set, the default is review required, any curator, a 14-day stale mark and no reminders.",
+      "instead": "Put the policy in archive.yaml, so it changes only on a deploy.",
+      "why": "The handoff says the policy is controlled at run time, and the contract is where every shared shape lives.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT13",
+      "name": "Rules match fixed facts",
+      "question": "What can a skip rule or a stricter case look at?",
+      "took": "An ordered list of rules, where the first match wins. Each rule matches on a fixed set of facts about the submission: submitter (user ids or the curator group), new dataset or new version, access level, and theme. The outcome is skip review, one curator, or two curators. Named reviewers are a theme-to-curators map: with one, that curator is asked first, and any curator may still decide. Reminders are a list of days before the stale mark. A submission records the rule that matched.",
+      "instead": "Rules as free expressions over any manifest field.",
+      "why": "A fixed set of facts covers the handoff's examples (trusted submitters, stricter cases for restricted data, reviewers per theme), and it can be tested and shown on a form. Metadata-only versions arrive with in-place edits (PARK6), so they aren't a fact yet.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT14",
+      "name": "Config reaches Lambdas via SSM",
+      "question": "How do the ingest Lambdas read the archive config (publisher, profiles, required fields, themes)?",
+      "took": "At synth, the CDK app writes the validated config as JSON to a standard SSM parameter, /research-archive/\u003cstage\u003e/archive-config. Synth fails if the JSON is over 4 KB, the standard tier's limit. The check step reads the parameter once per round, inside a step.",
+      "instead": "Bundle the config file into the shared Lambda asset.",
+      "why": "The asset is shared across stages, but ARCHIVE_CONFIG can differ per stage. A parameter is per stage and costs nothing at the standard tier. Today's archive.yaml is a few hundred bytes.",
+      "state": "standing"
+    }
+  ],
+  "principles": [],
+  "follow_ups": [
+    {
+      "id": "PARK1",
+      "name": "By-request access",
+      "text": "A small durable function that emails the data owner and waits on their callback, then issues a short-lived link. A later plan in this folder.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK2",
+      "name": "Takedown and access changes",
+      "text": "What takedown means when the bucket keeps every object version, and moving a dataset between open/ and restricted/ (its /data URL changes). A later plan in this folder.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK3",
+      "name": "DOIs through DataCite",
+      "text": "The optional DOI module: the config setting, the credentials parameter, minting one DOI per version through DataCite's REST API, tested against DataCite's test environment. A later plan in this folder.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK4",
+      "name": "Previews and spatial extent",
+      "text": "Derive data previews and the spatial extent at publish.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK5",
+      "name": "Extension checks from config",
+      "text": "Extra check functions listed in the archive config, run in the check step.",
+      "kind": "idea"
+    },
+    {
+      "id": "PARK6",
+      "name": "In-place metadata edits",
+      "text": "A metadata-only change applied to the current version, appended to archive:metadataHistory, rewriting datapackage.json, README.md and checksums.sha256.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK8",
+      "name": "Contributor email",
+      "text": "Email contributors on each decision through SES, once the archive's SES is out of the sandbox.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK9",
+      "name": "Multipart uploads",
+      "text": "Multipart presigned uploads for files over 5 GB.",
+      "kind": "idea"
+    },
+    {
+      "id": "PARK10",
+      "name": "Creating projects",
+      "text": "Create and edit project records at projects/\u003cid\u003e/project.json.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK11",
+      "name": "Withdrawing a submission",
+      "text": "Let a contributor withdraw a submission before it is decided.",
+      "kind": "idea"
+    }
+  ],
+  "spec": {
+    "hash": "77c8145a55a6ae0e1672f01d03a3bebe4120ef5b01dd81e84a24daac75ac7eb2",
+    "sections": [
+      {
+        "id": "SPEC1",
+        "heading": "Goal",
+        "decisions": []
+      },
+      {
+        "id": "SPEC2",
+        "heading": "The path",
+        "decisions": [
+          "DCSN1",
+          "AGNT4",
+          "AGNT5"
+        ]
+      },
+      {
+        "id": "SPEC3",
+        "heading": "Submissions and upload",
+        "decisions": [
+          "AGNT1",
+          "AGNT2",
+          "AGNT3",
+          "AGNT6"
+        ]
+      },
+      {
+        "id": "SPEC4",
+        "heading": "Scanning and checks",
+        "decisions": [
+          "DCSN3",
+          "AGNT14"
+        ]
+      },
+      {
+        "id": "SPEC5",
+        "heading": "The review policy",
+        "decisions": [
+          "DCSN1",
+          "AGNT7",
+          "AGNT12",
+          "AGNT13"
+        ]
+      },
+      {
+        "id": "SPEC6",
+        "heading": "Review and the request-changes loop",
+        "decisions": [
+          "DCSN1",
+          "AGNT4",
+          "AGNT5",
+          "AGNT7"
+        ]
+      },
+      {
+        "id": "SPEC7",
+        "heading": "Notifications",
+        "decisions": [
+          "DCSN2"
+        ]
+      },
+      {
+        "id": "SPEC8",
+        "heading": "Publish",
+        "decisions": [
+          "AGNT1",
+          "AGNT6",
+          "AGNT8",
+          "AGNT9",
+          "AGNT10",
+          "AGNT11"
+        ]
+      },
+      {
+        "id": "SPEC9",
+        "heading": "The audit log",
+        "decisions": [
+          "AGNT7",
+          "AGNT13"
+        ]
+      },
+      {
+        "id": "SPEC10",
+        "heading": "The API and the infrastructure",
+        "decisions": [
+          "AGNT1",
+          "AGNT3",
+          "AGNT9",
+          "AGNT12",
+          "AGNT14",
+          "DCSN2",
+          "DCSN3"
+        ]
+      },
+      {
+        "id": "SPEC11",
+        "heading": "Risk and cost",
+        "decisions": [
+          "DCSN3",
+          "AGNT3"
+        ]
+      },
+      {
+        "id": "SPEC12",
+        "heading": "Left out",
+        "decisions": [
+          "AGNT1",
+          "AGNT8",
+          "DCSN2"
+        ]
+      },
+      {
+        "id": "SPEC13",
+        "heading": "How we'll know it works",
+        "decisions": [
+          "DCSN1",
+          "DCSN2",
+          "DCSN3",
+          "AGNT13"
+        ]
+      }
+    ],
+    "approved": {
+      "hash": "77c8145a55a6ae0e1672f01d03a3bebe4120ef5b01dd81e84a24daac75ac7eb2",
+      "at": "2026-11-13T22:34:11.165178-06:00",
+      "body": "# Ingest and review: the first publish pipeline\n\n## Goal\n\nA contributor submits a package and the checks run. Under a review policy that an admin controls at run time, a curator then approves, rejects or requests changes. A request for changes loops back through the checks, and an approved package is published and findable. The pipeline is one Lambda durable function in Python. It builds on Plans 1 to 4 (the construct's buckets, tables and `pythonFunction`, `cruise.diagnose`, and the contract's models and exports) and rebuilds none of them. By-request access, takedown, access-level changes, DOIs, previews, extension checks and in-place metadata edits come later.\n\n## The path\n\nOne submission is one durable execution, named by its submission id, from submit to its end. Every call that reads the clock, the network or a random value sits inside a named step, so a replay repeats none of them. Every callback wait has a timeout. The execution timeout is one year. A submission still open at one year ends as `expired`, and the event is recorded.\n\n```mermaid\nflowchart TD\n  A[Create submission\u003cbr/\u003eupload to staging incoming/] --\u003e B[Submit: start execution]\n  B --\u003e SC[Scan: wait for GuardDuty tags]\n  SC --\u003e C[Check: cruise diagnose]\n  C --\u003e|threat or error| N[needs-changes]\n  C --\u003e|clean| H[Hold: copy round to held/]\n  H --\u003e PO{Policy}\n  PO --\u003e|skip rule| P[Publish]\n  PO --\u003e|one or two curators| R[in-review: callback wait]\n  R --\u003e|reminder due| RM[Remind reviewer] --\u003e R\n  R --\u003e|stale days passed| ST[Mark stale, alert] --\u003e R\n  R --\u003e|approve, enough curators| P\n  R --\u003e|approve, second needed| R\n  R --\u003e|reject| X[rejected]\n  R --\u003e|request changes| N\n  N --\u003e W[Wait for resubmit, 30 days]\n  W --\u003e|resubmit| SC\n  W --\u003e|timeout| AB[abandoned]\n  P --\u003e D[published]\n```\n\nA submission's `status` is one of `draft` (created, files uploading), `checking`, `needs-changes`, `in-review`, `publishing`, `published`, `rejected`, `abandoned`, `expired` or `failed`. `stale: true` is a flag on `in-review`, not a status of its own. A step that fails after its retries ends the submission as `failed`, posts to the admin alert topic, and is recorded.\n\nRests on: DCSN1, AGNT4, AGNT5\n\n## Submissions and upload\n\nThe Submissions table (Plan 4) holds one item per submission, keyed by `submissionId`. It holds `submitter` (the Cognito user id), `status`, `createdAt`, `round` (from 1), `files` (each round's paths, sizes and SHA-256 values), `datasetId` once known, `newVersion` (true when it versions a published dataset), `rule` (the policy rule that matched), `approvals`, `stale`, `callbackId` (the wait open now) and `reportKey`. The `byStatus` index is the curator queue, and `bySubmitter` is a contributor's own list.\n\nA signed-in member of the `contributor` group creates a submission by listing its files with their sizes and SHA-256 values. The API returns one presigned PUT URL per file under the staging bucket's `incoming/\u003csubmissionId\u003e/\u003cround\u003e/`. Each URL requires the declared SHA-256 checksum, so S3 refuses a file that doesn't match. A single PUT holds up to 5 GB.\n\nIf the manifest's `id` names a published dataset, the submission is that dataset's next version. Only the dataset's original submitter or a curator may submit it, and creating it is refused otherwise. With no `id`, the archive gives the dataset one at publish, made from the title and a short random suffix.\n\nThe staging lifecycle rule now expires only `incoming/` after 30 days. Once a round passes the checks, a step copies it to `held/\u003csubmissionId\u003e/`, which never expires. Publish, reject, abandon and expire delete it. Plan 7 changes this rule in Plan 4's `storage.ts` and its synth test.\n\nRests on: AGNT1, AGNT2, AGNT3, AGNT6\n\n## Scanning and checks\n\nGuardDuty Malware Protection for S3 watches the staging bucket's `incoming/` prefix and tags every new object with `GuardDutyMalwareScanStatus`. The scan step waits with `wait_for_condition` until every file of the round carries the tag, backing off up to one hour. Any status other than `NO_THREATS_FOUND` (a threat, unsupported, access denied or failed) blocks the round with an error finding, `scan.\u003cstatus\u003e`, naming the file.\n\nThe check step then runs `cruise.diagnose` over the round with the archive config's profiles and required fields. That covers checksums, structure, every quality rule, the rights check (undetermined rights is a core-field error) and the completeness score. archive-backend gains a dependency on cruise, as the decision log says. The full diagnosis is written as JSON to the staging bucket's `reports/\u003csubmissionId\u003e/\u003cround\u003e.json`, which never expires. The submission keeps its key. Any error-severity finding sends the round back as `needs-changes` and never reaches a curator. Warnings and notes go to review with the package.\n\nThe ingest Lambdas read the archive config from the SSM parameter `/research-archive/\u003cstage\u003e/archive-config`. The CDK app writes it at synth from the validated config, and synth fails if it is over 4 KB.\n\nRests on: DCSN3, AGNT14\n\n## The review policy\n\nThe review policy is a `ReviewPolicy` model in `archive_contract`, so the web app gets it through the generated JSON Schema. It is stored as the Settings item `review-policy`. An admin reads and changes it with `GET` and `PUT /api/submissions/policy`. Plan 8 adds the admin screen. When a round enters review, its submission reads the policy once and records which rule matched, so a later edit never changes a submission already waiting.\n\nThe policy holds:\n\n- `required`: whether review happens at all (default `true`).\n- `rules`: an ordered list, where the first match wins. Each rule matches on any of: submitter (user ids, or the curator group), new dataset or new version, access level, and theme. Its outcome is `skip`, `one` or `two` curators. With no match, the outcome is `one` when `required` is true and `skip` when it is false.\n- `reviewers`: a map from theme to curator user ids. A named reviewer is asked first, and any curator may still decide.\n- `reminders`: the days after entering review on which to remind (default none).\n- `staleDays`: when a waiting review is marked stale (default 14).\n\nTwo-curator outcomes need two approvals from two different curators, and the submitter can be at most one of them. Otherwise a curator may decide their own submission, and the event records that they did.\n\nRests on: DCSN1, AGNT7, AGNT12, AGNT13\n\n## Review and the request-changes loop\n\nThe review wait is a `wait_for_callback`. Its submitter step stores the callback id on the submission. The timeout runs to the next due reminder, or to the stale mark if no reminder is left. When a reminder comes due, the function sends it and waits again. At `staleDays` it sets `stale`, alerts, and keeps waiting with the stale interval as its timeout.\n\nA curator's decision goes to `POST /api/submissions/{id}/decision` with `approve`, `reject` or `request-changes` and an optional note. The API checks that the caller is in the `curator` group, writes the event, and completes the current callback with `SendDurableExecutionCallbackSuccess`. On the first approval of a two-curator case, the function records it and waits again for a different curator.\n\nOn `request-changes`, or on a round blocked by the checks, the submission goes to `needs-changes` with the note or findings. The function then waits on a resubmit callback with a 30-day timeout. The contributor gets the next round's upload URLs from `POST /api/submissions/{id}/uploads`, uploads, and calls `POST /api/submissions/{id}/submit`, which completes that callback. The function goes back to the scan step with the next round. If no resubmit arrives within 30 days, the submission ends as `abandoned`.\n\nRests on: DCSN1, AGNT4, AGNT5, AGNT7\n\n## Notifications\n\nA new SNS topic is for curators. Each curator subscribes by email and confirms once, through `just add-curator \u003cstage\u003e \u003cemail\u003e \u003cuserId\u003e`. Their subscription filter matches messages addressed to their user id, and messages addressed to all curators. A message goes out when a submission enters review, on each reminder, and on the stale mark. It is addressed to the named reviewer when the theme has one, and otherwise to all curators. Contributors read their submission's status from `GET /api/submissions/{id}`, and contributor email is a follow-up. The stale mark and failed steps also go to the existing admin alert topic.\n\nRests on: DCSN2\n\n## Publish\n\nPublish is a series of steps, each safe to repeat:\n\n1. **Version.** A new dataset takes version 1. A new version takes the dataset item's `currentVersion` plus 1 from the active catalog table.\n2. **Fill in.** Set the manifest's `id`, `version`, publisher (from the config), publication year, and identifier `https://\u003cdomain\u003e/datasets/\u003cid\u003e/v\u003cversion\u003e`. Then regenerate `README.md` with the contract's readme export and rewrite `checksums.sha256` to match.\n3. **Copy.** Write every file to `open/\u003cid\u003e/\u003cversion\u003e/` (access `open`) or `restricted/\u003cid\u003e/\u003cversion\u003e/` (every other level) in the archive bucket. Each file goes in one PUT with its full-object SHA-256 checksum, so the weekly integrity check holds. The manifest goes last, so a reader never finds a manifest without its files.\n4. **Catalog.** Put the version, file and dataset items into the active catalog table, named by its SSM parameter. They are built by the same `catalog_items` and `dataset_item` functions the reindex uses, so the two paths never differ. Catching up packages published during a reindex stays Plan 4's PARK5.\n5. **Page.** Write `site/datasets/\u003cid\u003e/index.html` in the derived bucket. It holds the title, description, citation, current version, file links (for open data), and schema.org JSON-LD from the contract's export, and it reads on its own. The CloudFront site function now sends `/datasets/\u003cid\u003e` and `/datasets/\u003cid\u003e/` to that file, and every other extensionless path to `/index.html` as before. Plan 8 adds the web app's takeover by rebuilding pages from the template.\n6. **Catalog file.** Call Plan 6's catalog-file writer in archive-backend. If that writer isn't built when this plan builds, this step is added when it lands. That is build order: the catalog file is only ever written by Plan 6's function.\n7. **Finish.** Delete `held/\u003csubmissionId\u003e/`, set `published`, and record the event with the dataset id and version.\n\nA package's `archive:project` is kept as it is. Project records live at `projects/\u003cprojectId\u003e/project.json` in the archive bucket, and creating them is a follow-up.\n\nRests on: AGNT1, AGNT6, AGNT8, AGNT9, AGNT10, AGNT11\n\n## The audit log\n\nEvery state change and every decision is one item in the Reviews table (Plan 4), keyed by `submissionId` and `eventKey` = `\u003cISO time\u003e#\u003ceventId\u003e`. An item holds `type` (created, submitted, scanned, checked, held, entered-review, reminded, stale, decided, resubmitted, published, rejected, abandoned, expired, failed), `actor` (a user id or `pipeline`), the round, and the type's details: the rule that matched, the decision and note, a self-review flag, the finding counts, the dataset id and version. The pipeline writes its events inside the step that makes the change, and the API writes a decision's event before it sends the callback. `GET /api/submissions/{id}` returns the submission with its events.\n\nRests on: AGNT7, AGNT13\n\n## The API and the infrastructure\n\nThe endpoints are under `/api/submissions`, behind the Cognito authorizer, with the role checked in the handler:\n\n| Method and path | Who | Does |\n| --- | --- | --- |\n| `POST /api/submissions` | contributor | Create a submission and return round 1's upload URLs |\n| `POST /api/submissions/{id}/uploads` | its submitter | The next round's upload URLs, while `needs-changes` |\n| `POST /api/submissions/{id}/submit` | its submitter | Start the execution (round 1) or complete the resubmit callback |\n| `GET /api/submissions` | contributor, curator | Your own submissions, or the queue by status for a curator |\n| `GET /api/submissions/{id}` | its submitter, curator | Status, the latest findings report, events |\n| `POST /api/submissions/{id}/decision` | curator | Approve, reject or request changes |\n| `GET`, `PUT /api/submissions/policy` | admin | Read and set the review policy |\n\nA new `Ingest` construct in `packages/infra/src/ingest.ts` builds, through `archive.pythonFunction`:\n\n- The durable `IngestFunction`, with a `live` alias and a one-year execution timeout.\n- The `SubmissionsFunction` behind the routes, which invokes the alias asynchronously with the submission id as the execution name, and may send callbacks to it.\n- The curators' topic.\n- The GuardDuty malware protection plan on the staging bucket's `incoming/` prefix, with its role.\n- The archive-config parameter.\n\nIt also changes the staging lifecycle rule in `storage.ts` and the site function in `web.ts`, each with its synth test. The archive-config parameter is the one way any Lambda reads the config, so Plan 6 uses it too. It goes in the Decision log, with the site function's `/datasets/\u003cid\u003e` rule, for Plans 6 and 8. The Python code is `archive_backend.ingest` (the durable handler and its steps), `archive_backend.submissions` (the API) and `archive_backend.pages` (the dataset page).\n\nRests on: AGNT1, AGNT3, AGNT9, AGNT12, AGNT14, DCSN2, DCSN3\n\n## Risk and cost\n\n**Risk.** A mistake could publish what shouldn't be public: a package that skipped review it needed, or files that should have been restricted. Takedown isn't built yet (follow-up PARK2). Until it is, a bad publish is undone by hand: delete the version's objects and its catalog items, then run a reindex. A mistake could also lose a contributor's staged files, which they can upload again. Nothing already in the archive is overwritten, because every publish writes a new version path. The checks are sized to this risk: unit tests for the policy matcher, the state changes and each publish step, synth tests for the infrastructure changes, and one scripted run on a test stage.\n\n**Cost.** Your steps: deploy a test stage, confirm your curator email subscription, and turn on GuardDuty Malware Protection, which charges per GB scanned. No new programs.\n\nRests on: DCSN3, AGNT3\n\n## Left out\n\nThese are follow-ups or later plans in this folder:\n\n- By-request access (PARK1).\n- Takedown and access-level changes (PARK2).\n- DOIs (PARK3).\n- Previews and spatial extent (PARK4).\n- Extension checks from the config (PARK5).\n- In-place metadata edits (PARK6).\n- Contributor email (PARK8).\n- Multipart uploads over 5 GB (PARK9).\n- Creating projects (PARK10).\n- Withdrawing a submission (PARK11).\n\nThe submitting clients (CLI, MCP, web screens, the admin's policy screen) belong to Plans 8 and 9.\n\nRests on: AGNT1, AGNT8, DCSN2\n\n## How we'll know it works\n\n- Unit tests pass (`just check`, the repo's CI gate) for the policy matcher (every outcome, the first match winning, the defaults), the state machine driven through a fake durable context, as the reindex's tests do (approve, reject, request changes then approve, a blocking error, a threat finding, the stale mark and a reminder, abandoned), and each publish step against a stubbed AWS.\n- A packaging test fails CI if the unzipped Lambda asset (now carrying cruise and DuckDB, and shared by every function) reaches Lambda's 250 MB limit.\n- Synth tests show the ingest function's `live` alias, its routes, the GuardDuty plan scoped to `incoming/`, the lifecycle rule scoped to `incoming/`, and the site function's `/datasets/\u003cid\u003e` rewrite.\n- On a deployed test stage, one scripted run submits the sample package through the four paths. Approve ends readable at `/data/\u003cid\u003e/1/` and at `/datasets/\u003cid\u003e`. Reject ends rejected. Request changes then approve ends at version 1 after round 2. A blocking error returns as `needs-changes`.\n- The same run, under a set policy, shows a skip rule publishing without review, a two-curator case waiting for a second, different curator, and a named reviewer's reminder arriving at their email.\n- The Reviews table holds one event per state change and decision in each run, including the rule that matched.\n\nRests on: DCSN1, DCSN2, DCSN3, AGNT13\n"
+    }
+  },
+  "plans": [
+    {
+      "id": "PLAN1",
+      "topic": "submit-review-publish",
+      "covers": "The whole first path: policy model, submissions API, durable ingest with scan, checks, review and the request-changes loop, publish, notifications, infra, and the test-stage run"
+    }
+  ],
+  "messages": [
+    {
+      "id": 1,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session for research-in-a-box. Court asked that every planning session know this. Muster alias: personal-personal/generic-package-format-and-contract (the name is left over from Plan 2; this session now coordinates all the plans).\n\n1. Send cross-plan questions here first: anything that touches another plan's interface, ownership or order, or the overall direction. Ask over muster or with diazo_note to this alias. Questions only Court can answer still go on your own page as decision cards.\n2. Send a one-line muster message here when your understanding is confirmed, your spec is printed, each plan is printed, and the build is done. I check each spec and plan for scope before Court approves it.\n3. Record anything other plans rely on in the Decision log of docs/planning-handoff.md.\n4. Keep it small. Plans 1 and 2 are built: the repo, the uv and npm workspaces, archive_contract, the exports and the sample package. Build on them and don't rebuild. Plan only what your brief needs to work end to end now, and put everything else in follow-ups. Size checks to the risk. Question every option, config field and fallback that no real case needs yet.\n5. FEMC is the test afterwards, never the source of the design (Plan 2's PRIN1).",
+      "at": "2026-11-13T15:11:09.072718-06:00",
+      "state": "answered",
+      "claim": "e28caced8369efed",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 2,
+      "card": "plan",
+      "from": "user",
+      "action": "start-planning",
+      "at": "2026-11-13T21:14:26.995019-06:00",
+      "state": "answered",
+      "claim": "e31f2dbcfa43ccfa"
+    },
+    {
+      "id": 3,
+      "card": "DIRN",
+      "from": "user",
+      "action": "direction",
+      "at": "2026-11-13T21:33:09.398243-06:00",
+      "state": "answered",
+      "claim": "029dde5028c9a34b"
+    },
+    {
+      "id": 4,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-13T22:12:51.100176-06:00",
+      "state": "answered",
+      "claim": "fb723a4b07c54501"
+    },
+    {
+      "id": 5,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "Correction from the coordinating session: reach me only over muster, at personal-personal/generic-package-format-and-contract. A diazo note to Plan 2's folder now goes to a different session.",
+      "at": "2026-11-13T22:13:43.359778-06:00",
+      "state": "answered",
+      "claim": "7311fd78d59bfacf",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 6,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "choose",
+      "option": "C",
+      "at": "2026-11-13T22:15:26.669254-06:00",
+      "state": "answered",
+      "claim": "41683950998c00a9"
+    },
+    {
+      "id": 7,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "choose",
+      "option": "B",
+      "at": "2026-11-13T22:25:07.222907-06:00",
+      "state": "answered",
+      "claim": "aeabe5d4ece728b7"
+    },
+    {
+      "id": 8,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-13T22:25:11.340636-06:00",
+      "state": "answered",
+      "claim": "110eeef072443971"
+    },
+    {
+      "id": 9,
+      "card": "DCSN3",
+      "from": "user",
+      "action": "choose",
+      "option": "B",
+      "at": "2026-11-13T22:25:56.481118-06:00",
+      "state": "answered",
+      "claim": "7fb4fe676d898db3"
+    },
+    {
+      "id": 10,
+      "card": "spec",
+      "from": "user",
+      "action": "approve-spec",
+      "at": "2026-11-13T22:34:11.165178-06:00",
+      "state": "answered",
+      "claim": "cbd400d46fc73097"
+    }
+  ],
+  "planned_history": [
+    {
+      "action": "planned",
+      "by": "agent",
+      "at": "2026-11-13T08:48:25.961967-06:00"
+    },
+    {
+      "action": "started",
+      "by": "user",
+      "at": "2026-11-13T21:14:26.995019-06:00"
+    }
+  ]
+}
