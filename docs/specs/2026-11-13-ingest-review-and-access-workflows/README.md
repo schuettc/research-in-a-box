@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/ingest-review-and-access-workflows` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 to write** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 0 of 7** → Sign off
 
-PLAN1 can be written now
+PLAN1 building · 0 of 7 done
 
 ## Pick up next
 
@@ -50,6 +50,7 @@ PLAN1 can be written now
 - **AGNT12 Policy is a contract model.** A ReviewPolicy Pydantic model in archive_contract, so the web app gets it through the generated JSON Schema. It is stored as the Settings item `review-policy`, read once per submission when it enters review, and edited with GET and PUT /api/submissions/policy by the admin group. Until Plan 8's admin screen exists, the admin edits it through that endpoint. With no item set, the default is review required, any curator, a 14-day stale mark and no reminders. The user kept it.
 - **AGNT13 Rules match fixed facts.** An ordered list of rules, where the first match wins. Each rule matches on a fixed set of facts about the submission: submitter (user ids or the curator group), new dataset or new version, access level, and theme. The outcome is skip review, one curator, or two curators. Named reviewers are a theme-to-curators map: with one, that curator is asked first, and any curator may still decide. Reminders are a list of days before the stale mark. A submission records the rule that matched. The user kept it.
 - **AGNT14 Config reaches Lambdas via SSM.** At synth, the CDK app writes the validated config as JSON to a standard SSM parameter, /research-archive/&lt;stage>/archive-config. Synth fails if the JSON is over 4 KB, the standard tier's limit. The check step reads the parameter once per round, inside a step. The user kept it.
+- **AGNT15 Test-only sign-in client.** A third Cognito app client, `e2e`, with ADMIN_USER_PASSWORD_AUTH, created only on non-prod stages. The script creates throwaway users with admin APIs, signs them in, and deletes them at the end. The user kept it.
 
 ## Spec
 
@@ -69,7 +70,14 @@ PLAN1 can be written now
 
 ## Plans
 
-- PLAN1 Submit review publish: can be written now
+- [PLAN1](plans/1-submit-review-publish.md) Submit, review and publish: building · 0 of 7 done
+  - TASK1 Task 1: The review policy model and matcher: not started
+  - TASK2 Task 2: Groundwork in Plan 4's code: not started
+  - TASK3 Task 3: Submission records, events and the API: not started
+  - TASK4 Task 4: The durable ingest function: not started
+  - TASK5 Task 5: Publish and the dataset page: not started
+  - TASK6 Task 6: The Ingest construct: not started
+  - TASK7 Task 7: The run on a test stage: not started
 
 ## Files
 
@@ -79,6 +87,7 @@ PLAN1 can be written now
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |
 
