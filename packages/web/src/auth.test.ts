@@ -78,19 +78,19 @@ test("the sign-in redirect carries the client id, a PKCE challenge and the callb
   expect(url.searchParams.get("scope")).not.toContain("offline_access");
 });
 
-test("after the callback, the download request carries the bearer token", async () => {
+test("after the callback, the download request carries the ID token, which the API's Cognito authorizer checks", async () => {
   const state = (await redirectUrl()).searchParams.get("state");
-  const { accessToken, completeSignIn } = await import("./auth");
+  const { apiToken, completeSignIn } = await import("./auth");
   const { downloadLink } = await import("./api");
 
   const returnTo = await completeSignIn(`${location.origin}/auth/callback?code=abc&state=${state}`);
-  const link = await downloadLink("ds-1", 2, "data/a.csv", accessToken() ?? "");
+  const link = await downloadLink("ds-1", 2, "data/a.csv", apiToken() ?? "");
 
   expect(returnTo).toBe("/datasets/ds-1");
   expect(link).toBe("https://bucket.example/restricted/ds-1/2/a.csv?sig");
   const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
   expect(url).toBe("/api/datasets/ds-1/versions/2/download?path=data%2Fa.csv");
-  expect(new Headers(init.headers).get("Authorization")).toBe(`Bearer ${ACCESS_TOKEN}`);
+  expect(new Headers(init.headers).get("Authorization")).toBe(`Bearer ${ID_TOKEN}`);
 });
 
 test("nothing token-shaped is written to localStorage or sessionStorage", async () => {
@@ -116,7 +116,7 @@ test("the user is kept in memory without its refresh token", async () => {
   const auth = await import("./auth");
   await auth.completeSignIn(`${location.origin}/auth/callback?code=abc&state=${state}`);
 
-  expect(auth.accessToken()).toBe(ACCESS_TOKEN);
+  expect(auth.apiToken()).toBe(ID_TOKEN);
   const stored = setItem.mock.calls.map(([, value]) => value).join("\n");
   expect(stored).toContain(ACCESS_TOKEN);
   expect(stored).not.toContain(REFRESH_TOKEN);

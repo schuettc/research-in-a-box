@@ -6,12 +6,12 @@ import type { Root } from "react-dom/client";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi, type Mock } from "vitest";
 import type { DatasetAnswer, VersionAnswer, VersionsAnswer } from "../api";
-import { accessToken, signIn } from "../auth";
+import { apiToken, signIn } from "../auth";
 import type { Manifest } from "../generated/manifest";
 import { mount } from "../main";
 import { Dataset } from "./Dataset";
 
-vi.mock("../auth", () => ({ accessToken: vi.fn(() => null), signIn: vi.fn(async () => {}) }));
+vi.mock("../auth", () => ({ apiToken: vi.fn(() => null), signIn: vi.fn(async () => {}) }));
 
 const SAMPLE = join(import.meta.dirname, "../../../../examples/sample-package");
 const MANIFEST = JSON.parse(readFileSync(join(SAMPLE, "datapackage.json"), "utf-8")) as Manifest;
@@ -94,7 +94,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   sessionStorage.clear();
   downloadStatus = 200;
-  vi.mocked(accessToken).mockReturnValue(null);
+  vi.mocked(apiToken).mockReturnValue(null);
   vi.mocked(signIn).mockClear();
 });
 
@@ -235,7 +235,7 @@ test("a restricted file asks a reader who isn't signed in to sign in, and comes 
 });
 
 test("signed in, a restricted download asks the API for its link with the access token", async () => {
-  vi.mocked(accessToken).mockReturnValue("TOKEN");
+  vi.mocked(apiToken).mockReturnValue("TOKEN");
   renderDataset(undefined, RESTRICTED_ID);
   const files = await filesTable();
 
@@ -249,7 +249,7 @@ test("signed in, a restricted download asks the API for its link with the access
 });
 
 test("a 401 asks the reader to sign in again", async () => {
-  vi.mocked(accessToken).mockReturnValue("TOKEN");
+  vi.mocked(apiToken).mockReturnValue("TOKEN");
   downloadStatus = 401;
   renderDataset(undefined, RESTRICTED_ID);
   const files = await filesTable();
@@ -264,7 +264,7 @@ test("a 401 asks the reader to sign in again", async () => {
 });
 
 test("a 403 says the file isn't available to this account", async () => {
-  vi.mocked(accessToken).mockReturnValue("TOKEN");
+  vi.mocked(apiToken).mockReturnValue("TOKEN");
   downloadStatus = 403;
   renderDataset(undefined, RESTRICTED_ID);
   const files = await filesTable();

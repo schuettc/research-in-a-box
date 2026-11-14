@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { ApiRefused, downloadLink, getDataset, getVersion, getVersions } from "../api";
-import { accessToken, signIn } from "../auth";
+import { apiToken, signIn } from "../auth";
 import { citation, creatorNames } from "../citation";
 import type { Field, Manifest, Resource, TableSchema } from "../generated/manifest";
 import { UsagePanel, usagePanelDone } from "../UsagePanel";
@@ -126,7 +126,7 @@ interface FileProps {
 function SignedDownload({ id, version, path, label, onDownload }: Omit<FileProps, "access">) {
   const location = useLocation();
   const [problem, setProblem] = useState<"expired" | "refused" | "failed" | null>(null);
-  const token = accessToken();
+  const token = apiToken();
   const hidden = <span className="visually-hidden">{label}</span>;
 
   if (!token || problem === "expired") {
