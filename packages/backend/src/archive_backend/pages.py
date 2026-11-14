@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from archive_contract.exports._common import creators, person_name
-from archive_contract.exports.readme import _citation
+from archive_contract.exports.readme import citation as readme_citation
 from archive_contract.exports.schemaorg import to_schemaorg
 from archive_contract.manifest import Manifest
 
@@ -117,7 +117,7 @@ def render_page(
     lines.append("<dl>")
     lines += [f"<dt>{label}</dt><dd>{value}</dd>" for label, value in facts]
     lines.append("</dl>")
-    citation = _citation(manifest)
+    citation = readme_citation(manifest)
     if citation:
         lines += ["<h2>Citation</h2>", f"<p>{escape(citation)}</p>"]
     lines.append("<h2>Files</h2>")
