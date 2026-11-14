@@ -1,6 +1,4 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { BrowserRouter, Link, Route, Routes, useParams } from "react-router";
+import { Link, Route, Routes, useParams } from "react-router";
 import { Callback } from "./routes/Callback";
 import { Dataset } from "./routes/Dataset";
 import { Search } from "./routes/Search";
@@ -47,16 +45,5 @@ export function AppRoutes() {
         </Routes>
       </main>
     </>
-  );
-}
-
-/** Mount the app into `#app`. */
-export function mount(app: HTMLElement): void {
-  createRoot(app).render(
-    <StrictMode>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </StrictMode>,
   );
 }

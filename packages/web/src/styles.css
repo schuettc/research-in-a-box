@@ -138,3 +138,101 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.note {
+  padding: 0.5rem var(--gap);
+  border-left: 4px solid var(--accent);
+  background: var(--surface);
+}
+
+.citation {
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.facts div {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: var(--gap);
+  margin-bottom: 0.5rem;
+}
+
+.facts dt {
+  font-weight: 600;
+}
+
+.facts dd,
+.facts ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dataset table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--gap);
+}
+
+.dataset th,
+.dataset td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.members {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+}
+
+.usage {
+  margin: var(--gap) 0;
+  padding: var(--gap);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.usage h2 {
+  font-size: 1.05rem;
+  margin-top: 0;
+}
+
+.usage label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.usage select,
+.usage textarea {
+  display: block;
+  font: inherit;
+  margin-top: 0.25rem;
+}
+
+.usage textarea {
+  width: 100%;
+  min-height: 4rem;
+}
+
+.usage-actions {
+  display: flex;
+  gap: 0.5rem;
+}

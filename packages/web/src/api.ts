@@ -53,3 +53,21 @@ export function getVersion(id: string, version: number): Promise<VersionAnswer> 
 export function getVersions(id: string): Promise<VersionsAnswer> {
   return getJson(`/api/datasets/${segment(id)}/versions`);
 }
+
+export type UsageAnswers = Schemas["UsageAnswers"];
+
+/** `POST /api/datasets/{id}/usage`: the reader's optional answers, anonymously. */
+export async function sendUsage(id: string, answers: UsageAnswers): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/datasets/${segment(id)}/usage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(answers),
+    });
+  } catch (error) {
+    throw new ApiUnreachable(error);
+  }
+  if (response.status >= 500) throw new ApiUnreachable(response.status);
+  if (!response.ok) throw new ApiRefused(response.status);
+}
