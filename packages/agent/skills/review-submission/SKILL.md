@@ -12,10 +12,12 @@ note.** The tools come from the `research-archive` MCP server.
 ## Steps
 
 1. **Call `sign_in`** (say first that it opens the browser), then `submissions` with the
-   queue (`queue: true`). Show what waits in review, stale ones first: id, title, who
-   submitted it, and how long it has waited.
+   queue (`queue: true`). Show what waits in review, stale ones first: id, who submitted
+   it, the dataset it versions (if any) and how long it has waited. The title comes from
+   its `datapackage.json`, read in step 2.
 2. **For the one the curator picks, read it.** Call `submissions` with its id for its status,
-   findings and events, then `submission_files` for short-lived links to its current files.
+   events and findings `report`, then `submission_files` for short-lived links to its
+   current files.
    Read its `datapackage.json` and a sample of each table (the first rows of each CSV) from
    those links. The links expire after a few minutes: call `submission_files` again if one
    has.

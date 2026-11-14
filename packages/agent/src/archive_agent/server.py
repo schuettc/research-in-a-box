@@ -14,7 +14,7 @@ from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
-from archive_agent import __version__, local, read, state
+from archive_agent import __version__, local, read, state, submit
 from archive_agent.archive import Archive
 from archive_agent.errors import NotConnected, Refused, SignInFailed, Unreachable
 from archive_agent.state import Session
@@ -159,6 +159,37 @@ def build(session: Session) -> MCPServer:
         null value removes the property. If any edit fails, nothing is written and each
         failing edit is named. Needs no network."""
         return local.edit_manifest(folder, edits)
+
+    @mcp.tool(name="submit")
+    def submit_tool(folder: str, submission: str | None = None) -> dict[str, Any]:
+        """Submit a package folder for review, only with the person's yes. Runs diagnose
+        first and refuses on any error finding. Uploads every file in checksums.sha256 plus
+        that file, then sends it to review. With `submission` (an id that needs changes), it
+        is that submission's next round. Answers the id, round and status. Needs sign_in and
+        the contributor group."""
+        return submit.submit(session, folder, submission)
+
+    @mcp.tool(name="submissions")
+    def submissions_tool(id: str | None = None, queue: bool = False) -> dict[str, Any]:
+        """With `id`, one submission: its record and status, its events (decisions and
+        their notes) and its findings report. With `queue` true, the curator queue: the
+        submissions in review, stale ones first. Otherwise your own submissions. Needs
+        sign_in; the queue needs the curator group."""
+        return submit.submissions(session, id, queue)
+
+    @mcp.tool(name="submission_files")
+    def submission_files_tool(id: str) -> dict[str, Any]:
+        """The current round's files of a submission in review, each with its path, size,
+        SHA-256 and a link that lasts five minutes; call again for fresh links. Needs
+        sign_in and the curator group."""
+        return submit.submission_files(session, id)
+
+    @mcp.tool(name="decide")
+    def decide_tool(id: str, decision: str, note: str) -> dict[str, Any]:
+        """Post a curator's decision on a submission in review, only with the curator's yes
+        on the exact decision and note. decision is approve, reject or request-changes; the
+        note goes to the submitter. Needs sign_in and the curator group."""
+        return submit.decide(session, id, decision, note)
 
     return mcp
 
