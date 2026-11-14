@@ -7,6 +7,7 @@ import * as targets from "aws-cdk-lib/aws-scheduler-targets";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import type { ResearchArchive } from "./research-archive";
+import { VECTOR_INDEX } from "./tables";
 
 export interface ReadApiProps {
   readonly archive: ResearchArchive;
@@ -56,6 +57,8 @@ export class ReadApi extends Construct {
         DOWNLOAD_COUNTS_TABLE: archive.downloadCounts.tableName,
         USAGE_TABLE: this.usageResponses.tableName,
         SITE_DOMAIN_PARAMETER: siteDomainName,
+        STAGE: props.stage,
+        ARCHIVE_CONFIG_PARAMETER: archive.archiveConfigParameter.parameterName,
       },
     });
     fn.addToRolePolicy(
@@ -73,11 +76,23 @@ export class ReadApi extends Construct {
     archive.catalogTables.a.grantReadData(fn);
     archive.catalogTables.b.grantReadData(fn);
     archive.activeCatalogParameter.grantRead(fn);
+    archive.archiveConfigParameter.grantRead(fn);
     archive.derivedBucket.grantRead(fn, "site/catalog.json");
     archive.archiveBucket.grantRead(fn, "restricted/*");
     archive.archiveBucket.grantRead(fn, "projects/*");
     archive.downloadCounts.grant(fn, "dynamodb:UpdateItem");
     this.usageResponses.grantReadWriteData(fn);
+    if (archive.embeddings) {
+      archive.grantEmbedding(fn);
+      fn.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["dynamodb:SearchVectors"],
+          resources: [archive.catalogTables.a, archive.catalogTables.b].map(
+            (table) => `${table.tableArn}/index/${VECTOR_INDEX}`,
+          ),
+        }),
+      );
+    }
 
     const integration = new apigateway.LambdaIntegration(fn);
     const open = { authorizationType: apigateway.AuthorizationType.NONE };

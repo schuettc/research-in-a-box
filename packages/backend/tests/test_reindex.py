@@ -26,6 +26,10 @@ TABLE_A = "catalog-a"
 TABLE_B = "catalog-b"
 PARAMETER = "/research-archive/test/catalog-active"
 TOPIC = "arn:aws:sns:us-east-1:1:alerts"
+CONFIG_PARAMETER = "/research-archive/test/archive-config"
+EMBEDDINGS_ON = json.dumps(
+    {"publisher": "P", "infrastructure": {"alertEmail": "a@b.c", "modules": {"embeddings": {}}}}
+)
 
 
 def _manifest(dataset_id: str, **extra: Any) -> dict[str, Any]:
@@ -162,8 +166,13 @@ def test_fake_bulk_responses_match_botocore_shapes() -> None:
 class FakeSSM:
     def __init__(self, value: str) -> None:
         self.value = value
+        self.config = json.dumps({"publisher": "P"})
+        self.config_reads = 0
 
     def get_parameter(self, *, Name: str) -> dict[str, Any]:
+        if Name == CONFIG_PARAMETER:
+            self.config_reads += 1
+            return {"Parameter": {"Value": self.config}}
         assert Name == PARAMETER
         return {"Parameter": {"Value": self.value}}
 
@@ -180,6 +189,17 @@ class FakeSNS:
     def publish(self, **kwargs: str) -> dict[str, str]:
         self.published.append(kwargs)
         return {"MessageId": "m"}
+
+
+class FakeBedrock:
+    def __init__(self) -> None:
+        self.texts: list[str] = []
+
+    def invoke_model(self, **kwargs: Any) -> dict[str, Any]:
+        body = json.loads(kwargs["body"])
+        self.texts.append(body["inputText"])
+        answer = {"embedding": [0.5] * body["dimensions"]}
+        return {"body": io.BytesIO(json.dumps(answer).encode())}
 
 
 class FakeContext:
@@ -216,12 +236,14 @@ class World:
         self.dynamodb = FakeDynamoDB(self.s3, self.events, outcome)
         self.ssm = FakeSSM(active)
         self.sns = FakeSNS()
+        self.bedrock = FakeBedrock()
         self.context = FakeContext(self.events)
         clients = Clients(
             s3=cast(S3Client, self.s3),
             dynamodb=cast(reindex.DynamoDB, self.dynamodb),
             ssm=cast(reindex.SSM, self.ssm),
             sns=cast(SNSClient, self.sns),
+            bedrock=self.bedrock,
         )
         monkeypatch.setattr(reindex, "clients", lambda: clients)
         for name, value in {
@@ -231,6 +253,7 @@ class World:
             "CATALOG_TABLE_B": TABLE_B,
             "ACTIVE_CATALOG_PARAMETER": PARAMETER,
             "ALERT_TOPIC_ARN": TOPIC,
+            "ARCHIVE_CONFIG_PARAMETER": CONFIG_PARAMETER,
         }.items():
             monkeypatch.setenv(name, value)
 
@@ -424,6 +447,36 @@ def test_reindex_loads_the_inactive_table_and_flips_on_completed(
     ]
     catalog = json.loads(world.s3.objects[(DERIVED, "site/catalog.json")])
     assert [row["id"] for row in catalog] == ["ds-1", "ds-2"]
+
+
+def test_reindex_embeds_each_dataset_item_before_writing_when_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    world = _world(monkeypatch, active="A")
+    world.ssm.config = EMBEDDINGS_ON
+    _publish_two(world)
+
+    world.run()
+
+    assert world.ssm.config_reads == 1
+
+    assert world.bedrock.texts == ["Title of ds-1", "Title of ds-2"]
+    table = world.dynamodb.tables[TABLE_B]
+    for dataset_id in ("ds-1", "ds-2"):
+        meta = table[(f"DATASET#{dataset_id}", "META")]
+        assert len(meta["embedding"]["L"]) == 1024
+        assert meta["id"] == {"S": dataset_id}
+    assert all("embedding" not in item for key, item in table.items() if key[1] != "META")
+
+
+def test_reindex_never_embeds_when_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    world = _world(monkeypatch, active="A")
+    _publish_two(world)
+
+    world.run()
+
+    assert world.bedrock.texts == []
+    assert all("embedding" not in item for item in world.dynamodb.tables[TABLE_B].values())
 
 
 def test_reindex_loads_table_a_when_b_is_active(monkeypatch: pytest.MonkeyPatch) -> None:

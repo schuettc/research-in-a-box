@@ -3,6 +3,7 @@
 One Powertools resolver serves every route. Search reads the catalog file, `site/catalog.json`
 in the derived bucket, checking its ETag at most once a minute. Dataset, version and file reads
 come from the active catalog table, named by the active-catalog parameter and cached a minute.
+With the embeddings module on, search also asks the vector index for the datasets nearest `q`.
 
 Usage: python -m archive_backend.api <path> writes the OpenAPI spec.
 """
@@ -11,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import time
 import uuid
@@ -39,6 +41,8 @@ from pydantic import Field as PydanticField
 
 from archive_backend import search as catalog_search
 from archive_backend.catalog_file import KEY as CATALOG_KEY
+from archive_backend.config import read_archive_config
+from archive_backend.embeddings import Bedrock, embed, vector_attribute
 from archive_backend.whoami import _groups
 from archive_contract.usage import UsageAnswers
 
@@ -49,6 +53,10 @@ if TYPE_CHECKING:
 CACHE_SECONDS = 60
 LINK_SECONDS = 300
 MISSING = ("404", "NoSuchKey", "NotFound")
+VECTOR_INDEX = "datasets"
+NEAREST = 50
+
+logger = logging.getLogger(__name__)
 
 
 class DynamoDB(Protocol):
@@ -58,6 +66,7 @@ class DynamoDB(Protocol):
     def query(self, **kwargs: Any) -> dict[str, Any]: ...
     def put_item(self, **kwargs: Any) -> dict[str, Any]: ...
     def update_item(self, **kwargs: Any) -> dict[str, Any]: ...
+    def search_vectors(self, **kwargs: Any) -> dict[str, Any]: ...
 
 
 class SSM(Protocol):
@@ -69,6 +78,7 @@ class Clients:
     s3: S3Client
     dynamodb: DynamoDB
     ssm: SSM
+    bedrock: Bedrock
 
 
 @cache
@@ -79,6 +89,7 @@ def clients() -> Clients:
         s3=boto3.client("s3", region_name=os.environ.get("AWS_REGION"), config=s3_config),
         dynamodb=cast(DynamoDB, boto3.client("dynamodb")),
         ssm=cast(SSM, boto3.client("ssm")),
+        bedrock=cast(Bedrock, boto3.client("bedrock-runtime")),
     )
 
 
@@ -324,6 +335,62 @@ def _version(table: str, dataset_id: str, version: int) -> VersionAnswer:
     )
 
 
+def embeddings_enabled() -> bool:
+    """Whether the archive config switches the embeddings module on, read at most once a minute."""
+    now = _monotonic()
+    if "embeddings" not in _active or now - _active["embeddings_checked"] >= CACHE_SECONDS:
+        cfg = read_archive_config(clients().ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"])
+        on = cfg.infrastructure is not None and cfg.infrastructure.modules.embeddings is not None
+        _active.update(embeddings=on, embeddings_checked=now)
+    enabled: bool = _active["embeddings"]
+    return enabled
+
+
+def _fallback_metric() -> None:
+    """One `SemanticFallback` count, in CloudWatch embedded metric format on stdout."""
+    print(
+        json.dumps(
+            {
+                "_aws": {
+                    "Timestamp": int(time.time() * 1000),
+                    "CloudWatchMetrics": [
+                        {
+                            "Namespace": "ResearchArchive",
+                            "Dimensions": [["Stage"]],
+                            "Metrics": [{"Name": "SemanticFallback", "Unit": "Count"}],
+                        }
+                    ],
+                },
+                "Stage": os.environ.get("STAGE", "unknown"),
+                "SemanticFallback": 1,
+            }
+        ),
+        flush=True,
+    )
+
+
+def _nearest(q: str) -> list[str] | None:
+    """The ids of the datasets nearest `q` in the vector index, or None when the module is off
+    or any part of the semantic path, the config read included, fails."""
+    c = clients()
+    try:
+        if not embeddings_enabled():
+            return None
+        vector = embed(c.bedrock, q)
+        found = c.dynamodb.search_vectors(
+            TableName=_table(),
+            IndexName=VECTOR_INDEX,
+            SearchVector=vector_attribute(vector),
+            TopK=NEAREST,
+        )
+        pks = [result["Item"]["PK"]["S"] for result in found.get("SearchResults", [])]
+    except Exception as error:
+        logger.warning("semantic search failed, answering keyword results: %r", error)
+        _fallback_metric()
+        return None
+    return [pk.removeprefix("DATASET#") for pk in pks if pk.startswith("DATASET#")]
+
+
 def _bbox(value: str | None) -> catalog_search.Box | None:
     if value is None:
         return None
@@ -361,7 +428,8 @@ def search_datasets(
         page=page,
         size=size,
     )
-    result = catalog_search.search(_catalog_rows(), query)
+    semantic = _nearest(q) if q and q.strip() else None
+    result = catalog_search.search(_catalog_rows(), query, semantic)
     return SearchAnswer(
         rows=[CatalogRow.model_validate(row) for row in result.rows],
         total=result.total,

@@ -125,3 +125,32 @@ test("prod tables have deletion protection and are retained; a dev stage's are n
     expect(table.Properties.DeletionProtectionEnabled).not.toBe(true);
   }
 });
+
+test("with the embeddings module each catalog table has the datasets vector index, and none without", () => {
+  const stack = new Stack(testApp(), "E");
+  const built = new ResearchArchive(stack, "Archive", {
+    config: {
+      publisher: "P",
+      infrastructure: {
+        alertEmail: "a@example.org",
+        stages: [{ name: "prod" }],
+        modules: { embeddings: {} },
+      },
+    },
+    stage: "prod",
+  });
+  const template = Template.fromStack(stack);
+
+  for (const table of [built.catalogTables.a, built.catalogTables.b]) {
+    expect(tableOf(template, table).Properties.VectorIndexes).toEqual([
+      {
+        IndexName: "datasets",
+        VectorAttribute: { AttributeName: "embedding" },
+        Dimensions: 1024,
+        DistanceFunction: "COSINE",
+        Projection: { ProjectionType: "KEYS_ONLY" },
+      },
+    ]);
+  }
+  expect(JSON.stringify(archive().template.toJSON())).not.toContain("VectorIndexes");
+});

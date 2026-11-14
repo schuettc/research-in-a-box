@@ -309,6 +309,20 @@
       "title": "Contributor",
       "type": "object"
     },
+    "Embeddings": {
+      "additionalProperties": false,
+      "description": "Semantic search: an embedding on each dataset item and a vector index to search them.",
+      "properties": {
+        "model": {
+          "const": "amazon.titan-embed-text-v2:0",
+          "default": "amazon.titan-embed-text-v2:0",
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "title": "Embeddings",
+      "type": "object"
+    },
     "Evidence": {
       "additionalProperties": true,
       "description": "The rows or values that show the problem or justify the change.\n\n`count` is how many rows show it, since a problem on thousands of rows can't list them all.",
@@ -914,6 +928,17 @@
       "additionalProperties": false,
       "description": "The optional parts, each built only when switched on.",
       "properties": {
+        "embeddings": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Embeddings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "objectLock": {
           "anyOf": [
             {

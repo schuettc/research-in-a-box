@@ -109,6 +109,30 @@ export class Operations extends Construct {
     );
   }
 
+  /**
+   * Graph the read API's `SemanticFallback` count, and alarm when semantic search keeps failing,
+   * so an admin learns the embeddings module is broken rather than seeing weaker search.
+   */
+  addSemanticFallback(stage: string): void {
+    const fallbacks = new cloudwatch.Metric({
+      namespace: "ResearchArchive",
+      metricName: "SemanticFallback",
+      dimensionsMap: { Stage: stage },
+      statistic: "Sum",
+      period: Duration.minutes(15),
+    });
+    const alarm = fallbacks.createAlarm(this, "SemanticFallbackAlarm", {
+      threshold: 5,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    alarm.addAlarmAction(this.alarmAction);
+    this.dashboard.addWidgets(
+      new cloudwatch.GraphWidget({ title: "Semantic search fallbacks", left: [fallbacks] }),
+    );
+  }
+
   /** Alarm on any error from the function, and graph its errors and duration. */
   addFunction(fn: lambda.Function): void {
     const errors = fn.metricErrors({ statistic: "Sum", period: Duration.minutes(5) });

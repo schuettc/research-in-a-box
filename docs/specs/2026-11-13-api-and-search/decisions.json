@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
   "schema": 4,
   "title": "API and search (Plan 6)",
-  "expect": 5,
-  "agent_at": "2026-11-14T05:59:37.406548Z",
+  "expect": 8,
+  "agent_at": "2026-11-14T06:22:52.626229Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 2, folder 8da653f233f9, and Plan 4, the archive infrastructure.)\n\nBrief: Plan 6 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the API and search (Plan 6). There is no relational database. Search is a catalog file filtered in the browser with DuckDB, plus an optional DynamoDB vector index. Plan the endpoints and the search design, and take the open questions with me one at a time."
@@ -580,6 +580,229 @@
       },
       "state": "decided",
       "choice": "A"
+    },
+    {
+      "id": "DCSN6",
+      "name": "Semantic search now or later",
+      "question": "Should PLAN3 build semantic search now, or first fix keyword search and add semantic search once the search page has real readers?",
+      "example": "On Plan 5's ten converted FEMC datasets, a reader typing 'ozone damage on plants' gets no results today: the search built in PLAN1 requires every word to appear, and 'damage' and 'on' don't. 'air pollution' finds nothing either, though the IMPROVE aerosol dataset is exactly that. Semantic search would catch the second kind; a looser keyword match catches the first.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Fix keyword search now, semantic later",
+          "includes": "PLAN3 changes keyword matching: any word counts, results ranked by how many words match (title first), common words like 'on' and 'the' ignored, plurals matched. No Bedrock and no vector index. Semantic search becomes a follow-up, taken up once Plan 8's search page has readers and their missed searches show it is needed.",
+          "pulls_in": "A change to search.py and its tests, and the spec's Search section reworded. Nothing new on AWS.",
+          "visuals": [
+            {
+              "kind": "table",
+              "caption": "Each search tried against the 10 converted datasets",
+              "table": {
+                "columns": [
+                  "Search",
+                  "Found first",
+                  "In the top 3",
+                  "Found at all"
+                ],
+                "rows": [
+                  [
+                    "Keyword as built (every word must match)",
+                    "11 of 22",
+                    "11 of 22",
+                    "11 of 22"
+                  ],
+                  [
+                    "Keyword, any word, ranked (option A)",
+                    "13 of 22",
+                    "16 of 22",
+                    "17 of 22"
+                  ],
+                  [
+                    "Semantic, Titan Text Embeddings v2",
+                    "17 of 22",
+                    "20 of 22",
+                    "always ranks all"
+                  ],
+                  [
+                    "Semantic, Cohere Embed v4",
+                    "17 of 22",
+                    "21 of 22",
+                    "always ranks all"
+                  ]
+                ],
+                "sample": "22 plain-language searches I wrote before running them, each with the one dataset it should find; 10 datasets, so the top 3 is 30% of the archive and 'found first' is the fairer measure"
+              }
+            }
+          ]
+        },
+        {
+          "id": "B",
+          "title": "Fix keyword search and build semantic search now",
+          "includes": "Option A, plus the brief's semantic search: an embeddings setting in the archive config, the vector index on both catalog tables, embedding each dataset at reindex and publish, embedding the query in /api/search, and merging semantic with keyword results. Keyword stays the fallback when embeddings are off.",
+          "pulls_in": "Two more decisions for you (the embedding model, how the two result lists merge), Bedrock calls at reindex, publish and every search, a second test deploy, and the cold-start cost of embedding a query on top of PARK3's 2.8 s."
+        },
+        {
+          "id": "C",
+          "title": "Not yet: leave search as built",
+          "includes": "No change now; PLAN3 waits until Plan 8's search page is used.",
+          "pulls_in": "Nothing, but searches like 'ozone damage on plants' keep returning nothing."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "The search every archive runs, embeddings on or off, misses half of these searches because every word must match; option A lifts that from 11 to 17 found out of 22 with a small change and nothing new on AWS. Semantic search finds 4 more first-place results, mostly synonyms ('air pollution' for the aerosol data, 'land cover map' for the vegetation raster), but that is 22 searches I wrote over 10 short records, and nobody has used the search page yet: Plan 8 hasn't built it. Readers' real missed searches are the better test of whether it's worth Bedrock on every search.",
+        "evidence": [
+          {
+            "text": "Keyword search as built, through archive_backend.search on catalog rows built from the ten packages",
+            "source": "/tmp/p6kw/run.py on practice-data/packages, main at 546e5dd",
+            "output": "MISS 'ozone damage on plants' ... got []\nMISS 'air pollution' ... got []\nHIT  'ozone' ... got ['ozone-bioindicators', 'white-clover-biomonitor']\n(11 HIT, 11 MISS)"
+          },
+          {
+            "text": "Ranked any-word keyword matching, same rows and searches",
+            "source": "/tmp/p6kw/variant.py",
+            "output": "TOP1 'ozone damage on plants' rank 1\nTOP1 'insect damage from the air' rank 1\nMISS 'air pollution' rank None\nMISS 'land cover map' rank None\n(13 TOP1, 3 top3, 6 MISS)"
+          },
+          {
+            "text": "Bedrock embeddings on title, description and keywords, cosine similarity",
+            "source": "/tmp/p6kw/embed.py with AWS_PROFILE=personal, us-east-1",
+            "output": "== titan-v2: top1 17/22, top3 20/22\n== cohere-v4: top1 17/22, top3 21/22"
+          },
+          {
+            "text": "One miss no search fixes: the Camels Hump record's title is 'census_data' and its description is 26 characters; the place name is only in its citation",
+            "source": "practice-data/packages/camels-hump-census/datapackage.json",
+            "output": "'camels-hump-census': ('census_data', 26)"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "B"
+    },
+    {
+      "id": "DCSN7",
+      "name": "Embedding model",
+      "question": "Which Bedrock model should turn datasets and searches into vectors: Amazon Titan Text Embeddings v2 or Cohere Embed v4?",
+      "example": "When a dataset is published or reindexed, its title, description and keywords are sent to the model, which returns a list of 1,024 numbers; each search is sent too, and the closest datasets come back. The model is fixed per archive: switching later means re-embedding every dataset, which a reindex does.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Amazon Titan Text Embeddings v2",
+          "includes": "Amazon's own model, 1,024 dimensions, normalised. About $0.02 per million tokens (from AWS's pricing as quoted by third parties; not read from AWS directly).",
+          "pulls_in": "bedrock:InvokeModel on that model for the API and reindex functions.",
+          "visuals": [
+            {
+              "kind": "table",
+              "caption": "Each model on the 22 searches over the 10 converted datasets",
+              "table": {
+                "columns": [
+                  "Model",
+                  "Found first (semantic only)",
+                  "Found first (merged with keyword)",
+                  "In the top 3 (merged)",
+                  "Time to embed one search"
+                ],
+                "rows": [
+                  [
+                    "Titan v2",
+                    "17 of 22",
+                    "17 of 22",
+                    "21 of 22",
+                    "156 ms median, 953 ms max"
+                  ],
+                  [
+                    "Cohere v4",
+                    "17 of 22",
+                    "18 of 22",
+                    "22 of 22",
+                    "180 ms median, 242 ms max"
+                  ]
+                ],
+                "sample": "22 searches, 10 datasets, 10 timed calls per model from this Mac to us-east-1"
+              }
+            }
+          ]
+        },
+        {
+          "id": "B",
+          "title": "Cohere Embed v4",
+          "includes": "Cohere's model through Bedrock, 1,024 dimensions, with separate modes for documents and searches. One more search found first when merged with keyword (18 against 17), and a steadier response time. Its Bedrock price I haven't confirmed.",
+          "pulls_in": "bedrock:InvokeModel on that model, and a third-party model's terms for each adopting archive."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "Both put 17 of 22 searches first on their own; Cohere's lead once merged is one search out of 22, which this sample can't tell apart from chance. Titan is Amazon's own model, so an adopting archive accepts no third party's terms, and it is the cheaper of the two by the figures I could find. If readers' searches later show Cohere is better, switching is a config change and a reindex.",
+        "evidence": [
+          {
+            "text": "Merged and semantic-only results per model",
+            "source": "/tmp/p6kw/merge.py, AWS_PROFILE=personal, us-east-1",
+            "output": "titan-v2  semantic only first 17/22 top3 20/22\ntitan-v2  RRF keyword+semantic first 17/22 top3 21/22\ncohere-v4 semantic only first 17/22 top3 21/22\ncohere-v4 RRF keyword+semantic first 18/22 top3 22/22"
+          },
+          {
+            "text": "Time to embed one search, 10 calls each",
+            "source": "python timing of bedrock-runtime invoke_model from this Mac",
+            "output": "titan median/max ms (156, 953)\ncohere median/max ms (180, 242)"
+          },
+          {
+            "text": "Titan v2 price",
+            "source": "https://caylent.com/blog/amazon-bedrock-pricing-explained (search result snippet)",
+            "output": "Amazon Titan Text Embeddings V2 costs $0.02 per million input tokens in supported US Regions and can produce 256-, 512-, or 1,024-dimensional vectors."
+          }
+        ]
+      },
+      "depends_on": [
+        "DCSN6"
+      ],
+      "state": "decided",
+      "choice": "A"
+    },
+    {
+      "id": "DCSN8",
+      "name": "Merging keyword and semantic",
+      "question": "How should /api/search combine the keyword matches and the semantic matches into one list?",
+      "example": "A reader searches 'ozone damage on plants'. Keyword search ranks the ozone dataset first because three words match; semantic search also ranks it first, then the clover biomonitor. For 'air pollution' keyword finds nothing and semantic finds the aerosol data. The endpoint returns one ranked page either way.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Reciprocal rank fusion",
+          "includes": "Each dataset scores 1/(60 + its place) in each list, the two scores are added, and the page is sorted by the sum. A dataset both searches rank high comes first; one only semantic search finds still appears. No scores to tune between the two.",
+          "pulls_in": "A few lines in search.py."
+        },
+        {
+          "id": "B",
+          "title": "Keyword first, semantic after",
+          "includes": "Every keyword match, in keyword order, then the semantic-only matches after them. Predictable: a dataset with the words always beats one without.",
+          "pulls_in": "A few lines in search.py."
+        },
+        {
+          "id": "C",
+          "title": "Semantic only, keyword as fallback",
+          "includes": "With embeddings on, rank by semantic search alone; keyword matching runs only when embeddings are off.",
+          "pulls_in": "Nothing extra, but exact words like a dataset's name or a code no longer decide the order."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "With Titan v2, fusion and keyword-first tie on these searches (17 first, 21 in the top 3) and both beat semantic-only (17 first, 20 in the top 3). Fusion is the safer of the two as the archive grows: keyword-first puts any dataset that shares one word above a strong semantic match, while fusion weighs both lists. Semantic-only drops exact matches on names and codes, which researchers type often.",
+        "evidence": [
+          {
+            "text": "Three ways of merging with Titan v2",
+            "source": "/tmp/p6kw/merge.py",
+            "output": "titan-v2  semantic only                first 17/22  top3 20/22\ntitan-v2  RRF keyword+semantic         first 17/22  top3 21/22\ntitan-v2  keyword first, then semantic first 17/22  top3 21/22"
+          }
+        ]
+      },
+      "depends_on": [
+        "DCSN6",
+        "DCSN7"
+      ],
+      "state": "decided",
+      "choice": "A",
+      "revisions": [
+        {
+          "at": "2026-11-14T00:18:30.153974-06:00",
+          "text": "Revised after DCSN7: the recommendation now rests on Titan v2's numbers, where fusion and keyword-first tie",
+          "because": "DCSN7"
+        }
+      ]
     }
   ],
   "calls": [
@@ -702,6 +925,56 @@
         }
       ],
       "state": "standing"
+    },
+    {
+      "id": "AGNT12",
+      "name": "Embeddings off by default",
+      "question": "How is semantic search switched on?",
+      "took": "A new optional module in the archive config, `infrastructure.modules.embeddings` with the model id, off by default like WAF and write-once locking. Switched on, the construct adds the vector index to both catalog tables and grants Bedrock; the API reads the setting from the archive-config parameter. Off, search is the improved keyword search alone.",
+      "instead": "Turn embeddings on by default for every new archive.",
+      "why": "The handoff makes embeddings optional with keyword search as the fallback, and an archive should not pay for Bedrock or need model access before it chooses to.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT13",
+      "name": "How many semantic matches",
+      "question": "How many datasets does the vector index return per search, and which appear?",
+      "took": "SearchVectors asks for the 50 nearest (the service allows at most 100), the search's filters (access, licence, format, project, dates, box) are applied to them in the Lambda as they are to keyword matches, and the merged list is paged as today. The total counts the merged list.",
+      "instead": "Ask for 100, or cut semantic matches off below a similarity score.",
+      "why": "50 covers a page of 20 with room for filters to remove some; a score cut-off needs tuning on real searches we don't have yet.",
+      "evidence": [
+        {
+          "text": "DynamoDB vector index quotas",
+          "source": "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ServiceQuotas.html, Vector indexes",
+          "output": "Maximum dimensions per vector index 4,096 No · Maximum TopK per SearchVectors request 100 No"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT14",
+      "name": "Vector index shape",
+      "question": "How is the vector index laid out on each catalog table?",
+      "took": "One index, `datasets`, on both catalog tables: attribute `embedding` on the dataset's META item (a list of 1,024 numbers from Titan v2, normalised), COSINE distance, KEYS_ONLY projection, and no vector partition key. Each archive has its own tables, so the whole index is one archive, which is how 'one partition key per archive' in the handoff is met.",
+      "instead": "A constant vector partition key attribute, or projecting the row fields into the index.",
+      "why": "Searches only need the dataset ids back (the rows come from catalog.json), and a partition key only helps an index far larger than any archive here.",
+      "evidence": [
+        {
+          "text": "Vector attribute format and projection",
+          "source": "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/VectorSearchWorkingWith.html",
+          "output": "Store that vector in a DynamoDB item, in the attribute named by the vector index ( VectorAttribute ), as a list ( L ) of numbers ( N )."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT15",
+      "name": "When Bedrock fails",
+      "question": "What does a search answer when Bedrock or the vector index errors?",
+      "took": "The keyword results alone, with a warning in the function's log, so the reader still gets a page. Errors on reindex or publish stop that run, as any other failed step does.",
+      "instead": "Answer the search with an error.",
+      "why": "A search page that fails whenever Bedrock throttles is worse for a reader than one that briefly ranks by words only; the handoff already makes keyword search the fallback.",
+      "state": "standing"
     }
   ],
   "principles": [],
@@ -729,7 +1002,7 @@
     }
   ],
   "spec": {
-    "hash": "789ad2e3e5f47e02424e715ed51234a6f5cd314354c06fdf5602c82d09b0f823",
+    "hash": "2faf2b0aa9dd548e4ea5dcec9eed07446e98c46c80a9534f268ed452d6e41e61",
     "sections": [
       {
         "id": "SPEC1",
@@ -741,7 +1014,8 @@
         "heading": "The plans",
         "decisions": [
           "DCSN5",
-          "DCSN1"
+          "DCSN1",
+          "DCSN6"
         ]
       },
       {
@@ -760,11 +1034,26 @@
           "DCSN1",
           "AGNT2",
           "AGNT3",
-          "AGNT4"
+          "AGNT4",
+          "DCSN6"
         ]
       },
       {
         "id": "SPEC5",
+        "heading": "Semantic search",
+        "decisions": [
+          "DCSN6",
+          "DCSN7",
+          "DCSN8",
+          "AGNT12",
+          "AGNT13",
+          "AGNT14",
+          "AGNT15",
+          "AGNT11"
+        ]
+      },
+      {
+        "id": "SPEC6",
         "heading": "Restricted downloads",
         "decisions": [
           "DCSN2",
@@ -772,14 +1061,14 @@
         ]
       },
       {
-        "id": "SPEC6",
+        "id": "SPEC7",
         "heading": "Download counts",
         "decisions": [
           "AGNT7"
         ]
       },
       {
-        "id": "SPEC7",
+        "id": "SPEC8",
         "heading": "Usage form",
         "decisions": [
           "DCSN3",
@@ -787,14 +1076,14 @@
         ]
       },
       {
-        "id": "SPEC8",
+        "id": "SPEC9",
         "heading": "Sign-in for the CLI and MCP server",
         "decisions": [
           "AGNT5"
         ]
       },
       {
-        "id": "SPEC9",
+        "id": "SPEC10",
         "heading": "How it is built",
         "decisions": [
           "DCSN4",
@@ -803,15 +1092,16 @@
         ]
       },
       {
-        "id": "SPEC10",
+        "id": "SPEC11",
         "heading": "Risk and cost",
         "decisions": [
           "DCSN2",
-          "DCSN4"
+          "DCSN4",
+          "DCSN7"
         ]
       },
       {
-        "id": "SPEC11",
+        "id": "SPEC12",
         "heading": "Left out",
         "decisions": [
           "DCSN5",
@@ -820,13 +1110,15 @@
         ]
       },
       {
-        "id": "SPEC12",
+        "id": "SPEC13",
         "heading": "How we'll know it works",
         "decisions": [
           "DCSN1",
           "DCSN2",
           "DCSN3",
-          "DCSN4"
+          "DCSN4",
+          "DCSN6",
+          "DCSN8"
         ]
       }
     ],
@@ -835,7 +1127,7 @@
       "at": "2026-11-13T22:34:38.131542-06:00",
       "body": "# API and search: the read API, server search and downloads\n\n## Goal\n\nAnyone can find a dataset in the archive and fetch it, from the web app, the CLI or an MCP server, with no relational database. A read API open to all answers search, dataset, version and project reads; signed-in users get short-lived links to restricted files; the archive counts downloads and, optionally, asks readers how they use the data. It works today on what Plan 4's reindex loads, and Plan 7's publish step plugs into it later. Semantic search follows as its own plan once there is a real corpus to judge it on.\n\n## The plans\n\nPlan 6 is two plans in this folder. PLAN1 is the read API and search described below, buildable now. PLAN3 is semantic search: the vector index on both catalog tables, the embedding model and its setting, and ranking semantic results with keyword results inside the same search endpoint; it is written once PLAN1 is built and Plan 5's corpus exists. Plan 7 owns everything under `/api/submissions`, including the review-policy setting, so there is no PLAN2.\n\nRests on: DCSN5, DCSN1\n\n## Endpoints\n\nEvery route is served by one Python Lambda, declared in API Gateway one route at a time so the Cognito authorizer sits only on the signed-in ones. Plan 4's `/api/health` and `/api/whoami` stay as they are.\n\n| Route | Sign-in | Answers |\n|---|---|---|\n| `GET /api/search` | no | One page of matching datasets with a count per facet value (below) |\n| `GET /api/datasets/{id}` | no | The dataset, its current version's manifest and its files |\n| `GET /api/datasets/{id}/versions` | no | Every version's number and prefix |\n| `GET /api/datasets/{id}/versions/{version}` | no | That version's manifest and files |\n| `GET /api/projects/{id}` | no | `projects/\u003cid\u003e/project.json` from the archive bucket, and the project's datasets from GSI1 |\n| `GET /api/datasets/{id}/versions/{version}/download?path=` | yes | A five-minute link to one restricted file |\n| `POST /api/datasets/{id}/usage` | no | Stores the optional usage answers |\n| `GET /api/admin/usage?dataset=` | yes, `admin` group | The usage answers for one dataset |\n\nDataset, version and file reads come from the active catalog table, chosen by the `/research-archive/\u003cstage\u003e/catalog-active` parameter, cached for a minute as Plan 4's Lambdas do. The version item already holds the manifest text. Metadata is public at every access level; only files are restricted. A missing dataset, version or project answers 404.\n\nRests on: DCSN4, AGNT1, AGNT8\n\n## Search\n\n**The catalog file.** One function in `archive-backend` builds `catalog.json` from the active catalog table and writes it to the derived bucket's `site/`, so it is also public at `/catalog.json`. The reindex calls it after it flips the active table; Plan 7's publish step calls the same function. One row per published dataset at every access level: `id`, `version`, `title`, `description`, `keywords`, `access`, `licenses` (ids), `rightsStatus`, `project`, `creators`, `formats`, `start`, `end`, `ongoing`, `bbox` (west, south, east, north), `bytes` (the current version's total) and `published`. Theme and species join when the contract holds those fields (Plan 2's PARK5 and PARK6). It is written with Python's standard library; no DuckDB.\n\n**The endpoint.** `GET /api/search` takes `q` (keywords), `access`, `license`, `format`, `project` (each repeatable), `from` and `to` (dates), `bbox` (`west,south,east,north`), `page` and `size` (default 20, at most 100). Each keyword must appear, ignoring case, in the title, description, keywords or creators. Date filters keep a dataset whose coverage overlaps the range; the box keeps a dataset whose box intersects it, including boxes that cross the antimeridian. Results with a keyword in the title come first, then the rest, newest published first. The answer is the page of rows (the same fields as the catalog file, so a result card needs no further call), the total, and a count for each value of `access`, `license`, `format` and `project` under the current filter.\n\n**Freshness.** The search Lambda keeps the parsed catalog in memory and checks the object's ETag at most once a minute, re-reading it when it changed, so a publish or reindex reaches search within a minute. Filtering 10,000 datasets took 9 ms in a measurement on a laptop; past roughly 50,000 datasets, the next step is an index rather than an in-memory list.\n\nRests on: DCSN1, AGNT2, AGNT3, AGNT4\n\n## Restricted downloads\n\nOpen files are fetched straight from CloudFront at `/data/\u003cdatasetId\u003e/\u003cversion\u003e/\u003cpath\u003e`; the API isn't involved. For a restricted dataset, a signed-in user calls the download route and gets an S3 presigned link to `restricted/\u003cdatasetId\u003e/\u003cversion\u003e/\u003cpath\u003e` that lasts five minutes. Anyone signed in qualifies; signing up is self-service with email. The path must be one of the version's file items, so the route can't be used to reach any other key. A by-request dataset answers 403 until Plan 7's request workflow can grant access, which this check will then read. Description-only datasets have no files. An open dataset's download route answers its `/data` URL.\n\nRests on: DCSN2, AGNT9\n\n## Download counts\n\nDownloadCounts keeps, per dataset and month, `open` (downloads through CloudFront) and `restricted` (links issued). The download route adds one to `restricted` when it issues a link. A scheduled function runs daily, reads the previous day's CloudFront standard logs under the derived bucket's `logs/`, and adds one to `open` per `GET` under `/data/` that answered 200; range reads (206) and `HEAD` don't count, so a data preview that reads by range doesn't inflate the numbers. The last day rolled up is kept as a Settings item, `downloads-rolled-up-through`, so a rerun never counts a day twice.\n\nRests on: AGNT7\n\n## Usage form\n\nBefore a download, a reader may answer three optional questions, with no sign-in and no name or email: the kind of organisation (university, government, nonprofit, company, individual, other), what the data is for (research, teaching, policy or management, commercial, personal, other), and a note of up to 500 characters. The question list is a model in the contract. Answers go to a UsageResponses table that Plan 6 adds (`datasetId`, sort key `\u003cmonth\u003e#\u003cuuid\u003e`, on-demand, point-in-time recovery like the other operational tables). Admins read them through `GET /api/admin/usage`.\n\nRests on: DCSN3, AGNT10\n\n## Sign-in for the CLI and MCP server\n\nThe browser signs in through Plan 4's `web` client as built. The CLI and the MCP server use authorization code with PKCE through Plan 4's `cli` client: they open the browser to Cognito's managed login and listen on `http://localhost:8765/callback`. They keep the one-hour access and ID tokens and discard the refresh token, so they hold short-lived tokens only. Plan 6 records this in the handoff's Decision log; the client code is built by its first user, Plan 9.\n\nRests on: AGNT5\n\n## How it is built\n\nThe routes live in one module of `archive-backend` on Powertools' `APIGatewayRestResolver` with validation on, each with Pydantic request and response models. A `just openapi` recipe writes the OpenAPI spec from those routes to a committed file, and CI fails when the committed file and the code disagree, as it already does for the contract's JSON Schema; Plan 8 generates its TypeScript types from it. The CDK side is one internal construct in `packages/infra` that `ResearchArchive` creates: the API Lambda and its routes on Plan 4's `api` and `authorizer`, the UsageResponses table, the daily download rollup on a schedule, and the reindex's call to the catalog writer. Any Lambda that needs the archive config reads it from `/research-archive/\u003cstage\u003e/archive-config`; PLAN1's need nothing from it.\n\nRests on: DCSN4, AGNT6, AGNT11\n\n## Risk and cost\n\n**Risk.** A mistake could hand a restricted file to someone it shouldn't reach, for instance a download route that signs any key it is given. Links last five minutes, the route signs only paths listed in the version's file items, and CloudFront is denied `restricted/*` outright, so a fix and a redeploy close it; tests cover a signed-out call, a path outside the version, and a by-request dataset. Nothing here deletes or rewrites a package: every endpoint reads, and the only writes are counts, usage answers and the derived catalog file, all rebuildable or disposable.\n\n**Cost.** One test deploy to an AWS account you choose and its teardown, each a step for you on the page. No new programs on your machine; `aws-lambda-powertools` joins `archive-backend`. Running cost is one Lambda call per search and per read, a daily rollup and a small table, pennies a month for a small archive.\n\nRests on: DCSN2, DCSN4\n\n## Left out\n\n- Submission, review and review-policy endpoints: Plan 7's.\n- Semantic search, the embedding model and the vector index: PLAN3.\n- Theme and species facets: when Plan 2's PARK5 and PARK6 add the fields.\n- The CLI and MCP sign-in client code: Plan 9, its first user.\n- An admin route to start a reindex: stays Plan 4's follow-up PARK1.\n- Config-defined usage questions, or asking for an email: until an archive asks.\n- A search index for archives past about 50,000 datasets.\n\nRests on: DCSN5, DCSN3, AGNT5\n\n## How we'll know it works\n\n- `just check` passes, including tests for search filters, facet counts, paging and the antimeridian box; for the download route refusing a signed-out call, a path outside the version and a by-request dataset; for the rollup counting 200s only and never counting a day twice; and the OpenAPI drift check.\n- On one test deploy with two datasets loaded by `just reindex` (one open, one restricted): `GET /api/search?q=` finds each by a word in its description and the facet counts add up; `GET /api/datasets/\u003cid\u003e` returns the manifest and files; a signed-in user's download link fetches the restricted file and expires; the same call signed out answers 401; a usage answer posts and an admin reads it back; after an open download through `/data` and a run of the rollup, DownloadCounts shows it.\n- The round trip of a search through CloudFront, warm and after idle, is measured on that deploy and written in the plan's result.\n\nRests on: DCSN1, DCSN2, DCSN3, DCSN4\n"
     },
-    "edited": "2026-11-13T23:17:27.684201-06:00"
+    "edited": "2026-11-14T00:20:33.554785-06:00"
   },
   "plans": [
     {
@@ -941,7 +1233,70 @@
       "covers": "The vector index on both catalog tables, the embedding model and its setting, and merging semantic with keyword results, judged on Plan 5's corpus",
       "waits_on": [
         "PLAN1"
-      ]
+      ],
+      "hash": "0cb69533179c64e634fb8e2aae834c93e901549596c38885654aa3fd5a54ab32",
+      "tasks": [
+        {
+          "id": "TASK7",
+          "heading": "Task 7: Ranked keyword matching",
+          "does": "Search matches any word of q, ranked by how many words match (title words count half again), ignoring common words and matching plurals.",
+          "pulls_in": "search.py and its tests",
+          "serves": [
+            "DCSN6"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK8",
+          "heading": "Task 8: The embeddings setting and the shared function",
+          "does": "Adds the optional modules.embeddings setting to the contract and with_embedding, which sets a Titan v2 embedding on a dataset item before it is written; the reindex calls it when the setting is on.",
+          "pulls_in": "One contract model and regenerated schemas, embeddings.py, a reindex change, one Decision log row",
+          "serves": [
+            "DCSN6",
+            "DCSN7"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK9",
+          "heading": "Task 9: Semantic results in /api/search",
+          "does": "With embeddings on, /api/search embeds q, takes the index's 50 nearest datasets and merges them with the keyword ranking by reciprocal rank fusion; on a Bedrock or index error it answers keyword results alone and counts the fallback.",
+          "pulls_in": "Changes to search.py and api.py, one embedded-format metric, regenerated openapi.json",
+          "serves": [
+            "DCSN6",
+            "DCSN8"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK10",
+          "heading": "Task 10: The vector index and permissions",
+          "does": "With the module on, adds the datasets vector index to both catalog tables, grants Bedrock and SearchVectors to the functions that need them, and puts the fallback count on the dashboard with an alarm.",
+          "pulls_in": "Changes to tables.ts, read-api.ts, reindex.ts, operations.ts and their synth tests",
+          "serves": [
+            "DCSN6",
+            "DCSN7"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK11",
+          "heading": "Task 11: The test deploy",
+          "does": "Merges Tasks 7 to 10, deploys a search-test stage with Plan 5's ten manifests (no data files) and embeddings on, checks semantic results and timing, turns embeddings off and checks keyword results, then destroys the stack.",
+          "pulls_in": "One walkthrough step for you (STEP2) with two Go presses, a test stage for an hour or two, a few cents of Bedrock",
+          "serves": [
+            "DCSN6",
+            "DCSN7",
+            "DCSN8"
+          ],
+          "state": "keep"
+        }
+      ],
+      "approved": {
+        "hash": "0cb69533179c64e634fb8e2aae834c93e901549596c38885654aa3fd5a54ab32",
+        "at": "2026-11-14T00:23:08.084748-06:00",
+        "body": "# PLAN3: Ranked keyword search and semantic search\n\n## Spec\n\n`docs/specs/2026-11-13-api-and-search/spec.md`, sections \"Search\", \"Semantic search\", \"Risk and cost\" and \"How we'll know it works\". PLAN1 is built and merged (research-in-a-box#22, #26): build on `archive_backend.search`, `archive_backend.api`, `archive_backend.reindex` (`catalog_items`, `dataset_item`), `archive_backend.catalog_file`, the `ReadApi` construct and Plan 4's `Tables`. The handoff's Decision log holds the catalog item shapes. The measurements behind DCSN6 to DCSN8 are on those cards. The implementer reads the spec beside this plan.\n\n## The change\n\nKeyword search ranks by how many words match instead of requiring every word. An optional `embeddings` module adds a vector index to both catalog tables, one shared function puts a Titan v2 embedding on each dataset item before it is written, and `/api/search` merges the vector index's nearest datasets with the keyword ranking by reciprocal rank fusion. Then one test deploy with Plan 5's ten datasets, embeddings on and then off, and the stack is destroyed.\n\n**Risk:**\n\n- Tasks 1 to 4 are local code and CI; a mistake is undone by reverting the PR.\n- Nothing here can expose a restricted file: search returns catalog rows, which are public at every access level.\n- A bad embedding or a dropped one only changes ranking, and a reindex rebuilds every embedding.\n- Task 5 creates real resources under a non-prod stage, all deleted with the stack, plus a few cents of Bedrock calls.\n\n**Cost:**\n\n- One walkthrough step for you (STEP2): Go for the deploy and Go for the teardown. No sign-in is needed; search is public.\n- New permissions only when the module is on: `bedrock:InvokeModel` on Titan v2 and `dynamodb:SearchVectors` on the index.\n- No new dependency: boto3 already has Bedrock and DynamoDB.\n\n## Left out\n\n- A score cut-off for semantic matches, and any model besides Titan v2 (spec, Left out).\n- Embedding the CLI or MCP server's own searches: they call `/api/search` like the web app.\n- Plan 7's call to the embedding function: whichever of Plan 6 and Plan 7 lands second adds it (muster thread 955).\n- The first search after idle (PARK3) stays its own follow-up; Task 5 measures it again with embeddings on.\n\n## Where\n\n- Worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-archive-in-a-box/plan6/semantic-search`, branch `plan6/semantic-search` from `origin/main`. Confirm with `git -C \u003cwt\u003e branch --show-current` before editing.\n- Python: `packages/contract/src/archive_contract/config.py` with its test, `packages/backend/src/archive_backend/{search,embeddings,api,reindex}.py` with their tests.\n- TypeScript: `packages/infra/src/tables.ts`, `packages/infra/src/read-api.ts`, `packages/infra/src/reindex.ts`, `packages/infra/src/research-archive.ts`, their tests, and the regenerated `packages/infra/src/generated/archive-config.ts`.\n- `packages/web/src/schema/archive-contract.schema.json` and `openapi.json` (regenerated), `docs/planning-handoff.md` (Decision log).\n- Global constraints:\n  - Lambdas read the embeddings setting only from the archive-config parameter, `/research-archive/\u003cstage\u003e/archive-config`, which Plan 7's PLAN1 adds. If it isn't on `origin/main` when Task 2 starts, Tasks 1 to 2's pure code goes ahead and the reading waits for it; never add a second way to read the config.\n  - The embedding is set on the item before it is written, never by a later UpdateItem (muster thread 955).\n  - `just check` must exit 0. Nothing reaches AWS in Tasks 1 to 4.\n  - Task 5 runs only with your Go on STEP2, under the `personal` profile, on a stage named `search-test`, never `prod`.\n  - On any AWS auth error, stop and report; never copy or export credentials.\n\n### Task 7: Ranked keyword matching\n\n**Does:** Changes `archive_backend.search` so a dataset matches when any word of `q` matches, ranked by how many words match with title words counting half again, common words ignored and plurals matched.\n**Files:** `packages/backend/src/archive_backend/search.py`, `packages/backend/tests/test_search.py`\n**Checks:** `uv run pytest packages/backend` exits 0; `just check-python` exits 0.\n**Serves:** DCSN6\n\n- Words: lower-case `[a-z0-9]+` runs of `q`, minus a fixed stop list (`a an and the of on in near from for to with by at as or`), each reduced by stripping a trailing `ies`, `es` or `s`; a field matches a word when the reduced word appears in it.\n- Score: count of words found in title, description, keywords or creators, plus 0.5 per word found in the title. A row with score 0 doesn't match when `q` is given.\n- Order: score descending, then `published` newest first with rows lacking it last, then `id`. With no `q`, order as today.\n- Facets: the `q` filter counts as \"score above 0\", so facet counting is unchanged otherwise.\n- Expose `keyword_ranking(rows, q) -\u003e list[str]` (ids in order) for Task 9's merge.\n- Tests: \"ozone damage on plants\" finds the ozone row first; a title word outranks a description-only word; \"species\" matches \"Species\"; \"on the\" alone matches nothing; existing filter, facet and paging tests keep passing.\n\n### Task 8: The embeddings setting and the shared function\n\n**Does:** Adds the optional `infrastructure.modules.embeddings` setting to the contract, and `archive_backend.embeddings.with_embedding(item, manifest, bedrock)`, which returns the dataset item with `embedding` set; the reindex calls it on every dataset item when the setting is on.\n**Files:** `packages/contract/src/archive_contract/config.py`, `packages/contract/tests/test_config.py`, `packages/web/src/schema/archive-contract.schema.json`, `packages/infra/src/generated/archive-config.ts`, `packages/backend/src/archive_backend/embeddings.py`, `packages/backend/tests/test_embeddings.py`, `packages/backend/src/archive_backend/reindex.py`, `packages/backend/tests/test_reindex.py`, `docs/planning-handoff.md`\n**Checks:** `uv run pytest packages/backend packages/contract` exits 0; `just check-python` exits 0; `just check-schema` exits 0.\n**Serves:** DCSN6, DCSN7 (rests on calls AGNT11, AGNT12, AGNT14)\n\n- Contract: `Modules.embeddings: Embeddings | None` (alias `embeddings`), where `Embeddings` is a strict model with `model: Literal[\"amazon.titan-embed-text-v2:0\"]` defaulting to that value. Present means on. Run `just schema`.\n- `MODEL`, `DIMENSIONS = 1024`. `embedding_text(manifest)` is the title, description and keywords joined by newlines, as measured. `embed(bedrock, text)` calls `invoke_model` with `{\"inputText\": text, \"dimensions\": 1024, \"normalize\": true}` and returns the list. `with_embedding(item, manifest, bedrock)` returns a copy of the DynamoDB-JSON item with `\"embedding\": {\"L\": [{\"N\": ...}, ...]}`.\n- Reindex: read the archive config from the archive-config parameter once per run; when `infrastructure.modules.embeddings` is set, each dataset item passes through `with_embedding` inside the write step, before the lines are written. Off, nothing changes.\n- One Decision log row: the setting's name, `with_embedding` as the one way an embedding is set, called before the put by reindex and by Plan 7's publish.\n- Tests with a fake Bedrock: the item gains a 1,024-number list and keeps every other attribute; the reindex calls it once per dataset when on and never when off.\n\n### Task 9: Semantic results in /api/search\n\n**Does:** When the setting is on and `q` is given, `/api/search` embeds `q`, asks the index for 50 nearest datasets, and merges them with the keyword ranking by reciprocal rank fusion before filtering and paging; on a Bedrock or index error it answers the keyword ranking alone.\n**Files:** `packages/backend/src/archive_backend/search.py`, `packages/backend/src/archive_backend/api.py`, `packages/backend/tests/test_search.py`, `packages/backend/tests/test_api.py`, `packages/web/src/schema/openapi.json`\n**Checks:** `uv run pytest packages/backend` exits 0; `just check-python` exits 0; `just check-schema` exits 0.\n**Serves:** DCSN6, DCSN8 (rests on calls AGNT13, AGNT15)\n\n- `search(rows, query, semantic: list[str] | None = None)`: with `semantic`, the candidates are the union of keyword matches and the semantic ids, ordered by `fuse(keyword_ids, semantic_ids)` where each id scores the sum of `1 / (60 + place)` over the lists it appears in (place from 1), ties by `id`. Filters other than `q`, facets, total and paging work on that list as they do today.\n- `api.py`: read the setting from the archive-config parameter (cached like the active table); with it on and `q` non-empty, `embed(q)` then `dynamodb.search_vectors(TableName=\u003cactive table\u003e, IndexName=\"datasets\", SearchVector=..., TopK=50)` and take the ids from the returned keys. Verify the boto3 parameter and response names against the installed botocore, not this plan.\n- Any exception from Bedrock or `search_vectors` logs a warning, emits one `SemanticFallback` count in CloudWatch embedded metric format (namespace `ResearchArchive`, dimension `Stage`, from the `STAGE` environment variable), and calls `search` without `semantic`.\n- Tests: fusion order on two hand-made lists; a semantic-only id appears and a filter still removes it; facets count the merged list; the error path answers keyword results and prints one metric line; with the setting off Bedrock is never called.\n\n### Task 10: The vector index and permissions\n\n**Does:** When `infrastructure.modules.embeddings` is set, adds the `datasets` vector index to both catalog tables, grants the API and reindex functions Bedrock on Titan v2 and the API `SearchVectors`, and puts the `SemanticFallback` count on the dashboard with an alarm.\n**Files:** `packages/infra/src/tables.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/src/read-api.ts`, `packages/infra/src/reindex.ts`, `packages/infra/src/operations.ts`, `packages/infra/test/tables.test.ts`, `packages/infra/test/read-api.test.ts`, `packages/infra/test/reindex.test.ts`, `packages/infra/test/operations.test.ts`\n**Checks:** `npm test -w packages/infra` exits 0; `just check` exits 0.\n**Serves:** DCSN6, DCSN7 (rests on calls AGNT12, AGNT14)\n\n- `Tables` takes `embeddings: boolean`. When true, on each catalog table's `node.defaultChild as dynamodb.CfnTable`, set `vectorIndexes` to one entry: `indexName: \"datasets\"`, `vectorAttribute: { attributeName: \"embedding\" }`, `dimensions: 1024`, `distanceFunction: \"COSINE\"`, `projection: { projectionType: \"KEYS_ONLY\" }`, no `searchSchema`. Plain `dynamodb.Table` stays (Decision log: bulk put items needs it).\n- Grants when on: `bedrock:InvokeModel` on `arn:aws:bedrock:\u003cregion\u003e::foundation-model/amazon.titan-embed-text-v2:0` for the API and reindex functions; `dynamodb:SearchVectors` on `\u003ctable arn\u003e/index/datasets` for both tables, for the API function.\n- The API function gets `STAGE`. When on, the operations dashboard gains a `SemanticFallback` widget, and one alarm on its sum, at least 5 in 15 minutes for 2 periods, notifies the alert topic, so an admin learns the module is failing rather than seeing weaker search.\n- Synth tests: with the module the index, grants, widget and alarm exist; without it, the template has no `VectorIndexes`, no Bedrock statement and no fallback alarm.\n\n### Task 11: The test deploy\n\n**Does:** Merges Tasks 7 to 10, deploys `ResearchArchive-search-test` with embeddings on, loads Plan 5's ten datasets, checks the spec's semantic checks, turns embeddings off and checks again, then destroys the stack.\n**Files:** none (results go in the task's result line and the build thread)\n**Checks:** every action in STEP2 is done; `aws cloudformation describe-stacks --stack-name ResearchArchive-search-test` fails with \"does not exist\" at the end.\n**Serves:** DCSN6, DCSN7, DCSN8\n\nSTEP2's actions, in order:\n\n1. Agent: open the PR for Tasks 7 to 10 and merge it once CI's `python` and `typescript` checks pass.\n2. You: Go for the deploy.\n3. Agent: deploy with a test config that has `stages: [search-test]` and `modules.embeddings: {}`; upload only each of Plan 5's ten packages' `datapackage.json` from `practice-data/packages/` (never committed), with `archive:published` set, under `open/` or `restricted/` by its access: the reindex and search read manifests only, and no FEMC data file is put where the test stage's CloudFront could serve it; `just reindex search-test`; check each dataset item has a 1,024-number `embedding`; run the 22 searches from DCSN6 through CloudFront and record found-first and top-3 counts; check `q=air pollution` puts the IMPROVE aerosol dataset first; time ten warm searches and one after 15 idle minutes.\n4. Agent: redeploy with the module removed; check `q=air pollution` answers keyword results (none) with no error, and `q=ozone` still finds the ozone dataset.\n5. You: Go for the teardown.\n6. Agent: destroy the stack and confirm the stack, buckets, tables and leftover log groups are gone.\n"
+      }
     }
   ],
   "messages": [
@@ -1295,6 +1650,45 @@
       "at": "2026-11-13T23:53:44.707367-06:00",
       "state": "answered",
       "claim": "c0f7e64841fcd6e2"
+    },
+    {
+      "id": 33,
+      "card": "DCSN6",
+      "from": "user",
+      "action": "choose",
+      "option": "B",
+      "at": "2026-11-14T00:10:58.631476-06:00",
+      "state": "answered",
+      "claim": "7f0419b5ec43fc3b"
+    },
+    {
+      "id": 34,
+      "card": "DCSN7",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-14T00:18:20.500924-06:00",
+      "state": "answered",
+      "claim": "008f7f6d384616da"
+    },
+    {
+      "id": 35,
+      "card": "DCSN8",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-14T00:19:17.687161-06:00",
+      "state": "answered",
+      "claim": "e46562947871aebd"
+    },
+    {
+      "id": 36,
+      "card": "PLAN3",
+      "from": "user",
+      "action": "approve-plan",
+      "at": "2026-11-14T00:23:08.084748-06:00",
+      "state": "answered",
+      "claim": "38b2c2445fafc549"
     }
   ],
   "planned_history": [

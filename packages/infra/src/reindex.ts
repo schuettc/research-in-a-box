@@ -31,6 +31,7 @@ export class Reindex extends Construct {
         CATALOG_TABLE_B: archive.catalogTables.b.tableName,
         ACTIVE_CATALOG_PARAMETER: archive.activeCatalogParameter.parameterName,
         ALERT_TOPIC_ARN: archive.alertTopic.topicArn,
+        ARCHIVE_CONFIG_PARAMETER: archive.archiveConfigParameter.parameterName,
       },
     });
     this.alias = new lambda.Alias(this, "Live", { aliasName: "live", version: fn.currentVersion });
@@ -43,7 +44,11 @@ export class Reindex extends Construct {
     }
     archive.activeCatalogParameter.grantRead(fn);
     archive.activeCatalogParameter.grantWrite(fn);
+    archive.archiveConfigParameter.grantRead(fn);
     archive.alertTopic.grantPublish(fn);
+    if (archive.embeddings) {
+      archive.grantEmbedding(fn);
+    }
     // Starting a bulk operation is authorized on the account, not on a table.
     fn.addToRolePolicy(
       new iam.PolicyStatement({ actions: ["dynamodb:StartBulkOperation"], resources: ["*"] }),

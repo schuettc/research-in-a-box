@@ -1,4 +1,4 @@
-import { Stack } from "aws-cdk-lib";
+import { type CfnElement, Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import type { CfnTable } from "aws-cdk-lib/aws-dynamodb";
 import type { CfnAlias } from "aws-cdk-lib/aws-lambda";
@@ -143,4 +143,63 @@ test("it may write the catalog file and nothing else under site/", () => {
   expect(writes).toHaveLength(1);
   expect(JSON.stringify(writes[0]!.Resource)).toContain("/site/catalog.json");
   expect(JSON.stringify(writes[0]!.Resource)).not.toContain("/site/*");
+});
+
+function grantedActions(t: Template, id: string): string[] {
+  const role = (t.toJSON().Resources[id].Properties.Role as { "Fn::GetAtt": string[] })[
+    "Fn::GetAtt"
+  ][0];
+  return Object.values(
+    t.findResources("AWS::IAM::Policy", { Properties: { Roles: [{ Ref: role }] } }),
+  ).flatMap((p) =>
+    (
+      p as { Properties: { PolicyDocument: { Statement: { Action: string | string[] }[] } } }
+    ).Properties.PolicyDocument.Statement.flatMap((s) =>
+      Array.isArray(s.Action) ? s.Action : [s.Action],
+    ),
+  );
+}
+
+test("the reindex may call Bedrock only with the embeddings module", () => {
+  const embedded = new Stack(testApp(), "E");
+  new ResearchArchive(embedded, "Archive", {
+    config: {
+      publisher: "P",
+      infrastructure: {
+        alertEmail: "a@example.org",
+        stages: [{ name: "prod" }],
+        modules: { embeddings: {} },
+      },
+    },
+    stage: "prod",
+  });
+  const withModule = Template.fromStack(embedded);
+  const id = Object.keys(
+    withModule.findResources("AWS::Lambda::Function", {
+      Properties: { Handler: "archive_backend.reindex.handler" },
+    }),
+  )[0] as string;
+
+  expect(grantedActions(withModule, id)).toContain("bedrock:InvokeModel");
+  expect(grantedActions(template, reindexFunction().id)).not.toContain("bedrock:InvokeModel");
+});
+
+test("the reindex is told the archive-config parameter and may read it", () => {
+  const { id, properties } = reindexFunction();
+  const configParameter = stack.getLogicalId(
+    archive.archiveConfigParameter.node.defaultChild as CfnElement,
+  );
+
+  expect(
+    (properties.Environment as { Variables: Record<string, unknown> }).Variables
+      .ARCHIVE_CONFIG_PARAMETER,
+  ).toEqual({ Ref: configParameter });
+  const role = (template.toJSON().Resources[id].Properties.Role as { "Fn::GetAtt": string[] })[
+    "Fn::GetAtt"
+  ][0];
+  const policies = JSON.stringify(
+    template.findResources("AWS::IAM::Policy", { Properties: { Roles: [{ Ref: role }] } }),
+  );
+  expect(grantedActions(template, id)).toContain("ssm:GetParameter");
+  expect(policies).toContain(configParameter);
 });

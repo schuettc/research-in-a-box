@@ -3,6 +3,7 @@
 
 export type Access = ("open" | "restricted" | "by-request" | "description-only")[];
 export type Alertemail = string;
+export type Model = "amazon.titan-embed-text-v2:0";
 export type Retentiondays = number;
 export type Waf = boolean;
 export type Monthlybudgetusd = number;
@@ -52,8 +53,15 @@ export interface Infrastructure {
  * The optional parts, each built only when switched on.
  */
 export interface Modules {
+  embeddings?: Embeddings | null;
   objectLock?: ObjectLock | null;
   waf?: Waf;
+}
+/**
+ * Semantic search: an embedding on each dataset item and a vector index to search them.
+ */
+export interface Embeddings {
+  model?: Model;
 }
 /**
  * Write-once locking of the archive bucket, in governance mode.

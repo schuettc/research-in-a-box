@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/api-and-search` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 to write** → **Build · 6 of 6** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 6 of 11** → Sign off
 
-PLAN1 built · PLAN3 can be written now
+PLAN1 built · PLAN3 building · 0 of 5 done
 
 ## Pick up next
 
@@ -31,6 +31,9 @@ PLAN1 built · PLAN3 can be written now
 - **DCSN3 Optional usage form.** Should the optional 'who are you and how will you use this' form be built now, or later? The user chose B: Now.
 - **DCSN4 How the API is built.** Should the endpoints be one Lambda using Powertools' router, or one Lambda per endpoint? The user chose A: One API Lambda with Powertools' REST router.
 - **DCSN5 Keep or drop PLAN2.** Plan 7 now owns the submission and review endpoints. Should PLAN2 be dropped? The user chose A: Drop PLAN2.
+- **DCSN6 Semantic search now or later.** Should PLAN3 build semantic search now, or first fix keyword search and add semantic search once the search page has real readers? The user chose B: Fix keyword search and build semantic search now.
+- **DCSN7 Embedding model.** Which Bedrock model should turn datasets and searches into vectors: Amazon Titan Text Embeddings v2 or Cohere Embed v4? The user chose A: Amazon Titan Text Embeddings v2.
+- **DCSN8 Merging keyword and semantic.** How should /api/search combine the keyword matches and the semantic matches into one list? The user chose A: Reciprocal rank fusion.
 - **AGNT1 Reads from the active table.** `GET /api/datasets/{id}`, `GET /api/datasets/{id}/versions` and `GET /api/datasets/{id}/versions/{version}` read the active catalog table (the version item already holds the manifest text, plus the file items). Finding datasets is search's job (DCSN1), not a separate list endpoint. The user kept it.
 - **AGNT2 One catalog writer.** One function in archive-backend builds the catalog file from the active catalog table and writes it to the derived bucket's `site/`. The reindex calls it after it flips the table; Plan 7's publish step calls the same function later. The user kept it.
 - **AGNT3 Catalog fields.** One row per published dataset, every access level: id, current version, title, description, keywords, access, license ids and rights status, project, creators, resource formats, temporal start, end and ongoing, the bounding box (west, south, east, north), total bytes and published date. Theme and species facets join when the contract holds those fields: Plan 2's follow-ups PARK5 (archive:themes) and PARK6 (taxonomic coverage), timing yours. The user kept it.
@@ -42,21 +45,26 @@ PLAN1 built · PLAN3 can be written now
 - **AGNT9 Link lifetime.** Five minutes: long enough to start a large download, short enough that a shared link stops working. The user kept it.
 - **AGNT10 Usage form shape.** Three optional answers, no sign-in needed and no email or name asked: what kind of organisation (university, government, nonprofit, company, individual, other), what the data is for (research, teaching, policy or management, commercial, personal, other), and a free-text note of up to 500 characters. `POST /api/datasets/{id}/usage` stores them in a new UsageResponses table Plan 6 adds (key `datasetId`, sort `&lt;month>#&lt;uuid>`), and `GET /api/admin/usage?dataset=&lt;id>` lets the admin group read them. The question list is fixed in the contract, not set in the config. The user kept it.
 - **AGNT11 Config read from SSM.** Through the SSM parameter `/research-archive/&lt;stage>/archive-config` that Plan 7's spec has the CDK app write at synth from the validated archive.yaml. PLAN1's Lambdas need nothing from it yet; PLAN3's embeddings setting will be read the same way. The user kept it.
+- **AGNT12 Embeddings off by default.** A new optional module in the archive config, `infrastructure.modules.embeddings` with the model id, off by default like WAF and write-once locking. Switched on, the construct adds the vector index to both catalog tables and grants Bedrock; the API reads the setting from the archive-config parameter. Off, search is the improved keyword search alone. The user kept it.
+- **AGNT13 How many semantic matches.** SearchVectors asks for the 50 nearest (the service allows at most 100), the search's filters (access, licence, format, project, dates, box) are applied to them in the Lambda as they are to keyword matches, and the merged list is paged as today. The total counts the merged list. The user kept it.
+- **AGNT14 Vector index shape.** One index, `datasets`, on both catalog tables: attribute `embedding` on the dataset's META item (a list of 1,024 numbers from Titan v2, normalised), COSINE distance, KEYS_ONLY projection, and no vector partition key. Each archive has its own tables, so the whole index is one archive, which is how 'one partition key per archive' in the handoff is met. The user kept it.
+- **AGNT15 When Bedrock fails.** The keyword results alone, with a warning in the function's log, so the reader still gets a page. Errors on reindex or publish stop that run, as any other failed step does. The user kept it.
 
 ## Spec
 
 - [Goal](spec.md#goal): rests on the understanding
-- [The plans](spec.md#the-plans): rests on DCSN5, DCSN1
+- [The plans](spec.md#the-plans): rests on DCSN5, DCSN1, DCSN6
 - [Endpoints](spec.md#endpoints): rests on DCSN4, AGNT1, AGNT8
-- [Search](spec.md#search): rests on DCSN1, AGNT2, AGNT3, AGNT4
+- [Search](spec.md#search): rests on DCSN1, AGNT2, AGNT3, AGNT4, DCSN6
+- [Semantic search](spec.md#semantic-search): rests on DCSN6, DCSN7, DCSN8, AGNT12, AGNT13, AGNT14, AGNT15, AGNT11
 - [Restricted downloads](spec.md#restricted-downloads): rests on DCSN2, AGNT9
 - [Download counts](spec.md#download-counts): rests on AGNT7
 - [Usage form](spec.md#usage-form): rests on DCSN3, AGNT10
 - [Sign-in for the CLI and MCP server](spec.md#sign-in-for-the-cli-and-mcp-server): rests on AGNT5
 - [How it is built](spec.md#how-it-is-built): rests on DCSN4, AGNT6, AGNT11
-- [Risk and cost](spec.md#risk-and-cost): rests on DCSN2, DCSN4
+- [Risk and cost](spec.md#risk-and-cost): rests on DCSN2, DCSN4, DCSN7
 - [Left out](spec.md#left-out): rests on DCSN5, DCSN3, AGNT5
-- [How we'll know it works](spec.md#how-well-know-it-works): rests on DCSN1, DCSN2, DCSN3, DCSN4
+- [How we'll know it works](spec.md#how-well-know-it-works): rests on DCSN1, DCSN2, DCSN3, DCSN4, DCSN6, DCSN8
 
 ## Plans
 
@@ -67,7 +75,12 @@ PLAN1 built · PLAN3 can be written now
   - TASK4 Task 4: The infrastructure: done. 17f937d plus review fixes 8ab0e43, 1e70452, 6fa02b8; merged as research-in-a-box#22 (6608bba), CI python and typescript pass
   - TASK5 Task 5: The test deploy: done. ResearchArchive-test deployed from main and walked: reindex wrote catalog.json, search filters and facets right, reads, restricted link (checksum match, traversal 404, signed-out 401), invited sign-in, usage form and admin read, rollup counted once; search warm median 0.14 s, after idle 2.81 s (PARK3); destroyed with nothing left
   - TASK6 Task 6: Invitation-only accounts: done. 2989c53: selfSignUpEnabled false (synth test RED then GREEN), just invite-user, Decision log row; just check exit 0; merged as research-in-a-box#26 (aa90504)
-- PLAN3 Semantic search: can be written now
+- [PLAN3](plans/3-semantic-search.md) Ranked keyword search and semantic search: building · 0 of 5 done
+  - TASK7 Task 7: Ranked keyword matching: not started
+  - TASK8 Task 8: The embeddings setting and the shared function: not started
+  - TASK9 Task 9: Semantic results in /api/search: not started
+  - TASK10 Task 10: The vector index and permissions: not started
+  - TASK11 Task 11: The test deploy: not started
 
 ## Steps
 

@@ -1,7 +1,9 @@
+import { Stack } from "aws-cdk-lib";
 import type * as apigateway from "aws-cdk-lib/aws-apigateway";
 import type * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import type * as cognito from "aws-cdk-lib/aws-cognito";
 import type * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as iam from "aws-cdk-lib/aws-iam";
 import type * as lambda from "aws-cdk-lib/aws-lambda";
 import type * as s3 from "aws-cdk-lib/aws-s3";
 import type * as sns from "aws-cdk-lib/aws-sns";
@@ -24,6 +26,9 @@ import { Web } from "./web";
 // The standard tier's limit on a parameter's value.
 const MAX_CONFIG_BYTES = 4096;
 
+/** The embeddings module's one model, as the contract's `Embeddings.model` allows. */
+const EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0";
+
 export interface ResearchArchiveProps {
   readonly config: ArchiveConfig;
   readonly stage: string;
@@ -31,6 +36,8 @@ export interface ResearchArchiveProps {
 
 export class ResearchArchive extends Construct {
   readonly isProd: boolean;
+  /** Whether `infrastructure.modules.embeddings` switches semantic search on. */
+  readonly embeddings: boolean;
   readonly stagingBucket: s3.Bucket;
   readonly archiveBucket: s3.Bucket;
   readonly derivedBucket: s3.Bucket;
@@ -99,7 +106,12 @@ export class ResearchArchive extends Construct {
     this.archiveBucket = storage.archiveBucket;
     this.derivedBucket = storage.derivedBucket;
 
-    const tables = new Tables(this, "Tables", { stage: props.stage, isProd: this.isProd });
+    this.embeddings = infrastructure.modules?.embeddings != null;
+    const tables = new Tables(this, "Tables", {
+      stage: props.stage,
+      isProd: this.isProd,
+      embeddings: this.embeddings,
+    });
     this.catalogTables = tables.catalogTables;
     this.activeCatalogParameter = tables.activeCatalogParameter;
     this.submissions = tables.submissions;
@@ -152,12 +164,32 @@ export class ResearchArchive extends Construct {
       stage: props.stage,
     }).usageResponses;
     this.operations.addTables([this.usageResponses]);
+    if (this.embeddings) {
+      this.operations.addSemanticFallback(props.stage);
+    }
 
     this.reindexFunction = new Reindex(this, "Reindex", { archive: this }).alias;
 
     const ingest = new Ingest(this, "Ingest", { archive: this, stage: props.stage });
     this.ingestFunction = ingest.alias;
     this.curatorTopic = ingest.curatorTopic;
+  }
+
+  /** Let the function call Titan Text Embeddings v2, the embeddings module's model. */
+  grantEmbedding(fn: lambda.Function): void {
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          Stack.of(this).formatArn({
+            service: "bedrock",
+            account: "",
+            resource: "foundation-model",
+            resourceName: EMBEDDING_MODEL,
+          }),
+        ],
+      }),
+    );
   }
 
   /** A Python Lambda from archive-backend, built the way the archive's own are, with its alarm. */
