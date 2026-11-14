@@ -4,9 +4,36 @@
 
 `research-archive-in-a-box/femc-findings-report` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 0 of 4** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → ✓ Build → ✓ Sign off
 
-PLAN1 building · 0 of 4 done
+Signed off 2026-11-14 10:04.
+
+PLAN1 built
+
+## Wrap-up
+
+### The FEMC report is written and ready for Court to send.
+
+#### How it works now
+
+The report sits on Court's machine in `practice-data/report/`: `femc-report.pdf` to attach to an email, `femc-report.md` to edit, `notes.md` with the source and command behind every claim, and `ozone-after/`, the Ozone package filled only from FEMC's own pages. It covers the handoff's eight sections, from what FEMC does well through the findings in ten datasets to the bulk-export request in section 8. Nothing from it is committed to the public repo. To change it, edit the Markdown and re-render with pandoc and Chrome as the sign-off card describes.
+
+#### Results
+
+- The report, its evidence notes and the Ozone before-and-after, uncommitted in practice-data/report/: PLAN1
+- The approved spec and plan: PLAN1, schuettc/research-in-a-box#36
+
+#### Different from the plan
+
+The claim review ran on Claude Opus rather than the other model family, because Codex had reached its usage limit; it found one overstated claim and several broader sentences, all fixed. Plan 6's search numbers aren't quoted, since its record of the searches isn't on main yet. Filling Ozone from FEMC's own sources moved its score only from 76 to 77, and the report makes that its section 4 point.
+
+## Pick up next
+
+- **PARK1 Fill the contact's name:** Replace [CONTACT NAME] in practice-data/report/femc-report.md and re-render the PDF before sending.
+- **PARK2 Wire EML and DataCite into publish:** archive_contract.exports has EML and DataCite writers with no caller; publish (Plan 7) could write them beside each version so the report's section 5 row becomes true. Belongs to Plan 7's owner.
+- **PARK3 Quote Plan 6's search test:** Once Plan 6's record of its 22 searches is on main, the Camels Hump finding can cite it.
+- **PARK4 Audit the whole archive:** If FEMC agrees to a bulk export, run the same audit over every record and send them the results.
+- **PARK5 Commit the report after FEMC sees it:** Once FEMC has read it and agrees, a version of the report could be committed.
 
 ## What was asked
 
@@ -39,11 +66,11 @@ PLAN1 building · 0 of 4 done
 
 ## Plans
 
-- [PLAN1](plans/1-write-the-femc-report.md) Write the FEMC report: building · 0 of 4 done
-  - TASK1 Task 1: The evidence notes: not started
-  - TASK2 Task 2: The Ozone after-package: not started
-  - TASK3 Task 3: The report: not started
-  - TASK4 Task 4: Review and the PDF: not started
+- [PLAN1](plans/1-write-the-femc-report.md) Write the FEMC report: built
+  - TASK1 Task 1: The evidence notes: done. practice-data/report/notes.md: six findings and six strengths traced; audit re-run (exit 0) matches Plan 5 on all ten rows and rule totals; Plan 6's search record not on main, so not quoted; aerial survey count taken from the converter (29), not the handoff (14)
+  - TASK2 Task 2: The Ozone after-package: done. practice-data/report/ozone-after/: creators filled from FEMC's citation and project record (2 changes.jsonl lines); diagnose exit 0 with no structure findings; audit errors 3 → 2, score 76 → 77; the remaining gaps (methods, coverage, 14 units, 7 descriptions, species code list) listed in notes.md
+  - TASK3 Task 3: The report: done. practice-data/report/femc-report.md: eight sections (grep exit 0, 8), about 2,400 words; claims checked against notes.md and main (Plan 7 ingest and pages, Plan 6 usage form and download counts); three unsupported phrases cut on my own pass; git status shows nothing from practice-data
+  - TASK4 Task 4: Review and the PDF: done. Review by claude-bridge/claude-opus-5-5 (Codex at its usage limit): 9 of 10 claims held, 1 overstated (EML/DataCite export at publish); that row, the Camels Hump search claim, the units count (3 are ID columns), the structure-check and config sentences, the cost line and 8 tone points fixed; notes.md corrected (researchProject in 3 records). pandoc exit 0, Chrome print exit 0: femc-report.pdf, 7 pages, checked by eye; git status clean
 
 ## Files
 
@@ -53,6 +80,7 @@ PLAN1 building · 0 of 4 done
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `wrap-up.md` | the agent, header by diazo | What was built, how it works now, and what went differently from the plan. |
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 
