@@ -951,9 +951,8 @@
       "from": "user",
       "action": "approve-spec",
       "at": "2026-11-13T22:34:38.131542-06:00",
-      "state": "sent",
-      "claim": "9db2d2b1213c16eb",
-      "held": true
+      "state": "answered",
+      "claim": "9db2d2b1213c16eb"
     }
   ],
   "planned_history": [
