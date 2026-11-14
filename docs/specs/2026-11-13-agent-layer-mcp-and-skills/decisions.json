@@ -2,21 +2,572 @@
   "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
   "schema": 4,
   "title": "Agent layer (Plan 9)",
-  "agent_at": "2026-11-13T21:11:14.52533Z",
+  "expect": 3,
+  "working": {
+    "text": "Committing the approved spec and its Decision log rows, then writing PLAN1",
+    "since": "2026-11-14T00:50:15.197887-06:00"
+  },
+  "agent_at": "2026-11-14T06:50:15.197887Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 3, the quality rules and local tool, and Plan 6, the API and search.)\n\nBrief: Plan 9 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the agent layer (Plan 9): an MCP server, a Claude Code plugin and the skills for researchers and curators. Generative work happens only in the user's own Claude. Plan the tools first, then each skill's steps, and take the open questions with me one at a time."
+    },
+    "findings": [
+      {
+        "text": "Plan 9's brief asks for an MCP server (search, fetch, validate, submit, sign-in), a Claude Code plugin bundling it with skills, six skills (prepare, submit, find and use, rescue, review submission, audit and backfill), and a GitHub Action (validate on push, publish on release). Open questions: where the MCP server runs, how rescue records provenance from scanned documents, and what skills do when the archive is unreachable.",
+        "source": "docs/planning-handoff.md (origin/main), Plan 9 brief",
+        "cases": "1 brief"
+      },
+      {
+        "text": "The quality rules live in cruise.rules, which imports without the CLI. The MCP server is meant to run the same rules by depending on cruise as a library.",
+        "source": "docs/planning-handoff.md Decision log, 2026-11-13 row for Plans 3, 7, 9",
+        "cases": "1 decision"
+      },
+      {
+        "text": "cruise has only two commands, diagnose and audit. tidy and package (Plan 3's PARK3) and inventory and profile (PARK4) were deferred until diagnose had been used on real data. So nothing yet turns a raw folder into a package.",
+        "source": "git ls-tree origin/main packages/tool; Plan 3 README follow-ups PARK3, PARK4",
+        "output": "packages/tool/src/cruise/{audit,cli,diagnose,score,tables}.py and rules/",
+        "cases": "2 commands"
+      },
+      {
+        "text": "The read API is built: GET /api/search, /api/datasets/{id}, its versions, one version, /api/projects/{id}, a download link per file (sign-in for restricted files), and the optional usage form.",
+        "source": "packages/backend/src/archive_backend/api.py:339-482 (origin/main)",
+        "cases": "8 routes"
+      },
+      {
+        "text": "Sign-in for the CLI and MCP server is settled: authorization code with PKCE through Plan 4's cli client, a browser opened to Cognito's managed login, a listener on http://localhost:8765/callback, one-hour access and ID tokens kept and the refresh token thrown away. Plan 6 left the client code to Plan 9, its first user.",
+        "source": "docs/specs/2026-11-13-api-and-search/spec.md:70-74; packages/infra/src/auth.ts:68",
+        "cases": "1 decision"
+      },
+      {
+        "text": "Plan 7's submission endpoints are designed and 6 of 7 build tasks are done: create a submission with each file's size and SHA-256 and get presigned PUT URLs, upload, submit, read status with findings and events, list your own or a curator's queue, and a curator's approve, reject or request-changes. Plan 7 says the submitting clients (CLI and MCP) belong to Plan 9.",
+        "source": "docs/specs/2026-11-13-ingest-review-and-access-workflows/spec.md:47-55, 128-135, 172; its README: Build 6 of 7",
+        "cases": "7 routes"
+      },
+      {
+        "text": "No public way exists yet for a client to learn the archive's Cognito domain and its cli client id: the stack's only CfnOutput is the reindex function, and the site publishes no auth config. Settled with the coordinating session: Plan 9 owns the fix, a public, cacheable /auth-config.json on the site (region, Cognito domain, web and cli client ids) written at deploy from the construct's own values, so a client needs only the archive URL. Plan 8's web app will read the same file. It goes in the handoff's Decision log with the spec.",
+        "source": "git grep CfnOutput origin/main -- packages; muster thread #959",
+        "output": "Plan 9 owns it, as the first plan that needs it; Plan 8 hasn't started and has designed nothing. The static file is the right shape: /auth-config.json on the site, with region, Cognito domain, and the web and cli client ids",
+        "cases": "1 stack"
+      },
+      {
+        "text": "Two follow-ups elsewhere already hand judgment calls to the agent layer: Plan 3's PARK2 (a grid id column with no grid described) is for an agent, not a rule.",
+        "source": "Plan 3 README, PARK2",
+        "cases": "1 follow-up"
+      },
+      {
+        "text": "The coordinating session asks every plan to keep it small: build on Plans 1 to 4, plan only what the brief needs to work end to end now, and put the rest in follow-ups. Its view on scope matches round 1: a first version without prepare.",
+        "source": "notes from the coordinating session, 2026-11-13 and 2026-11-14",
+        "cases": "2 notes"
+      }
+    ],
+    "rounds": [
+      {
+        "take": "**What we have to stand on.** Searching and reading the archive, downloading, the checks (`cruise diagnose`), sign-in's design and the submission endpoints are all built or nearly built. What is missing is the client that ties them together for Claude, and two pieces of the brief rest on things nobody has built yet:\n\n- **Prepare dataset** from a raw folder needs `cruise package` and `cruise tidy`, which Plan 3 deferred (its PARK3). Without them an agent would hand-write `datapackage.json`, and the checks would stop being deterministic code.\n- **Audit and backfill** writes metadata fixes into published datasets, which needs Plan 7's in-place metadata edits (its PARK6), also not built.\n- **Rescue data** (values read from scanned documents) and the **GitHub Action**'s publish-on-release (which needs a machine sign-in, since our sign-in is a person in a browser) have no real case yet.\n\n**My take.** Build the agent layer for the three jobs that work end to end on what exists, and make the other three follow-ups that unlock when their foundation lands:\n\n1. **Find and use data** (anyone): search, read a dataset's columns and citation, download open files, and get a short-lived link to a restricted one once signed in.\n2. **Submit a dataset** (researcher): run `diagnose` on a package folder, have Claude draft what the findings ask for (column descriptions, a license, coverage) for the person to approve, write the approved text into the manifest, diagnose again, then submit and follow the submission's status. This covers most of \"prepare\" for a folder that is already a package.\n3. **Review a submission** (curator): read the queue, a submission's findings and what changed, have Claude summarise and flag the judgment calls the rules can't make (such as Plan 3's grid-id case), and send approve, reject or request changes with a note the curator approves.\n\nThe pieces: one local MCP server in Python (a new uv workspace package that depends on `cruise` and `archive-contract`), about nine tools, a Claude Code plugin that bundles it with those three skills, and nothing on the server side except one thing the sign-in needs: a way for a client to learn the archive's sign-in address, which I'll take to the coordinating session since Plan 8 needs it too.\n\nWhere the MCP server runs, how the skills behave offline, and the exact tool list are decisions for after we agree on this direction.",
+        "visuals": [
+          {
+            "kind": "mermaid",
+            "caption": "What the first plan builds (solid) on what exists, and what waits (dashed)",
+            "mermaid": "flowchart LR\n  subgraph Claude[The user's own Claude]\n    S1[Skill: find and use]\n    S2[Skill: submit a dataset]\n    S3[Skill: review a submission]\n    MCP[Local MCP server]\n  end\n  S1 --\u003e MCP\n  S2 --\u003e MCP\n  S3 --\u003e MCP\n  MCP --\u003e CR[cruise diagnose\u003cbr/\u003eas a library]\n  MCP --\u003e RA[Read API\u003cbr/\u003ePlan 6, built]\n  MCP --\u003e SUB[Submissions API\u003cbr/\u003ePlan 7, 6 of 7]\n  MCP --\u003e COG[Cognito sign-in\u003cbr/\u003ePKCE, localhost:8765]\n  P[Skill: prepare from a raw folder] -.-\u003e PK[cruise package and tidy\u003cbr/\u003ePlan 3 PARK3]\n  AB[Skill: audit and backfill] -.-\u003e ME[In-place metadata edits\u003cbr/\u003ePlan 7 PARK6]\n  RS[Skill: rescue data] -.-\u003e RC[A real case]\n  GA[GitHub Action publish] -.-\u003e MS[A machine sign-in]"
+          },
+          {
+            "kind": "table",
+            "caption": "The brief's six skills and the Action, against what each needs",
+            "table": {
+              "columns": [
+                "Piece",
+                "Needs",
+                "Exists today?",
+                "Take"
+              ],
+              "rows": [
+                [
+                  "Find and use data",
+                  "Read API, download links, sign-in",
+                  "Yes (Plan 6), sign-in client to build",
+                  "First plan"
+                ],
+                [
+                  "Submit a dataset",
+                  "cruise diagnose, submissions API, sign-in",
+                  "Yes, Plan 7 at 6 of 7",
+                  "First plan"
+                ],
+                [
+                  "Review a submission",
+                  "Submissions queue and decision routes",
+                  "Yes, Plan 7 at 6 of 7",
+                  "First plan"
+                ],
+                [
+                  "Prepare from a raw folder",
+                  "cruise package and tidy",
+                  "No, Plan 3 PARK3",
+                  "Follow-up"
+                ],
+                [
+                  "Audit and backfill",
+                  "cruise audit, in-place metadata edits",
+                  "Audit yes, edits no (Plan 7 PARK6)",
+                  "Follow-up"
+                ],
+                [
+                  "Rescue data",
+                  "Provenance for values from scans",
+                  "No real case yet",
+                  "Follow-up"
+                ],
+                [
+                  "GitHub Action",
+                  "validate: cruise diagnose; publish: machine sign-in",
+                  "Validate yes, publish no",
+                  "Follow-up"
+                ]
+              ],
+              "sample": ""
+            }
+          }
+        ],
+        "recommendation": "Build a local MCP server and plugin with three skills that work end to end now (find and use, submit with Claude drafting the fixes, review a submission); make prepare-from-a-raw-folder, audit and backfill, rescue data and the GitHub Action follow-ups that unlock when cruise package, in-place metadata edits and a real case arrive."
+      }
+    ],
+    "direction": {
+      "round": 1,
+      "at": "2026-11-14T00:35:17.275349-06:00",
+      "by": "user"
     }
   },
   "understanding": {
-    "points": null,
-    "confirmed": false
+    "points": [
+      {
+        "kind": "outcome",
+        "text": "Someone using Claude Code can find and use data, submit a dataset, and review a submission without the web app, through a plugin that bundles an MCP server with three skills: find and use data, submit a dataset, and review a submission.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "The submit skill runs cruise diagnose on a folder that is already a package; Claude drafts what the findings ask for (column descriptions, a license, coverage), the person approves each draft, the approved text goes into the manifest, diagnose runs again, then the package is submitted and its status followed.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "The review skill lets a curator read the queue and a submission, including its held files, has Claude summarise it and flag the judgment calls the rules can't make, and sends approve, reject or request changes with a note the curator has approved.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "Clients learn the archive's sign-in details from a public /auth-config.json on the site (region, cognitoDomain, webClientId, cliClientId), which Plan 8 writes at deploy and Plan 9 reads, so a client needs only the archive URL.",
+        "source": "assumed"
+      },
+      {
+        "kind": "constraint",
+        "text": "No generative AI runs on the archive's servers: all drafting and summarising happens in the user's own Claude. Agents propose and a person approves; nothing is written into a manifest or sent to the archive without the person's yes.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Every route uses the same validator: the checks are cruise.rules as a library, the same code Plan 7's ingest runs. The agent handles judgment only.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Sign-in is Plan 6's design: authorization code with PKCE through the cli client, the browser opened to managed login, a listener on localhost:8765, one-hour tokens only and no refresh token. Accounts are by invitation.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Build on Plans 1 to 8 and rebuild none of them. Prepare from a raw folder, audit and backfill, rescue data and the GitHub Action are follow-ups that unlock when cruise package and tidy, in-place metadata edits and a real case arrive.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Plan 9's build waits on Plan 7's PLAN1 merging and deployed (its build is at 6 of 7), on Plan 7's curator route GET /api/submissions/{id}/files, and, for the live test, on Plan 8's site deployment writing /auth-config.json.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "On a deployed test stage, from Claude Code with the plugin installed: sign in, search and fetch a published dataset, download an open file and a restricted one, diagnose the sample package, apply approved fixes, submit it, see it reach review, read it and decide it as a curator, ending published.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "The MCP tools have unit tests with the archive's HTTP calls stubbed, and the plugin installs from the repo with one command.",
+        "source": "assumed"
+      }
+    ],
+    "confirmed": true
   },
-  "decisions": [],
-  "calls": [],
+  "decisions": [
+    {
+      "id": "DCSN1",
+      "name": "Where the MCP server runs",
+      "question": "Where should the MCP server run: on the user's own machine, as a Lambda in the archive, or both?",
+      "example": "A researcher asks Claude to check ~/data/stream-temps before submitting it. A server on their machine can read that folder and open their browser to sign in; a Lambda can't see the folder at all, so the files would have to be uploaded first just to be checked.",
+      "options": [
+        {
+          "id": "A",
+          "title": "On the user's machine only",
+          "includes": "A Python stdio MCP server in packages/agent, started by Claude Code from the plugin. It runs cruise diagnose on local folders, signs in through the browser on localhost:8765, and calls the archive's API over HTTPS.",
+          "pulls_in": "uv on the user's machine (already needed for cruise). Clients that can't start a local process, such as claude.ai in a browser, can't use it."
+        },
+        {
+          "id": "B",
+          "title": "As a Lambda in the archive only",
+          "includes": "A remote MCP endpoint under /api/mcp, behind the API's authorizer, for search, fetch and decide.",
+          "pulls_in": "An OAuth flow for remote MCP clients, new infrastructure in the construct, and no way to diagnose or upload local folders, which the submit skill needs. More server surface in every adopter's account."
+        },
+        {
+          "id": "C",
+          "title": "Both",
+          "includes": "A and B, sharing tool code.",
+          "pulls_in": "Everything in B, plus two ways to run and test each tool. No real user has asked for a remote endpoint."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "The submit skill works on files on the user's machine and sign-in is designed around a browser on the same machine (localhost:8765). A local server does both with no new infrastructure; a remote endpoint can follow when a client that can't run local processes is actually used.",
+        "evidence": [
+          {
+            "text": "Sign-in for the CLI and MCP server listens on localhost",
+            "source": "docs/specs/2026-11-13-api-and-search/spec.md:72",
+            "output": "they open the browser to Cognito's managed login and listen on `http://localhost:8765/callback`"
+          },
+          {
+            "text": "Plan 1 reserved a folder for it and left the choice to Plan 9",
+            "source": "docs/specs/2026-11-12-repo-layout-and-conventions/spec.md:35,45",
+            "output": "agent/           the plugin, MCP server and skills (Plan 9) ... Where the MCP server sits inside `agent/` is Plan 9's call."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    },
+    {
+      "id": "DCSN2",
+      "name": "Writing approved fixes",
+      "question": "When the person approves a fix Claude drafted, how does it get into datapackage.json?",
+      "example": "diagnose says the column water_temp has no description. Claude drafts \"Water temperature at 30 cm depth, in degrees Celsius\" and the person says yes. Something now has to write that into the field's description in datapackage.json without breaking the manifest.",
+      "options": [
+        {
+          "id": "A",
+          "title": "An edit tool that checks against the contract",
+          "includes": "An MCP tool, edit_manifest(folder, edits), that takes field-level edits (a column's description, the license, coverage, a creator), applies them through the contract's Pydantic models, refuses an edit that would make the manifest invalid, and writes the file. The skill then runs diagnose again.",
+          "pulls_in": "One more tool and its tests. Works the same in any AI client, including ones with no file-editing tools."
+        },
+        {
+          "id": "B",
+          "title": "Claude edits the file itself",
+          "includes": "Claude uses its own file-editing tools on datapackage.json, then the skill runs diagnose, which reports any structure error the edit caused.",
+          "pulls_in": "No new tool. Only works in clients that can edit local files (Claude Code yes, Claude Desktop not without another server). A bad edit is caught after it is written, not before."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "The brief says any AI client, not only Claude Code, and every route should use the same validator. An edit tool that goes through the contract's models keeps the manifest valid at every step and works in clients that can't edit files; it is one small tool.",
+        "evidence": [
+          {
+            "text": "The brief names other AI clients",
+            "source": "docs/planning-handoff.md, Plan 9 Goal",
+            "output": "Anyone using Claude Code, or another AI client, can prepare, submit, find and review data without the web app."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    },
+    {
+      "id": "DCSN3",
+      "name": "When the archive is unreachable",
+      "question": "What should the skills do when the archive can't be reached (no network, the archive down, or the sign-in expired)?",
+      "example": "A researcher on a field station's patchy connection runs the submit skill. diagnose and the drafted fixes need no network, but the upload fails halfway.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Say so and keep the local work",
+          "includes": "Tools that need the archive return a plain error naming the cause (unreachable, signed out, refused). The skill tells the person, keeps everything local (diagnose, fixes written to the folder), and says to run submit again later. A submit that failed part way starts a fresh submission next time.",
+          "pulls_in": "Nothing extra. A half-made draft submission is left in the archive, where Plan 7's staging lifecycle expires its uploads after 30 days."
+        },
+        {
+          "id": "B",
+          "title": "Queue and send later",
+          "includes": "A, plus a local queue of submissions and decisions that the server retries when the archive is back.",
+          "pulls_in": "A state file, retry logic, and a background process or a retry on the next start. No real case of a queued submission yet."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "Everything that needs no network already works without it, and a retry is one command the person runs again. A queue adds state and retry code for a case nobody has hit.",
+        "evidence": [
+          {
+            "text": "Plan 7 expires unfinished uploads on its own",
+            "source": "docs/specs/2026-11-13-ingest-review-and-access-workflows/spec.md:55",
+            "output": "The staging lifecycle rule now expires only `incoming/` after 30 days."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    }
+  ],
+  "calls": [
+    {
+      "id": "AGNT1",
+      "name": "Where the code lives",
+      "question": "Where do the MCP server, skills and plugin files go?",
+      "took": "One folder, packages/agent: a uv workspace package archive-agent (import archive_agent, command archive-mcp) built on the official mcp Python SDK, depending on archive-contract and cruise; beside it skills/, .claude-plugin/plugin.json and .mcp.json, so packages/agent is the plugin. A .claude-plugin/marketplace.json at the repo root lists it.",
+      "instead": "Separate folders for the Python package and the plugin, or a plugin repo of its own.",
+      "why": "Plan 1 reserved agent/ for the plugin, MCP server and skills together, and nothing is published to PyPI or npm.",
+      "evidence": [
+        {
+          "text": "Plan 1's layout",
+          "source": "docs/specs/2026-11-12-repo-layout-and-conventions/spec.md:35",
+          "output": "agent/           the plugin, MCP server and skills (Plan 9)"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT2",
+      "name": "Installing the plugin",
+      "question": "How does a researcher install it?",
+      "took": "/plugin marketplace add schuettc/research-in-a-box, then install the plugin. Its .mcp.json starts the server with uvx from the git repo's packages/agent, the same way cruise installs today.",
+      "instead": "Clone the repo and point Claude Code at a local path.",
+      "why": "The Decision log already installs cruise from git with uv, and the client is the same for every archive (the archive is chosen by URL, AGNT3).",
+      "evidence": [
+        {
+          "text": "cruise installs from git with uv",
+          "source": "docs/planning-handoff.md Decision log, Plan 1 row",
+          "output": "cruise installs from the git repo with uv (`uv tool install \"git+https://github.com/schuettc/research-in-a-box#subdirectory=packages/tool\"`)"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT3",
+      "name": "Choosing the archive",
+      "question": "How does the MCP server know which archive to talk to?",
+      "took": "A connect(url) tool saves the archive's URL to ~/.config/research-in-a-box/archive.json and reads its /auth-config.json. The skills ask for the URL the first time.",
+      "instead": "An ARCHIVE_URL environment variable set in the plugin's settings.",
+      "why": "State on disk, one archive per person for now; nothing else to configure, since the sign-in details come from the archive itself.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT4",
+      "name": "Tokens in memory",
+      "question": "Where are the one-hour tokens kept?",
+      "took": "In the MCP server's memory only. Restarting Claude Code, or an hour passing, means signing in again.",
+      "instead": "A 0600 file under ~/.config, so a restart within the hour keeps you signed in.",
+      "why": "Plan 6 settled short-lived tokens only; memory is the smallest thing that does that, and a sign-in is one browser click while the managed-login session lasts.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT5",
+      "name": "Diagnose as a library",
+      "question": "How do the skills run the checks?",
+      "took": "The diagnose tool calls cruise.diagnose in the MCP server's process and returns its findings, score and verdict as JSON.",
+      "instead": "The skills run cruise diagnose --json in a shell.",
+      "why": "The Decision log says the MCP server runs the same rules by depending on cruise as a library, and a shell isn't available in every AI client.",
+      "evidence": [
+        {
+          "text": "Decision log",
+          "source": "docs/planning-handoff.md, 2026-11-13 row for Plans 3, 7, 9",
+          "output": "the backend and the MCP server run the same rules by depending on cruise as a library."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT6",
+      "name": "The auth config file",
+      "question": "How do clients learn the sign-in details?",
+      "took": "Plan 8 writes /auth-config.json in its site deployment (region, cognitoDomain, webClientId, cliClientId, no-cache); Plan 9 only reads it, with AuthConfig.from_archive(url) in archive-client. Plan 9's live test waits on that deployment.",
+      "instead": "Plan 9 writes the file itself in the construct, as first agreed.",
+      "why": "The coordinating session moved the writing to Plan 8 (muster #959), since Plan 8 adds the site deployment and its own restricted downloads need the file on its first walk. A client still needs only the archive URL.",
+      "evidence": [
+        {
+          "text": "Coordinating session's change of owner",
+          "source": "muster thread #959",
+          "output": "Plan 8 writes it inside that one deployment, with your exact fields (region, cognitoDomain, webClientId, cliClientId), no-cache. You keep AuthConfig.from_archive(url) to read it, and drop the writing from your plan."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT7",
+      "name": "Three skills",
+      "question": "Which skills ship first, and what are they called?",
+      "took": "find-data, submit-dataset and review-submission. Each skill's steps are written in the spec.",
+      "instead": "One skill that covers all three jobs.",
+      "why": "Round 1's direction; one skill per job keeps each skill's trigger and steps short.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT8",
+      "name": "The tool list",
+      "question": "Which MCP tools does the server offer?",
+      "took": "connect, sign_in, search, get_dataset, download, diagnose, edit_manifest (with DCSN2 A), submit, submissions (your list, the queue, or one with its findings and events), submission_files and decide. Each maps to one built route or to cruise. submission_files reads Plan 7's curator route GET /api/submissions/{id}/files (five-minute links to the current round's held files), which Plan 7 adds after its PLAN1 merges; it answers only while a submission is in-review or publishing (409 otherwise), so the review skill reads files only for submissions in review and reports a 409 as not in review.",
+      "instead": "Fewer tools that take a mode argument.",
+      "why": "One tool per action keeps each tool's arguments and the person's approval of it plain. The curator file route was settled with the coordinating session and accepted by Plan 7 (muster #962).",
+      "evidence": [
+        {
+          "text": "Plan 7's acceptance, via the coordinating session",
+          "source": "muster thread #962",
+          "output": "Plan 7 accepted GET /api/submissions/{id}/files, with one limit for your skill. It answers only while the submission is in-review or publishing, and returns 409 otherwise, because held/ exists only then."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT9",
+      "name": "Shared sign-in module",
+      "question": "Where does the browser sign-in code live, now that Plan 10a may build it first for its seed?",
+      "took": "A small uv workspace package, packages/client (archive-client, import archive_client), standard library only. archive_client.signin has AuthConfig (region, cognito_domain, cli_client_id), Tokens (access_token, id_token, expires_at; no refresh token) and sign_in(config) -\u003e Tokens, which Plan 10a builds first. Plan 9 adds AuthConfig.from_archive(url) reading /auth-config.json, and its MCP server imports the package.",
+      "instead": "The sign-in code inside packages/agent, so Plan 10a's seed imports the MCP package (and the MCP SDK) to sign in.",
+      "why": "The coordinating session asked for one shared module that Plan 10a builds first and Plan 9 reuses (muster #966). cruise stays local-first with no network code, archive_contract stays models only, and a stdlib-only package costs the seed nothing.",
+      "evidence": [
+        {
+          "text": "Coordinating session's request",
+          "source": "muster thread #966",
+          "output": "I've asked it to build it once, as the shared module your MCP server and CLI will import, not a copy you move later. It will contact you to agree the location and function name before it prints."
+        }
+      ],
+      "state": "standing"
+    }
+  ],
   "principles": [],
-  "follow_ups": [],
-  "spec": {},
+  "follow_ups": [
+    {
+      "id": "PARK1",
+      "name": "Prepare from a raw folder",
+      "text": "A prepare-dataset skill that turns a raw folder into a package with cruise inventory, profile, tidy and package. Waits on Plan 3's PARK3 and PARK4.",
+      "from": "round 1",
+      "kind": "idea"
+    },
+    {
+      "id": "PARK2",
+      "name": "Audit and backfill",
+      "text": "An audit-and-backfill skill that runs cruise audit over published datasets and proposes metadata fixes. Waits on Plan 7's in-place metadata edits (its PARK6).",
+      "from": "round 1",
+      "kind": "idea"
+    },
+    {
+      "id": "PARK3",
+      "name": "Rescue data",
+      "text": "A rescue-data skill for values read from scanned documents, including how each value's provenance (the page and region it came from) is recorded. The handoff's open question on provenance is settled with it, once a real scanned dataset arrives.",
+      "from": "round 1",
+      "kind": "idea"
+    },
+    {
+      "id": "PARK4",
+      "name": "GitHub Action",
+      "text": "A GitHub Action that runs cruise diagnose on push and publishes on release. Publishing needs a machine sign-in, since today's sign-in is a person in a browser.",
+      "from": "round 1",
+      "kind": "idea"
+    },
+    {
+      "id": "PARK5",
+      "name": "Remote MCP endpoint",
+      "text": "An MCP endpoint in the archive for clients that can't start a local process, when one is actually used.",
+      "from": "DCSN1",
+      "kind": "idea"
+    }
+  ],
+  "spec": {
+    "hash": "c7d973930e8c72872b75e64b65ebf73398839030fd3d1458d83a6c96ba375b40",
+    "sections": [
+      {
+        "id": "SPEC1",
+        "heading": "Goal",
+        "decisions": []
+      },
+      {
+        "id": "SPEC2",
+        "heading": "The three skills",
+        "decisions": [
+          "DCSN2",
+          "AGNT7",
+          "AGNT8"
+        ]
+      },
+      {
+        "id": "SPEC3",
+        "heading": "The MCP server and its tools",
+        "decisions": [
+          "DCSN1",
+          "DCSN3",
+          "AGNT3",
+          "AGNT5",
+          "AGNT8"
+        ]
+      },
+      {
+        "id": "SPEC4",
+        "heading": "Writing approved fixes",
+        "decisions": [
+          "DCSN2"
+        ]
+      },
+      {
+        "id": "SPEC5",
+        "heading": "Sign-in and the archive",
+        "decisions": [
+          "AGNT3",
+          "AGNT4",
+          "AGNT6",
+          "AGNT9"
+        ]
+      },
+      {
+        "id": "SPEC6",
+        "heading": "When the archive is unreachable",
+        "decisions": [
+          "DCSN3"
+        ]
+      },
+      {
+        "id": "SPEC7",
+        "heading": "Where it lives and how it installs",
+        "decisions": [
+          "DCSN1",
+          "AGNT1",
+          "AGNT2"
+        ]
+      },
+      {
+        "id": "SPEC8",
+        "heading": "Risk and cost",
+        "decisions": [
+          "DCSN1",
+          "DCSN2"
+        ]
+      },
+      {
+        "id": "SPEC9",
+        "heading": "Left out",
+        "decisions": [
+          "DCSN1",
+          "DCSN3",
+          "AGNT4"
+        ]
+      },
+      {
+        "id": "SPEC10",
+        "heading": "How we'll know it works",
+        "decisions": [
+          "DCSN1",
+          "DCSN2",
+          "DCSN3",
+          "AGNT2",
+          "AGNT8"
+        ]
+      }
+    ],
+    "approved": {
+      "hash": "c7d973930e8c72872b75e64b65ebf73398839030fd3d1458d83a6c96ba375b40",
+      "at": "2026-11-14T00:50:08.080673-06:00",
+      "body": "# Agent layer: an MCP server, a plugin and three skills\n\n## Goal\n\nSomeone using Claude Code can find and use data, submit a dataset, and review a submission without the web app. A Claude Code plugin bundles a local MCP server with three skills: `find-data`, `submit-dataset` and `review-submission`. The checks are the same `cruise` code the archive's ingest runs. Claude drafts and summarises in the user's own session, and nothing is written into a manifest or sent to the archive until the person says yes. It builds on what Plans 1 to 8 built and rebuilds none of it. Preparing a package from a raw folder, audit and backfill, rescue data and the GitHub Action come later.\n\n## The three skills\n\nEach skill is a `SKILL.md` in the plugin. It tells Claude which tools to call in which order, and where it must stop for the person's yes.\n\n**find-data** (anyone, no sign-in for open data).\n\n1. Ask what the person is looking for, then `search` with the words and any filters they give (access, license, format, project, dates, a bounding box).\n2. Show the matching datasets as a short list: title, years, license, access.\n3. For the one they pick, `get_dataset` and show its description, its columns with their descriptions and units, its license and a citation built from the manifest.\n4. On request, `download` the files they name into a folder they name. A restricted file needs `sign_in` first, and the skill says so before opening the browser.\n\n**submit-dataset** (a member of the `contributor` group).\n\n1. Ask for the package folder and `diagnose` it. Show the verdict, the score and the findings grouped by question, errors first.\n2. For each finding Claude can help with (a missing description, license, coverage, methods or unit), draft the text from what the folder holds (its docs, its column names and values) and show each draft beside the finding. Never invent a fact the folder doesn't support: where it is silent, ask the person.\n3. Apply only the drafts the person approves, with `edit_manifest`, then `diagnose` again and show what changed.\n4. Repeat until no errors are left or the person stops. Warnings may remain; the skill lists them and says they don't block publishing.\n5. With the person's yes, `sign_in` if needed, then `submit`. Show the submission id and its status.\n6. On request later, `submissions` shows the status. When it is `needs-changes`, show the curator's note or the findings, go back to step 2, and `submit` the same submission again for its next round.\n\n**review-submission** (a member of the `curator` group).\n\n1. `sign_in`, then `submissions` with the queue, and show what waits in review, stale ones first.\n2. For the one the curator picks, read it with `submissions` (status, findings, events) and `submission_files`, which gives short-lived links to its files, and read its `datapackage.json` and a sample of each table.\n3. Summarise it: what the data is, how complete the metadata is, the warnings the rules raised, and the judgment calls no rule can make (a column that looks like a location id with no grid described, a license that doesn't fit the stated source, a description that contradicts the values). Each point cites the field, column or row it rests on.\n4. Draft a decision and a note. Show both, and change them as the curator asks.\n5. Only with the curator's yes, `decide`.\n\nRests on: DCSN2, AGNT7, AGNT8\n\n## The MCP server and its tools\n\nOne Python MCP server, run on the user's own machine over stdio and started by Claude Code from the plugin. It holds the archive's URL on disk and the sign-in tokens in memory.\n\n| Tool | What it does | Calls |\n| --- | --- | --- |\n| `connect(url)` | Saves the archive's URL and checks it answers | `GET /auth-config.json` |\n| `sign_in()` | Opens the browser to sign in and returns who you are and your groups | Cognito managed login, PKCE |\n| `search(...)` | One page of matching datasets with facet counts | `GET /api/search` |\n| `get_dataset(id, version?)` | The dataset, its manifest, its files and a citation | `GET /api/datasets/{id}` and its versions |\n| `download(id, version, paths, to)` | Writes files to a local folder and checks each against its hash | `/data/...` for open files, the download link route for restricted ones |\n| `diagnose(folder)` | Findings, score and verdict as JSON | `cruise.diagnose`, in process |\n| `edit_manifest(folder, edits)` | Applies approved edits through the contract (below) | the contract's models |\n| `submit(folder, submission?)` | Creates a submission, or the next round of one, uploads every file and submits | `POST /api/submissions`, `/uploads`, `/submit` |\n| `submissions(id?, queue?)` | Your submissions, the curator queue, or one submission with its findings and events | `GET /api/submissions` and `/{id}` |\n| `submission_files(id)` | Short-lived links to a submission's current files, while it is in review | `GET /api/submissions/{id}/files` (Plan 7) |\n| `decide(id, decision, note)` | Approve, reject or request changes | `POST /api/submissions/{id}/decision` |\n\n`submit` runs `diagnose` first and refuses a package with an error finding, since the archive would send it straight back. It sends every file listed in `checksums.sha256` plus `checksums.sha256` itself, each with its size and SHA-256, so the archive's upload links accept it. A `submit` that fails part way leaves its draft in the archive, where Plan 7's lifecycle expires the uploads, and the next `submit` starts a fresh one.\n\n`submission_files` answers only while a submission is in review or publishing; for any other state the archive answers 409, and the tool says the submission isn't in review.\n\nRests on: DCSN1, DCSN3, AGNT3, AGNT5, AGNT8\n\n## Writing approved fixes\n\n`edit_manifest(folder, edits)` takes a list of edits, each a target and a value. The targets are the metadata the findings ask for: the package's title, description, keywords, licenses, rights status, temporal and spatial coverage, methods and contributors, and a column's title, description and unit (named by resource and column). Resources, paths, column names, types and schemas are not editable through it, so an edit can't change what the data is.\n\nThe tool reads `datapackage.json` into the contract's `Manifest`, applies every edit, and validates the result. If any edit fails, it writes nothing and answers which edit failed and why. Otherwise it writes `datapackage.json`, regenerates `README.md` with the contract's readme export, and rewrites those two files' lines in `checksums.sha256`, so the package stays consistent and `diagnose` finds no stale checksum. Each file is written to a temporary name and moved into place.\n\nRests on: DCSN2\n\n## Sign-in and the archive\n\nThe person names their archive once, with `connect`. The URL is saved in `~/.config/research-in-a-box/archive.json`. The skills ask for it the first time a tool needs it.\n\nSign-in follows the Decision log: authorization code with PKCE through the `cli` client, the browser opened to Cognito's managed login, a one-shot listener on `http://localhost:8765/callback`, and the one-hour access and ID tokens kept in the MCP server's memory, with the refresh token thrown away. Restarting Claude Code or an hour passing means signing in again.\n\nThe code lives in a small shared package, `archive-client` (`packages/client`, standard library only): `AuthConfig` (region, Cognito domain, `cli` client id), `Tokens` (access token, ID token, expiry) and `sign_in(config) -\u003e Tokens`. Plan 10a may build `sign_in` first for its seed step; if it hasn't when this plan's build starts, this plan builds it to the same shape. This plan adds `AuthConfig.from_archive(url)`, which reads the archive's public `/auth-config.json` (fields `region`, `cognitoDomain`, `webClientId`, `cliClientId`). Plan 8 writes that file in its site deployment.\n\nRests on: AGNT3, AGNT4, AGNT6, AGNT9\n\n## When the archive is unreachable\n\nEvery tool that calls the archive answers a plain error naming the cause: the archive can't be reached, you're signed out or your sign-in expired, you're not allowed (a 403, naming the group needed), or the archive refused the request (its message). The skill tells the person, keeps everything local (`diagnose` and `edit_manifest` need no network), and says what to run again. Nothing is queued.\n\nRests on: DCSN3\n\n## Where it lives and how it installs\n\n`packages/agent` is the plugin and the server together: a uv workspace package `archive-agent` (import `archive_agent`, command `archive-mcp`) on the official `mcp` Python SDK, depending on `archive-contract`, `cruise` and `archive-client`; beside it `skills/`, `.claude-plugin/plugin.json` and `.mcp.json`. A `.claude-plugin/marketplace.json` at the repo root lists the plugin. A person installs it with `/plugin marketplace add schuettc/research-in-a-box` and then the plugin; its `.mcp.json` starts the server with `uvx` from the git repo's `packages/agent`, the way `cruise` installs today. Nothing is published to PyPI or npm.\n\nRests on: DCSN1, AGNT1, AGNT2\n\n## Risk and cost\n\n**Risk.** A mistake in `edit_manifest` could damage a researcher's `datapackage.json`; every edit goes through the contract's models, nothing is written when one fails, and files are replaced whole, so the worst case is an edit the person approved, which they can edit again. A mistake in `submit` could send the wrong files; every submission still passes the archive's own checks and its review policy, so nothing is published unreviewed by this plan. A mistake in `decide` acts with a curator's authority; the skill sends a decision only after the curator's yes. Sign-in holds one-hour tokens in memory only. Checks are sized to this: unit tests for each tool with the archive's HTTP stubbed and for `edit_manifest` on the sample package, and one walk on a deployed test stage.\n\n**Cost.** Your steps: a deployed test stage with Plan 7's build and its curator files route and Plan 8's site deployment, two invited accounts (one `contributor`, one `curator`; yours can be both), installing the plugin, and the walk. New programs: none (uv is already needed for `cruise`). New dependency: the `mcp` Python SDK.\n\nRests on: DCSN1, DCSN2\n\n## Left out\n\n- Preparing a package from a raw folder, waiting on `cruise` inventory, profile, tidy and package (PARK1).\n- Audit and backfill of published datasets, waiting on in-place metadata edits (PARK2).\n- Rescue data, and how provenance from scanned documents is recorded (PARK3).\n- The GitHub Action, and the machine sign-in its publish step needs (PARK4).\n- An MCP endpoint in the archive for clients that can't start a local process (PARK5).\n- A queue that retries submissions or decisions later.\n- Tokens on disk, and more than one archive per person.\n\nRests on: DCSN1, DCSN3, AGNT4\n\n## How we'll know it works\n\n- Unit tests pass for every tool, with the archive's HTTP calls stubbed: each tool's request, its answer, and each error cause (unreachable, signed out, 403, 409, a refusal).\n- `edit_manifest` on a copy of the sample package applies a column description and a license, regenerates `README.md`, leaves `diagnose` with no checksum finding, and writes nothing when one edit in the list is invalid.\n- `submit` refuses a package with an error finding, and otherwise sends exactly the files in `checksums.sha256` plus that file.\n- The plugin installs from the repo with `/plugin marketplace add` and the server starts.\n- On a deployed test stage, from Claude Code with the plugin: connect, sign in, find and fetch a published dataset, download an open file and a restricted one; diagnose a copy of the sample package, approve two drafted fixes, submit it and see it reach review; as a curator read it, see the summary, and approve it, ending published at `/datasets/\u003cid\u003e`.\n\nRests on: DCSN1, DCSN2, DCSN3, AGNT2, AGNT8\n"
+    }
+  },
   "plans": [],
   "messages": [
     {
@@ -31,16 +582,110 @@
       "sender": {
         "project": "personal"
       }
+    },
+    {
+      "id": 2,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "Correction from the coordinating session: reach me only over muster, at personal-personal/generic-package-format-and-contract. A diazo note to Plan 2's folder now goes to a different session.",
+      "at": "2026-11-13T22:13:43.433415-06:00",
+      "state": "answered",
+      "claim": "5dc413aeb0e5faf6",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 3,
+      "card": "plan",
+      "from": "user",
+      "action": "start-planning",
+      "at": "2026-11-14T00:22:00.957855-06:00",
+      "state": "answered",
+      "claim": "876e53703b75b3d7"
+    },
+    {
+      "id": 4,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session: one scoping question for your decision cards. The prepare-dataset skill in the brief expects cruise to profile, tidy and package raw files, but Plan 3 built only cruise diagnose and cruise audit; profile, tidy, package and inventory are Plan 3's follow-ups PARK3 and PARK4, to be planned once diagnose has been used on real data (Plan 5 has now done that for the first time). Please put it to Court as a card: A, a first version without prepare (search and fetch, validate through diagnose, submit, curator review), or B, build the missing cruise commands first. The coordinating session's view is A. Also relevant from the Decision log: accounts are invitation-only, search is GET /api/search on the server, and CLI and MCP sign in with PKCE through the cli client on localhost:8765.",
+      "at": "2026-11-14T00:23:05.507406-06:00",
+      "state": "answered",
+      "claim": "684864469542e683",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 5,
+      "card": "DIRN",
+      "from": "user",
+      "action": "direction",
+      "at": "2026-11-14T00:35:17.275349-06:00",
+      "state": "answered",
+      "claim": "b9e9590e2d57cf6b"
+    },
+    {
+      "id": 6,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-14T00:47:53.653874-06:00",
+      "state": "answered",
+      "claim": "4b03ba15bc4a0f2b"
+    },
+    {
+      "id": 7,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-14T00:48:27.515251-06:00",
+      "state": "answered",
+      "claim": "7fa85eada8c39c11"
+    },
+    {
+      "id": 8,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-14T00:48:27.515251-06:00",
+      "state": "answered",
+      "claim": "7fa85eada8c39c11"
+    },
+    {
+      "id": 9,
+      "card": "DCSN3",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-14T00:48:27.515251-06:00",
+      "state": "answered",
+      "claim": "7fa85eada8c39c11"
+    },
+    {
+      "id": 10,
+      "card": "spec",
+      "from": "user",
+      "action": "approve-spec",
+      "at": "2026-11-14T00:50:08.080673-06:00",
+      "state": "answered",
+      "claim": "3587b43c2e87a317"
     }
   ],
-  "planned": {
-    "at": "2026-11-13T08:48:23.220541-06:00"
-  },
   "planned_history": [
     {
       "action": "planned",
       "by": "agent",
       "at": "2026-11-13T08:48:23.220541-06:00"
+    },
+    {
+      "action": "started",
+      "by": "user",
+      "at": "2026-11-14T00:22:00.957855-06:00"
     }
   ]
 }
