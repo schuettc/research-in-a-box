@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en" data-brand="main">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Look B · Data portal · mockup</title>
+<style>
+/* ==== Brand: change these to rebrand ==================================== */
+:root{
+  --brand:#1f4fd1;          /* header band, buttons, links */
+  --brand-ink:#ffffff;      /* text on --brand */
+  --accent:#0b7285;         /* chips, highlights */
+  --font-heading:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-body:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --radius:10px;
+}
+:root[data-brand=alt]{
+  --brand:#166534; --brand-ink:#ffffff; --accent:#a3520a; --radius:16px;
+  --font-heading:"Avenir Next",Avenir,ui-sans-serif,system-ui,sans-serif;
+}
+/* ==== Derived ============================================================ */
+:root{--bg:#f4f6fa;--card:#fff;--ink:#14181f;--muted:#4f5865;--line:#dde2ea;--focus:#f59e0b;
+  --brand-soft:color-mix(in srgb,var(--brand) 9%,#fff);--brand-deep:color-mix(in srgb,var(--brand) 78%,#000)}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--font-body)}
+a{color:var(--brand)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+h1,h2,h3{font-family:var(--font-heading);line-height:1.2;letter-spacing:-.01em}
+code{font:.85em/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere}
+
+/* band */
+.band{background:linear-gradient(160deg,var(--brand) 0%,var(--brand-deep) 100%);color:var(--brand-ink)}
+.band a{color:var(--brand-ink)}
+.topbar{max-width:76rem;margin:0 auto;padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.mark{display:flex;align-items:center;gap:.7rem;text-decoration:none;font:700 1.15rem/1.2 var(--font-heading)}
+.topbar nav{margin-left:auto;display:flex;align-items:center;gap:.4rem}
+.topbar nav a{text-decoration:none;padding:.45rem .8rem;border-radius:999px;font-weight:500;font-size:.95rem}
+.topbar nav a:hover{background:rgba(255,255,255,.14)}
+.topbar nav a.pill{background:var(--brand-ink);color:var(--brand);font-weight:600}
+.hero{max-width:76rem;margin:0 auto;padding:2.5rem 1.5rem 3.5rem}
+.hero h1{font-size:2.6rem;margin:0 0 .6rem;font-weight:750}
+.hero p{max-width:42rem;font-size:1.12rem;margin:0 0 1.75rem;opacity:.95}
+.search{display:flex;background:#fff;border-radius:calc(var(--radius) + 4px);padding:.4rem;max-width:46rem;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.search input{flex:1;min-width:0;border:0;font:inherit;font-size:1.08rem;padding:.7rem .9rem;color:var(--ink);background:transparent;border-radius:var(--radius)}
+.search input:focus-visible{outline-offset:-2px}
+.stats{display:flex;gap:2rem;margin-top:1.5rem;font-size:.9rem;opacity:.95;flex-wrap:wrap}
+.stats b{display:block;font-size:1.4rem;font-weight:700}
+.btn{font:600 .95rem/1.2 var(--font-body);padding:.7rem 1.25rem;border-radius:var(--radius);border:1px solid transparent;cursor:pointer;background:var(--brand-soft);color:var(--brand)}
+.btn.primary{background:var(--brand);color:var(--brand-ink)}
+.btn.ghost{background:#fff;border-color:var(--line);color:var(--ink)}
+.btn.block{width:100%}
+
+.wrap{max-width:76rem;margin:0 auto;padding:2rem 1.5rem 4rem}
+.layout{display:grid;grid-template-columns:16rem 1fr;gap:1.75rem;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.filters{padding:1.1rem 1.2rem}
+.filters summary{list-style:none;font-weight:700;font-size:1rem;cursor:pointer;display:flex;justify-content:space-between}
+.filters summary::-webkit-details-marker{display:none}
+.filters summary .chev{transition:transform .15s}
+.filters[open] summary .chev{transform:rotate(180deg)}
+.facet-group{border:0;margin:1rem 0 0;padding:1rem 0 0;border-top:1px solid var(--line)}
+.facet-group legend{float:left;width:100%;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.5rem;padding:0}
+.facet{display:flex;align-items:center;gap:.55rem;padding:.28rem 0;font-size:.95rem;cursor:pointer;clear:both}
+.facet input{accent-color:var(--brand);width:1.05rem;height:1.05rem;margin:0}
+.facet .count{margin-left:auto;font-size:.78rem;font-weight:600;background:var(--bg);border-radius:999px;padding:.05rem .5rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.year-row{display:flex;gap:.6rem;clear:both}
+.year-row label{display:flex;flex-direction:column;font-size:.82rem;color:var(--muted);gap:.2rem;flex:1}
+.year-row input{width:100%;font:inherit;padding:.4rem .55rem;border:1px solid var(--line);border-radius:calc(var(--radius) - 4px);color:var(--ink)}
+.results-head{display:flex;justify-content:space-between;align-items:center;margin:0 0 1rem;gap:1rem;flex-wrap:wrap}
+.results-head h2{font-size:1.15rem;margin:0}
+.results-head select{font:inherit;padding:.35rem .5rem;border:1px solid var(--line);border-radius:calc(var(--radius) - 4px);background:#fff;color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.1rem}
+.rcard{padding:1.25rem 1.3rem 1.1rem;display:flex;flex-direction:column;gap:.6rem;position:relative;transition:box-shadow .15s,transform .15s}
+.rcard:hover{box-shadow:0 8px 24px rgba(16,24,40,.1);transform:translateY(-1px)}
+.rcard .top{display:flex;gap:.4rem;flex-wrap:wrap}
+.rcard h3{font-size:1.12rem;margin:0}
+.rcard h3 a{color:var(--ink);text-decoration:none}
+.rcard h3 a::after{content:"";position:absolute;inset:0;border-radius:var(--radius)}
+.rcard h3 a:focus-visible{outline:0}
+.rcard:focus-within{outline:3px solid var(--focus);outline-offset:2px}
+.rcard p{margin:0;color:var(--muted);font-size:.93rem}
+.rcard .foot{margin-top:auto;padding-top:.75rem;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:.82rem;color:var(--muted);gap:.5rem;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.75rem;font-weight:600;padding:.18rem .55rem;border-radius:999px;background:var(--bg);color:#2f3742;border:1px solid var(--line)}
+.chip.open{background:#e7f6ec;color:#17602e;border-color:#b5e0c2}
+.chip.restricted{background:#fff3e6;color:#8a3b00;border-color:#f3cfa5}
+.chip.fmt{background:#fff;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,#fff);font-family:ui-monospace,Menlo,monospace;font-weight:500}
+
+/* dataset */
+.ds-band{max-width:76rem;margin:0 auto;padding:1.5rem 1.5rem 2.5rem}
+.crumbs{font-size:.88rem;opacity:.9;margin-bottom:1rem}
+.ds-band h1{font-size:2.3rem;margin:0 0 .6rem;font-weight:750;max-width:52rem}
+.ds-band p{max-width:52rem;margin:0 0 1rem;font-size:1.05rem;opacity:.95}
+.band .chip{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.35);color:var(--brand-ink)}
+.band .chip.open{background:#e7f6ec;color:#17602e;border-color:#e7f6ec}
+.ds-actions{display:flex;gap:.6rem;margin-top:1.25rem;flex-wrap:wrap}
+.ds-actions .btn.primary{background:var(--brand-ink);color:var(--brand)}
+.ds-actions .btn.ghost{background:transparent;color:var(--brand-ink);border-color:rgba(255,255,255,.6)}
+.ds-grid{display:grid;grid-template-columns:minmax(0,1fr) 20rem;gap:1.5rem;align-items:start;margin-top:-1.5rem}
+.stack{display:grid;gap:1.5rem;grid-template-columns:minmax(0,1fr)}
+.ds-grid>*,.layout>*{min-width:0}
+.card.sec{padding:1.4rem 1.5rem}
+.card.sec>h2{font-size:1.2rem;margin:0 0 1rem}
+.cite-box{background:var(--brand-soft);border-radius:calc(var(--radius) - 2px);padding:1rem 1.1rem;display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap}
+.cite-text{margin:0;flex:1 1 16rem;min-width:0;font-size:.98rem}
+.cite-url{overflow-wrap:anywhere;color:var(--muted)}
+.copy{flex:none;background:var(--brand);color:var(--brand-ink)}
+.copied{flex-basis:100%;color:#17602e;font-weight:600;font-size:.88rem;min-height:0}
+.copied:empty{display:none}
+.about{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem 1.5rem}
+.about div:nth-child(3),.about div:nth-child(7){grid-column:1/-1}
+.about dt{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.about dd{margin:.15rem 0 0}
+.fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}
+.fcard{border:1px solid var(--line);border-radius:calc(var(--radius) - 2px);padding:.9rem 1rem;display:flex;gap:.8rem;align-items:stretch}
+.fb{display:flex;flex-direction:column;gap:.15rem;min-width:0;flex:1}
+.fcard .note{font-size:.88rem;margin-top:.2rem}
+.fcard .ico{flex:none;align-self:flex-start;width:38px;height:38px;border-radius:calc(var(--radius) - 4px);background:var(--brand-soft);display:grid;place-items:center;color:var(--brand)}
+.fcard .t{font-weight:650}
+.fcard .m{font-size:.82rem;color:var(--muted)}
+.fcard .p{font-size:.8rem;color:var(--muted)}
+.fcard .row{display:flex;margin-top:auto;padding-top:.6rem}
+.fcard .row .dl{font-weight:600;font-size:.88rem;text-decoration:none;background:var(--brand);color:var(--brand-ink);padding:.35rem .75rem;border-radius:999px}
+.fcard .row .dl:hover{background:var(--brand-deep)}
+.with{list-style:none;margin:.3rem 0 0;padding:0;font-size:.8rem;display:flex;flex-direction:column;gap:.1rem}
+.table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:calc(var(--radius) - 2px);margin-bottom:1.25rem}
+table.cols{width:100%;border-collapse:collapse;font-size:.9rem}
+table.cols caption{text-align:left;font-weight:700;padding:.75rem 1rem;background:var(--bg);border-bottom:1px solid var(--line)}
+table.cols caption code{font-weight:400;color:var(--muted);margin-left:.4rem}
+table.cols th,table.cols td{text-align:left;vertical-align:top;padding:.6rem 1rem;border-bottom:1px solid var(--line)}
+table.cols tr:last-child>*{border-bottom:0}
+table.cols thead th{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:#fff}
+table.cols tbody th{font-weight:500;white-space:nowrap}
+table.cols td[data-l=Description]{min-width:16rem}
+table.cols tbody tr:nth-child(even){background:#fafbfd}
+.missing{color:#8a3b00;font-style:italic}
+.side{display:grid;gap:1rem;position:sticky;top:3.5rem}
+.side .card{padding:1.2rem 1.3rem}
+.side h2{font-size:1rem;margin:0 0 .75rem}
+.side dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:.45rem .9rem;font-size:.9rem}
+.side dt{color:var(--muted)}
+.side dd{margin:0;text-align:right}
+.usage{border:2px solid var(--accent);border-radius:var(--radius);background:#fff;padding:1.3rem 1.4rem;position:relative}
+.usage::before{content:"Optional";position:absolute;top:-.75rem;left:1rem;background:var(--accent);color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:.15rem .55rem;border-radius:999px}
+.usage h2{font-size:1.1rem;margin:0 0 .25rem}
+.hint{color:var(--muted);margin:0 0 1rem;font-size:.92rem}
+.usage-fields{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.field{display:flex;flex-direction:column;gap:.3rem}
+.field.wide{grid-column:1/-1}
+.field label{font-weight:600;font-size:.88rem}
+.opt{font-weight:400;color:var(--muted)}
+.field input,.field select,.field textarea{font:inherit;padding:.65rem .75rem;border:1px solid #b7c0cc;border-radius:calc(var(--radius) - 2px);background:#fff;color:var(--ink);width:100%}
+.field input[readonly]{background:var(--bg);color:var(--muted)}
+.actions{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
+
+/* sign in */
+.auth-page{min-height:calc(100vh - 44px);background:linear-gradient(160deg,var(--brand) 0%,var(--brand-deep) 100%);padding:2.5rem 1.5rem 4rem}
+.auth-top{display:flex;justify-content:center;align-items:center;gap:.75rem;color:var(--brand-ink);font:700 1.3rem/1.2 var(--font-heading);margin-bottom:2rem;text-align:left}
+.auth-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,24rem));gap:2rem;justify-content:center}
+.state-label{color:var(--brand-ink);opacity:.9;font-size:.82rem;margin:0 0 .5rem;text-align:center}
+.auth-form{background:#fff;border-radius:calc(var(--radius) + 4px);padding:2rem;display:grid;gap:1rem;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.auth-form h2{font-size:1.5rem;margin:0}
+.auth-form .hint{margin:0}
+.aux{margin:0;text-align:center;font-size:.9rem}
+.rules{margin:-.4rem 0 0;padding:0;list-style:none;font-size:.84rem;color:var(--muted)}
+.rules li.ok::before{content:"✓ ";color:#17602e;font-weight:700}
+.auth-foot{text-align:center;color:var(--brand-ink);opacity:.9;font-size:.85rem;margin-top:2rem}
+.auth-foot a{color:var(--brand-ink)}
+.footer{color:var(--muted);font-size:.85rem;text-align:center;padding:1.5rem}
+
+@media (max-width:900px){
+  .layout,.ds-grid{grid-template-columns:1fr}
+  .side{position:static}
+  .auth-wrap{grid-template-columns:minmax(0,24rem)}
+}
+@media (max-width:640px){
+  .topbar{padding:.8rem 1rem}
+  .topbar nav a:not(.pill){display:none}
+  .mark{font-size:1rem}
+  .hero{padding:1.5rem 1rem 2.25rem}
+  .hero h1,.ds-band h1{font-size:1.75rem}
+  .hero p{font-size:1rem}
+  .search .btn{padding:.7rem .9rem}
+  .stats{gap:1.25rem}
+  .wrap{padding:1.25rem 1rem 3rem}
+  .ds-band{padding:1rem 1rem 2.5rem}
+  .grid,.fgrid,.about,.usage-fields{grid-template-columns:1fr}
+  .about div{grid-column:auto!important}
+  .card.sec{padding:1.1rem 1rem}
+  .auth-page{padding:1.5rem 1rem 3rem}
+  .auth-form{padding:1.5rem 1.25rem}
+}
+
+.mock-bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;padding:.5rem .75rem;background:#1f2328;color:#f6f8fa;font:500 13px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif}
+.mock-bar .mock-label{opacity:.8;margin-right:.25rem}
+.mock-bar [role=tablist]{display:flex;flex-wrap:wrap;gap:.25rem}
+.mock-bar button{font:inherit;color:#f6f8fa;background:#32383f;border:1px solid #4b535d;border-radius:6px;padding:.3rem .65rem;cursor:pointer}
+.mock-bar button[aria-selected=true],.mock-bar button[aria-pressed=true]{background:#f6f8fa;color:#1f2328;border-color:#f6f8fa}
+.mock-bar button:focus-visible{outline:3px solid #ffd33d;outline-offset:2px}
+.mock-bar .spacer{flex:1}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+[role=tabpanel][hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="mock-bar" aria-label="Mockup controls">
+  <span class="mock-label">Mockup · B · Data portal</span>
+  <div role="tablist" aria-label="Screen">
+    <button role="tab" id="t-home" aria-controls="p-home" aria-selected="true">Home / search</button>
+    <button role="tab" id="t-dataset" aria-controls="p-dataset" aria-selected="false" tabindex="-1">Dataset</button>
+    <button role="tab" id="t-signin" aria-controls="p-signin" aria-selected="false" tabindex="-1">Sign in</button>
+  </div>
+  <span class="spacer"></span>
+  <button type="button" id="rebrand" aria-pressed="false">Rebrand</button>
+</div>
+<section role="tabpanel" id="p-home" aria-labelledby="t-home">
+<div class="band"><div class="topbar">
+  <a class="mark" href="#" data-go="home"><svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+  <circle cx="18" cy="18" r="17" fill="var(--brand-ink)"/>
+  <text x="18" y="22.5" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12.5" font-weight="800" fill="var(--brand)" data-b="short">IRC</text>
+</svg><span data-b="name">Invented Research Cooperative</span></a>
+  <nav aria-label="Main"><a href="#" data-go="home">Datasets</a><a href="#about">About</a><a href="#help">Help</a><a class="pill" href="#" data-go="signin">Sign in</a></nav>
+</div>
+  <div class="hero">
+    <h1>Find research data</h1>
+    <p data-b="intro">The Invented Research Cooperative shares the data behind its field studies: streams, lakes, snow and the land around them. Every dataset comes with its files, a description of each column, and a citation you can copy.</p>
+    <form class="search" role="search" onsubmit="return false">
+      <label for="b-q" class="vh">Search datasets</label>
+      <input id="b-q" type="search" placeholder="Search titles, keywords, creators, columns…">
+      <button class="btn primary" type="submit">Search</button>
+    </form>
+    <div class="stats"><span><b>4</b>datasets</span><span><b>20</b>files</span><span><b>1950–2024</b>years covered</span></div>
+  </div>
+</div>
+<div class="wrap">
+  <div class="layout">
+    <details class="card filters" open data-collapse-phone>
+      <summary>Filters <span class="chev" aria-hidden="true">▾</span></summary>
+      
+      <fieldset class="facet-group">
+        <legend>Access</legend>
+        
+        <label class="facet"><input type="checkbox" id="b-Access-0"> <span class="facet-v">open</span> <span class="count" aria-label="3 datasets">3</span></label>
+        <label class="facet"><input type="checkbox" id="b-Access-1"> <span class="facet-v">restricted</span> <span class="count" aria-label="1 datasets">1</span></label>
+      </fieldset>
+      <fieldset class="facet-group">
+        <legend>Licence</legend>
+        
+        <label class="facet"><input type="checkbox" id="b-Licence-0"> <span class="facet-v">CC-BY-4.0</span> <span class="count" aria-label="2 datasets">2</span></label>
+        <label class="facet"><input type="checkbox" id="b-Licence-1"> <span class="facet-v">CC-BY-NC-4.0</span> <span class="count" aria-label="1 datasets">1</span></label>
+        <label class="facet"><input type="checkbox" id="b-Licence-2"> <span class="facet-v">CC0-1.0</span> <span class="count" aria-label="1 datasets">1</span></label>
+      </fieldset>
+      <fieldset class="facet-group">
+        <legend>Format</legend>
+        
+        <label class="facet"><input type="checkbox" id="b-Format-0"> <span class="facet-v">csv</span> <span class="count" aria-label="4 datasets">4</span></label>
+        <label class="facet"><input type="checkbox" id="b-Format-1"> <span class="facet-v">md</span> <span class="count" aria-label="2 datasets">2</span></label>
+        <label class="facet"><input type="checkbox" id="b-Format-2"> <span class="facet-v">shp</span> <span class="count" aria-label="2 datasets">2</span></label>
+        <label class="facet"><input type="checkbox" id="b-Format-3"> <span class="facet-v">asc</span> <span class="count" aria-label="1 datasets">1</span></label>
+        <label class="facet"><input type="checkbox" id="b-Format-4"> <span class="facet-v">pdf</span> <span class="count" aria-label="1 datasets">1</span></label>
+        <label class="facet"><input type="checkbox" id="b-Format-5"> <span class="facet-v">png</span> <span class="count" aria-label="1 datasets">1</span></label>
+        <label class="facet"><input type="checkbox" id="b-Format-6"> <span class="facet-v">xlsx</span> <span class="count" aria-label="1 datasets">1</span></label>
+      </fieldset>
+      <fieldset class="facet-group years">
+        <legend>Years</legend>
+        <div class="year-row">
+          <label>From <input type="number" inputmode="numeric" placeholder="1950" min="1900" max="2100"></label>
+          <label>To <input type="number" inputmode="numeric" placeholder="2026" min="1900" max="2100"></label>
+        </div>
+      </fieldset>
+    </details>
+    <div>
+      <div class="results-head"><h2>4 datasets</h2><label>Sort by <select><option>Newest</option><option>Title</option><option>Relevance</option></select></label></div>
+      <div class="grid"><article class="card rcard">
+  <div class="top"><span class="chip open">Open</span><span class="chip">CC-BY-4.0</span></div>
+  <h3><a href="#" data-go="dataset">Stream temperature at three invented sites</a></h3>
+  <p>Hourly water temperature from loggers at three invented stream sites, with each logger's condition, the site locations, a depth grid and the methods.</p>
+  <div class="top" aria-label="Formats"><span class="chip fmt">csv</span><span class="chip fmt">xlsx</span><span class="chip fmt">shp</span><span class="chip fmt">asc</span><span class="chip fmt">md</span><span class="chip fmt">png</span></div>
+  <div class="foot"><span>Ada Invented · 2024 – ongoing</span><span>9 files</span></div>
+</article><article class="card rcard">
+  <div class="top"><span class="chip open">Open</span><span class="chip">CC-BY-4.0</span></div>
+  <h3><a href="#" data-go="dataset">Riparian vegetation plots along two invented streams</a></h3>
+  <p>Percent cover by species in 40 plots, surveyed each July from 2019 to 2023, with the plot locations and the field protocol.</p>
+  <div class="top" aria-label="Formats"><span class="chip fmt">csv</span><span class="chip fmt">shp</span><span class="chip fmt">pdf</span></div>
+  <div class="foot"><span>Cara Example · 2019 – 2023</span><span>6 files</span></div>
+</article><article class="card rcard">
+  <div class="top"><span class="chip restricted">Restricted</span><span class="chip">CC-BY-NC-4.0</span></div>
+  <h3><a href="#" data-go="dataset">Snow depth on an invented ridge transect</a></h3>
+  <p>Weekly snow depth and density at 12 stakes, winters 2015 to 2024. Stake coordinates are withheld; ask the curators for them.</p>
+  <div class="top" aria-label="Formats"><span class="chip fmt">csv</span></div>
+  <div class="foot"><span>Dev Sample · 2015 – 2024</span><span>3 files</span></div>
+</article><article class="card rcard">
+  <div class="top"><span class="chip open">Open</span><span class="chip">CC0-1.0</span></div>
+  <h3><a href="#" data-go="dataset">Ice-out dates for an invented lake, 1950–2024</a></h3>
+  <p>The first ice-free day each spring, from observer logs and later a shore camera, with a note on each year's source.</p>
+  <div class="top" aria-label="Formats"><span class="chip fmt">csv</span><span class="chip fmt">md</span></div>
+  <div class="foot"><span>Eli Mock · 1950 – 2024</span><span>2 files</span></div>
+</article></div>
+    </div>
+  </div>
+</div>
+<footer class="footer"><span data-b="name">Invented Research Cooperative</span> · Built with Research Archive in a Box</footer>
+</section>
+<section role="tabpanel" id="p-dataset" aria-labelledby="t-dataset" hidden>
+<div class="band"><div class="topbar">
+  <a class="mark" href="#" data-go="home"><svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+  <circle cx="18" cy="18" r="17" fill="var(--brand-ink)"/>
+  <text x="18" y="22.5" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12.5" font-weight="800" fill="var(--brand)" data-b="short">IRC</text>
+</svg><span data-b="name">Invented Research Cooperative</span></a>
+  <nav aria-label="Main"><a href="#" data-go="home">Datasets</a><a href="#about">About</a><a href="#help">Help</a><a class="pill" href="#" data-go="signin">Sign in</a></nav>
+</div>
+  <div class="ds-band">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="#" data-go="home">Datasets</a> / Stream temperature</nav>
+    <h1>Stream temperature at three invented sites</h1>
+    <p>Hourly water temperature from loggers at three invented stream sites, with each logger's condition, the site locations, a depth grid and the methods. A sample package for the research archive; every site and reading is invented.</p>
+    <div class="top" style="display:flex;gap:.4rem;flex-wrap:wrap"><span class="chip open">Open access</span><span class="chip">CC-BY-4.0</span><span class="chip">Published 2026-11-14</span><span class="chip">Version 1</span></div>
+    <div class="ds-actions"><a class="btn primary" href="#download" data-download style="text-decoration:none">Download all (zip, 51 kB)</a><a class="btn ghost" href="#b-cite" style="text-decoration:none">Cite</a></div>
+  </div>
+</div>
+<div class="wrap">
+  <div class="ds-grid">
+    <div class="stack">
+      <section class="card sec" aria-labelledby="b-cite"><h2 id="b-cite">Cite this dataset</h2><div class="cite-box"><p class="cite-text" id="cite-text">Invented, A. (2024). Stream temperature at three invented sites. Version 1. Example Lab. <span class="cite-url">https://<span data-b="host">data.invented-cooperative.example</span>/datasets/stream-temperature-sample/v1</span></p>
+        <button type="button" class="btn copy" data-copy="cite-text">Copy</button><span class="copied" role="status"></span></div></section>
+      <section class="card sec" aria-labelledby="b-files"><h2 id="b-files">Files <span class="chip">9</span></h2><div class="fgrid"><div class="fcard"><span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M3 4h14v12H3zM3 8h14M3 12h14M8 4v12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span><div class="fb">
+  <span class="t">Logger readings</span>
+  <span class="m">table · 3.4 kB</span>
+  <span class="note">Hourly water temperature at three sites on 1 June 2024.</span>
+  <code class="p">data/logger.csv</code>
+  
+  <div class="row"><a class="dl" href="#download" data-download>Download<span class="vh"> logger.csv</span></a></div>
+</div></div><div class="fcard"><span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M3 4h14v12H3zM3 8h14M3 12h14M8 4v12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span><div class="fb">
+  <span class="t">Logger condition codes</span>
+  <span class="m">table · 258 B</span>
+  <span class="note">The codes used in the logger table's condition column.</span>
+  <code class="p">data/codes/condition-codes.csv</code>
+  
+  <div class="row"><a class="dl" href="#download" data-download>Download<span class="vh"> condition-codes.csv</span></a></div>
+</div></div><div class="fcard"><span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 17s5-5 5-9a5 5 0 0 0-10 0c0 4 5 9 5 9z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="8" r="1.8" fill="currentColor"/></svg></span><div class="fb">
+  <span class="t">Sites</span>
+  <span class="m">vector · 697 B · 4 files</span>
+  <span class="note">The three logger sites as points, in WGS 84.</span>
+  <code class="p">data/sites/sites.shp</code>
+  <ul class="with"><li><code>sites.shx</code> <a href="#download" data-download>Download<span class="vh"> sites.shx</span></a></li><li><code>sites.dbf</code> <a href="#download" data-download>Download<span class="vh"> sites.dbf</span></a></li><li><code>sites.prj</code> <a href="#download" data-download>Download<span class="vh"> sites.prj</span></a></li></ul>
+  <div class="row"><a class="dl" href="#download" data-download>Download<span class="vh"> sites.shp</span></a></div>
+</div></div><div class="fcard"><span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M3 3h14v14H3z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 7.7h14M3 12.3h14M7.7 3v14M12.3 3v14" stroke="currentColor" stroke-width=".9"/><path d="M7.7 7.7h4.6v4.6H7.7z" fill="currentColor"/></svg></span><div class="fb">
+  <span class="t">Stream depth</span>
+  <span class="m">raster · 269 B · 2 files</span>
+  <span class="note">Stream depth in centimetres on a coarse grid.</span>
+  <code class="p">data/depth.asc</code>
+  <ul class="with"><li><code>depth.prj</code> <a href="#download" data-download>Download<span class="vh"> depth.prj</span></a></li></ul>
+  <div class="row"><a class="dl" href="#download" data-download>Download<span class="vh"> depth.asc</span></a></div>
+</div></div><div class="fcard"><span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M3 4h14v12H3zM3 8h14M3 12h14M8 4v12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span><div class="fb">
+  <span class="t">Logger readings (Excel)</span>
+  <span class="m">table · 41.9 kB</span>
+  <span class="note">The same data as Logger readings, as a workbook.</span>
+  <code class="p">data/logger.xlsx</code>
+  
+  <div class="row"><a class="dl" href="#download" data-download>Download<span class="vh"> logger.xlsx</span></a></div>
+</div></div><div class="fcard"><span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M5 2h7l4 4v12H5z M12 2v4h4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span><div class="fb">
+  <span class="t">Logger export, untouched</span>
+  <span class="m">file · 3.1 kB</span>
+  <span class="note">The logger software's export before cleaning.</span>
+  <code class="p">original/logger-raw.csv</code>
+  
+  <div class="row"><a class="dl" href="#download" data-download>Download<span class="vh"> logger-raw.csv</span></a></div>
+</div></div><div class="fcard"><span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M5 2h7l4 4v12H5z M12 2v4h4 M7.5 10h6M7.5 13h6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span><div class="fb">
+  <span class="t">Methods</span>
+  <span class="m">document · 472 B</span>
+  <span class="note">How the loggers were placed, read and checked.</span>
+  <code class="p">docs/methods.md</code>
+  
+  <div class="row"><a class="dl" href="#download" data-download>Download<span class="vh"> methods.md</span></a></div>
+</div></div><div class="fcard"><span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M3 4h14v12H3z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 14l4-4 3 3 2-2 5 5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="13" cy="7.5" r="1.3" fill="currentColor"/></svg></span><div class="fb">
+  <span class="t">Site photo</span>
+  <span class="m">media · 656 B</span>
+  <span class="note">A stand-in picture of site S1.</span>
+  <code class="p">docs/site-photo.png</code>
+  
+  <div class="row"><a class="dl" href="#download" data-download>Download<span class="vh"> site-photo.png</span></a></div>
+</div></div><div class="fcard"><span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M8.5 11.5l3-3M7 9.5L5.2 11.3a2.5 2.5 0 0 0 3.5 3.5L10.5 13M13 10.5l1.8-1.8a2.5 2.5 0 0 0-3.5-3.5L9.5 7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><div class="fb">
+  <span class="t">Discharge</span>
+  <span class="m">linked</span>
+  <span class="note">Held by a partner program.</span>
+  <code class="p">example.org/stream-temperature/discharge.csv</code>
+  
+  <div class="row"><a class="dl" href="#linked">Open link<span class="vh"> to Discharge (external)</span></a></div>
+</div></div></div></section>
+      <section class="usage" aria-labelledby="b-usage-h">
+      <h2 id="b-usage-h">Help this archive: how will you use this data?</h2>
+      <p class="hint">All optional. We don't ask who you are. Your download has already started.</p>
+      <div class="usage-fields">
+        <div class="field"><label for="b-usage-org">Kind of organisation</label><select id="b-usage-org"><option value="">Choose…</option><option>University</option><option>Government</option><option>Non-profit</option><option>Company</option><option>Individual</option><option>Other</option></select></div>
+        <div class="field"><label for="b-usage-purpose">Purpose</label><select id="b-usage-purpose"><option value="">Choose…</option><option>Research</option><option>Teaching</option><option>Policy or management</option><option>Commercial</option><option>Personal</option><option>Other</option></select></div>
+        <div class="field wide"><label for="b-usage-note">Note <span class="opt">(optional)</span></label><textarea id="b-usage-note" rows="2"></textarea></div>
+      </div>
+      <div class="actions"><button type="button" class="btn primary">Send</button><button type="button" class="btn ghost">No thanks</button></div>
+    </section>
+      <section class="card sec" aria-labelledby="b-about"><h2 id="b-about">About</h2><dl class="about"><div><dt>Creators</dt><dd>Ada Invented (Example Lab)</dd></div><div><dt>Curator</dt><dd>Ben Placeholder</dd></div><div><dt>Purpose</dt><dd>To show how a research archive package holds tables, code lists, spatial data and documents, with gaps left in for the audit to find.</dd></div><div><dt>Rights</dt><dd>Licensed CC-BY-4.0 (Creative Commons Attribution 4.0 International). <a href="#licence">Read the licence</a></dd></div><div><dt>Keywords</dt><dd>stream temperature, water quality, loggers</dd></div><div><dt>Temporal coverage</dt><dd>2024-06-01 to ongoing</dd></div><div><dt>Spatial coverage</dt><dd>West −72.74, south 44.23, east −72.66, north 44.32. Three invented sites along two streams.</dd></div></dl></section>
+      <section class="card sec" aria-labelledby="b-cols" id="codes"><h2 id="b-cols">Column dictionary</h2><div class="table-scroll" role="region" aria-label="Columns of Logger readings" tabindex="0"><table class="cols">
+      <caption>Logger readings <code>data/logger.csv</code></caption>
+      <thead><tr><th scope="col">Column</th><th scope="col">Title</th><th scope="col">Type</th><th scope="col">Unit</th><th scope="col">Description</th><th scope="col">Codes</th></tr></thead>
+      <tbody><tr><th scope="row"><code>timestamp</code></th><td data-l="Title">Reading time</td><td data-l="Type">datetime</td><td data-l="Unit"></td><td data-l="Description">Local standard time of the reading, on the hour.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>site</code></th><td data-l="Title">Site</td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">Site code; the Sites file holds each site's location.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>water_temp_c</code></th><td data-l="Title">Water temperature (C)</td><td data-l="Type">number</td><td data-l="Unit">degC</td><td data-l="Description">Water temperature in degrees Celsius.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>water_temp_unc_c</code></th><td data-l="Title">Water temperature uncertainty (C)</td><td data-l="Type">number</td><td data-l="Unit">degC</td><td data-l="Description">The logger's stated accuracy at the reading, wider when it drifted or was buried; added in cleaning. Uncertainty of water_temp_c.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>condition</code></th><td data-l="Title">Logger condition</td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">The logger's condition at the reading, from the code list.</td><td data-l="Codes"><a href="#codes">condition-codes</a></td></tr><tr><th scope="row"><code>qc_flag</code></th><td data-l="Title">QC flag</td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">Quality flag set by the logger's software.</td><td data-l="Codes"><span class="missing">Undocumented codes</span></td></tr><tr><th scope="row"><code>logger_model</code></th><td data-l="Title">Logger model</td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">Model of the temperature logger.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>battery_v</code></th><td data-l="Title"><span class="missing">No title</span></td><td data-l="Type">number</td><td data-l="Unit">V</td><td data-l="Description"><span class="missing">No description yet</span></td><td data-l="Codes"></td></tr><tr><th scope="row"><code>depth_cm</code></th><td data-l="Title"><span class="missing">No title</span></td><td data-l="Type">integer</td><td data-l="Unit">cm</td><td data-l="Description"><span class="missing">“depth_cm” (repeats the name)</span></td><td data-l="Codes"></td></tr></tbody></table></div><div class="table-scroll" role="region" aria-label="Columns of Logger condition codes" tabindex="0"><table class="cols">
+      <caption>Logger condition codes <code>data/codes/condition-codes.csv</code></caption>
+      <thead><tr><th scope="col">Column</th><th scope="col">Title</th><th scope="col">Type</th><th scope="col">Unit</th><th scope="col">Description</th><th scope="col">Codes</th></tr></thead>
+      <tbody><tr><th scope="row"><code>code</code></th><td data-l="Title"><span class="missing">No title</span></td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">The code.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>label</code></th><td data-l="Title"><span class="missing">No title</span></td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">A short label.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>description</code></th><td data-l="Title"><span class="missing">No title</span></td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">What the code means.</td><td data-l="Codes"></td></tr></tbody></table></div></section>
+    </div>
+    <aside class="side" aria-label="Details">
+      <div class="card"><h2>Details</h2><dl><dt>Publisher</dt><dd data-b="name">Invented Research Cooperative</dd><dt>Creator</dt><dd>Ada Invented</dd><dt>Version</dt><dd>1</dd><dt>Files</dt><dd>9 (51 kB)</dd><dt>Covers</dt><dd>2024 – ongoing</dd><dt>Region</dt><dd>44.2–44.3° N</dd></dl></div>
+      <div class="card"><h2>Keywords</h2><div style="display:flex;gap:.35rem;flex-wrap:wrap"><span class="chip">stream temperature</span><span class="chip">water quality</span><span class="chip">loggers</span></div></div>
+    </aside>
+  </div>
+</div>
+<footer class="footer"><span data-b="name">Invented Research Cooperative</span> · Built with Research Archive in a Box</footer>
+</section>
+<section role="tabpanel" id="p-signin" aria-labelledby="t-signin" hidden>
+<div class="auth-page">
+  <div class="auth-top"><svg width="44" height="44" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+  <circle cx="18" cy="18" r="17" fill="var(--brand-ink)"/>
+  <text x="18" y="22.5" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12.5" font-weight="800" fill="var(--brand)" data-b="short">IRC</text>
+</svg><span data-b="name">Invented Research Cooperative</span></div>
+  <div class="auth-wrap">
+    <div><p class="state-label">State 1 · returning reader</p><form class="auth-form" onsubmit="return false" aria-labelledby="b-si-h">
+      <h2 id="b-si-h">Sign in</h2>
+      <p class="hint">For curators and readers with access to restricted datasets.</p>
+      <div class="field"><label for="b-si-email">Email</label><input id="b-si-email" type="email" autocomplete="username" value="ben@example.org"></div>
+      <div class="field"><label for="b-si-pw">Password</label><input id="b-si-pw" type="password" autocomplete="current-password" value="correcthorse"></div>
+      <button class="btn primary block" type="submit">Sign in</button>
+      <p class="aux"><a href="#forgot">Forgot your password?</a></p>
+    </form></div>
+    <div><p class="state-label">State 2 · first sign-in</p><form class="auth-form" onsubmit="return false" aria-labelledby="b-np-h">
+      <h2 id="b-np-h">Set a new password</h2>
+      <p class="hint">This is your first sign-in. Choose a password to replace the temporary one we emailed you.</p>
+      <div class="field"><label for="b-np-email2">Email</label><input id="b-np-email2" type="email" value="ben@example.org" readonly aria-readonly="true"></div>
+      <div class="field"><label for="b-np-np">New password</label><input id="b-np-np" type="password" autocomplete="new-password" aria-describedby="b-np-rules" value="a-longer-passphrase"></div>
+      <ul class="rules" id="b-np-rules"><li class="ok">At least 12 characters</li><li class="ok">Not the temporary password</li></ul>
+      <div class="field"><label for="b-np-np2">Confirm new password</label><input id="b-np-np2" type="password" autocomplete="new-password" value="a-longer-passphrase"></div>
+      <button class="btn primary block" type="submit">Set password and sign in</button>
+    </form></div>
+  </div>
+  <p class="auth-foot"><a href="#" data-go="home">Back to the datasets</a></p>
+</div>
+</section>
+<script>
+(function(){
+  var BRANDS={"main":{"name":"Invented Research Cooperative","short":"IRC","host":"data.invented-cooperative.example","intro":"The Invented Research Cooperative shares the data behind its field studies: streams, lakes, snow and the land around them. Every dataset comes with its files, a description of each column, and a citation you can copy."},"alt":{"name":"Northern Watershed Data Commons","short":"NW","host":"commons.northern-watershed.example","intro":"Northern Watershed Data Commons keeps the monitoring data of its member groups across the northern basins. Search the collection, read how each dataset was made, and cite it in one click."}};
+  var tabs=[].slice.call(document.querySelectorAll('[role=tab]'));
+  function show(tab){tabs.forEach(function(t){var on=t===tab;t.setAttribute('aria-selected',on);t.tabIndex=on?0:-1;document.getElementById(t.getAttribute('aria-controls')).hidden=!on;});window.scrollTo(0,0);}
+  tabs.forEach(function(t,i){t.addEventListener('click',function(){show(t)});t.addEventListener('keydown',function(e){var d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(d){var n=tabs[(i+d+tabs.length)%tabs.length];n.focus();show(n);}});});
+  document.querySelectorAll('[data-go]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();show(document.getElementById('t-'+a.getAttribute('data-go')));});});
+  var rb=document.getElementById('rebrand');
+  function brand(key){var b=BRANDS[key];document.documentElement.dataset.brand=key;rb.setAttribute('aria-pressed',key==='alt');
+    document.querySelectorAll('[data-b]').forEach(function(el){el.textContent=b[el.getAttribute('data-b')];});
+    document.title=b.name+' · mockup';}
+  rb.addEventListener('click',function(){brand(document.documentElement.dataset.brand==='alt'?'main':'alt');});
+  document.querySelectorAll('[data-copy]').forEach(function(btn){btn.addEventListener('click',function(){
+    var text=document.getElementById(btn.getAttribute('data-copy')).textContent.trim();var st=btn.nextElementSibling;
+    function done(){st.textContent='Copied';setTimeout(function(){st.textContent='';},2000);}
+    try{navigator.clipboard.writeText(text).then(done,done);}catch(e){done();}
+  });});
+  document.querySelectorAll('[data-download]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();var u=document.querySelector('.usage');if(u){u.hidden=false;}});});
+  if(matchMedia('(max-width:900px)').matches)document.querySelectorAll('details[data-collapse-phone]').forEach(function(d){d.open=false;});
+  brand('main');
+})();
+</script>
+</body>
+</html>

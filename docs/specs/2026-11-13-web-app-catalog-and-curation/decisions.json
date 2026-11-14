@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
   "schema": 4,
   "title": "Web app (Plan 8)",
-  "expect": 1,
-  "agent_at": "2026-11-14T17:35:03.438778Z",
+  "expect": 4,
+  "agent_at": "2026-11-14T18:24:01.365611Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 6, the API and search, and Plan 7, the ingest pipeline, for the submission screens.)\n\nBrief: Plan 8 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the web app (Plan 8): a static React with Vite app on S3 and CloudFront, backed by the API. Start with the reader's flow from search to dataset page to download, since findability is the main problem we set out to fix. The generated `README.md` in `practice-data/packages/ozone-bioindicators/` shows what a dataset page has to present."
@@ -310,6 +310,164 @@
       },
       "state": "decided",
       "choice": "A"
+    },
+    {
+      "id": "DCSN2",
+      "name": "Our own look",
+      "question": "Which look should the archive have?",
+      "example": "Today the search page is black text and grey pills on white, every tab is titled \"research-in-a-box\", and a reader can't tell an access level from a file extension. You said it works but isn't attractive, and should be a page branded as our own that someone else can rebrand.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Reading room: calm and scholarly",
+          "includes": "Serif headings on warm paper, a navy masthead, small-caps labels. Results read like catalogue entries with a coloured OPEN or RESTRICTED label and a meta line (licence, formats, files, updated). The dataset page is one column with an At a glance sidebar.",
+          "pulls_in": "One web font stack (system serif and sans by default, so no font files to ship).",
+          "visuals": [
+            {
+              "kind": "mockup",
+              "caption": "Reading room: home and search, dataset page, sign-in. Press Rebrand to see a second archive.",
+              "path": "mockups/look-a-reading-room.html"
+            }
+          ]
+        },
+        {
+          "id": "B",
+          "title": "Data portal: modern and bold",
+          "includes": "A brand-colour gradient band with the intro, a large search box and stats (datasets, files, years covered). Results and files are cards with an icon per kind of file; sign-in is a white card on the brand colour.",
+          "pulls_in": "CSS color-mix(), which needs a 2023-or-later browser.",
+          "visuals": [
+            {
+              "kind": "mockup",
+              "caption": "Data portal: home and search, dataset page, sign-in. Press Rebrand to see a second archive.",
+              "path": "mockups/look-b-portal.html"
+            }
+          ]
+        },
+        {
+          "id": "C",
+          "title": "Workbench: compact for researchers",
+          "includes": "A brand-colour sidebar, a search bar that stays put, results as tight table rows (dataset, creator, coverage, files), and a dense dataset page whose column dictionary counts its gaps.",
+          "pulls_in": "CSS color-mix(); a layout that needs the most work to fit a phone.",
+          "visuals": [
+            {
+              "kind": "mockup",
+              "caption": "Workbench: home and search, dataset page, sign-in. Press Rebrand to see a second archive.",
+              "path": "mockups/look-c-workbench.html"
+            }
+          ]
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "It fits what the archive is for: readers deciding whether a dataset fits their work. Its result entries already carry what the UX review found missing (a coloured access label, creators, coverage, files, updated), it reads well on a phone, and it changes brand cleanly from a colour and a name, since the look rests on type and spacing more than on the brand colour.",
+        "evidence": [
+          {
+            "text": "The review's main findability gap is the result card",
+            "source": "documents/ux-review.md, S1",
+            "output": "The access pill, the one fact that decides whether a reader can use the data at all, looks the same as `md`."
+          },
+          {
+            "text": "Each mockup renders at 1280 and 390 wide, all three tabs, both brands, with no overflow or console errors",
+            "source": "mockup worker's checks, 36 screenshots in ~/.local/state/plans/plan8-plan3/mockups/"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    },
+    {
+      "id": "DCSN3",
+      "name": "Sign-in page",
+      "question": "Should readers sign in on Cognito's page themed to match the archive, or on a page of our own?",
+      "example": "Today a reader who presses Sign in to download lands on Cognito's stock page: AWS's colours and logo on an amazoncognito.com address, nothing of the archive's. The command-line tool and MCP server must use Cognito's page whatever we choose (settled with Plans 6 and 9).",
+      "options": [
+        {
+          "id": "A",
+          "title": "Cognito's page, themed from the archive config",
+          "includes": "Our logo, favicon, colours, header and background on Cognito's page, generated at deploy from the same brand settings as the app, on both the web and CLI clients. The font, the page's wording and the amazoncognito.com address stay Cognito's (the address changes with a custom domain, already a follow-up).",
+          "pulls_in": "About 60 lines of CDK. No new sign-in code in the browser. ORCID and university sign-in later appear on the same page for free."
+        },
+        {
+          "id": "B",
+          "title": "A sign-in page of our own",
+          "includes": "Our page, our font and wording, on the archive's address: email and password, the invited user's first set-a-password screen, forgot password, and any later MFA or passkeys, all built ourselves.",
+          "pulls_in": "A sign-in library in the app, replacing today's code-and-PKCE flow; passwords typed on the origin that also shows contributor-written text; the CLI still opens Cognito's page, so readers meet two sign-in screens and sign in twice; ORCID and university sign-in still need Cognito's redirect, so the app ends up with two flows."
+        },
+        {
+          "id": "C",
+          "title": "Both: our page for the web, themed Cognito for the CLI",
+          "includes": "B for the web app and A for the CLI and MCP.",
+          "pulls_in": "Everything in B, plus keeping two sign-in screens looking alike."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "It gives the archive's look on every sign-in, the web and the CLI alike, and keeps one sign-in screen and one session: a reader signed in on the web within the hour isn't asked again by the CLI. Our own page would put passwords on an origin that renders contributor-submitted text, and later ORCID or university sign-in only works through Cognito's redirect anyway.",
+        "evidence": [
+          {
+            "text": "Managed login branding covers logo, favicon, colours, header and background per app client, not page text or fonts",
+            "source": "https://docs.aws.amazon.com/cognito/latest/developerguide/managed-login-brandingeditor.html",
+            "output": "You can't modify or localize text in the branding editor."
+          },
+          {
+            "text": "Federation bypasses an app's own sign-in flow",
+            "source": "https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-authentication-flow-methods.html",
+            "output": "Federated authentication doesn't make use of any of the authentication flows that you can build into your app client"
+          },
+          {
+            "text": "The full comparison",
+            "source": "documents/signin-and-branding.md"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A",
+      "note": "we also want to enable using passkeys"
+    },
+    {
+      "id": "DCSN4",
+      "name": "UX review changes",
+      "question": "Which of the UX review's changes go into the reader's screens now?",
+      "example": "On a phone the dataset page's Download column sits off-screen; a shapefile downloads as one unusable .shp file; a restricted dataset shows 14 Sign in buttons and never says how to get access; every tab is titled \"research-in-a-box\".",
+      "options": [
+        {
+          "id": "A",
+          "title": "All ten, with the map as a drawn box",
+          "includes": "1 phone layout, 2 whole-resource download and Download all, 3 explain restricted access with one Sign in, 4 decision-ready result cards, 5 page titles and focus on navigation, 6 files near the top with the citation beside, 7 error pages with a way forward and cited version pages that survive an API outage, 8 filters that collapse on a phone, 9 usage panel beside the pressed Download and a signed-in mark with Sign out, 10 visual hierarchy, Methods in About and a versions list. Spatial coverage is drawn as a box on a plain outline, not an interactive map.",
+          "pulls_in": "Download all needs a zip of each version: the API or publish has to make one (a cross-plan question for Plan 6 or 7). Cited version pages need static pages per version (Plan 7's page writer, now Plan 8's template)."
+        },
+        {
+          "id": "B",
+          "title": "The ones that block or hurt a reader (1 to 7)",
+          "includes": "Items 1 to 7 above; 8 to 10 become follow-ups.",
+          "pulls_in": "The same Download all and static version page work as A."
+        },
+        {
+          "id": "C",
+          "title": "Only what needs no other plan",
+          "includes": "Everything in A except Download all and static version pages, which become follow-ups for Plans 6 and 7.",
+          "pulls_in": "A resource still downloads file by file, but each member of a shapefile set gets its own button (as now)."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "You asked for a complete review and a finished page; the ten together are what makes the new look read as finished rather than restyled. The axe check already passes on every screen, so these are about what a reader feels, and none is speculative: each has a screenshot from the running app.",
+        "evidence": [
+          {
+            "text": "The review's top ten, each with a screenshot",
+            "source": "documents/ux-review.md, Top ten changes"
+          },
+          {
+            "text": "axe found no violations on 26 runs; the gaps are titles, focus, phone layout and wording",
+            "source": "documents/ux-review.md, How this was run and Accessibility summary"
+          }
+        ]
+      },
+      "depends_on": [
+        "DCSN2"
+      ],
+      "state": "decided",
+      "choice": "A"
     }
   ],
   "calls": [
@@ -479,6 +637,55 @@
         }
       ],
       "state": "standing"
+    },
+    {
+      "id": "AGNT11",
+      "name": "Rebranding from one brand block",
+      "question": "How does an adopter rebrand the archive?",
+      "took": "One small brand section in archive.yaml: name (default the publisher), a one-paragraph intro for the home page, a contact email (shown on restricted pages and errors), logo and favicon files, a primary colour, and an optional font stack. A strict Brand model in the contract validates it (hex colour, file types, logo at most 200 KB, email shape). The app reads it at build time: CSS custom properties, the page title, the favicon, the header logo, the intro and the contact, so nothing flashes unthemed and the static dataset pages get it too. The same block generates Cognito's sign-in branding and the invitation email's subject and text at deploy. One shared function derives hover, active and text-on-colour shades so both surfaces match.",
+      "instead": "A runtime /theme.json beside /auth-config.json: rebrand without a rebuild, but the page flashes the default look first, the title and favicon don't change on static pages, and Cognito's branding would come from a second source.",
+      "why": "Every deploy already rebuilds the app, so build time costs an adopter nothing and keeps one source for the app and the sign-in page. The intro and contact joined because the review's restricted-access banner and error pages need someone to contact (D4, S8, E1), and the Reading room home page opens with an intro.",
+      "evidence": [
+        {
+          "text": "The app already reads archive.yaml at build time for the publisher, and themes through CSS variables",
+          "source": "packages/web/vite.config.ts, packages/web/src/styles.css on origin/main"
+        },
+        {
+          "text": "The config has no contact today",
+          "source": "packages/contract/src/archive_contract/config.py on origin/main (ArchiveConfig: profiles, fields, vocabularies, themes, licences, access levels, publisher)"
+        },
+        {
+          "text": "The research's recommendation",
+          "source": "documents/signin-and-branding.md, section 3"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT12",
+      "name": "Passkeys through managed login",
+      "question": "How do passkeys work on the themed sign-in page?",
+      "took": "Turn on choice-based sign-in with password and passkey as first factors (Essentials plan, which the pool already has). Managed login then offers a passkey to anyone who has one, and prompts a reader to add one after they sign in with a password; an invited user signs in with the temporary password first, then can add a passkey. The header's signed-in menu gets Add a passkey, which opens managed login's passkey registration page. The relying party is the sign-in domain: today the prefix domain (archive-\u003cstage\u003e-\u003caccount\u003e.auth.\u003cregion\u003e.amazoncognito.com). User verification stays at Cognito's default, preferred. The web and CLI clients both allow it, so the CLI's sign-in takes a passkey too.",
+      "instead": "Set the relying party to a custom domain from the start: passkeys would survive the move to a custom domain, but that needs the custom-domain follow-up (a domain the adopter owns, an ACM certificate in us-east-1) built first.",
+      "why": "You asked for passkeys alongside the themed page; managed login handles the whole passkey ceremony, so there is no passkey code in the app. The relying party can only be the domain the sign-in page runs on, and without a custom domain that is the prefix domain. When the custom-domain follow-up lands, readers re-register their passkeys once; that goes in that follow-up.",
+      "evidence": [
+        {
+          "text": "Passkeys work with managed login on every plan but Lite, only in choice-based sign-in",
+          "source": "https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-authentication-flow-methods.html",
+          "output": "Passkeys are an opt-in feature that's available in all feature plans except for Lite. It is only available in the choice-based authentication flow. With managed login, Amazon Cognito handles the logic of passkey authentication."
+        },
+        {
+          "text": "The relying party defaults to the prefix domain without a custom domain, and changing it means re-registering",
+          "source": "same page",
+          "output": "If you don't have a custom domain and don't specify otherwise, your user pool defaults to an RP ID of your prefix domain. ... If you change your RP ID, your users must register again with the new RP ID."
+        },
+        {
+          "text": "Registration only after a first sign-in; managed login can be opened for registration at any time",
+          "source": "same page",
+          "output": "They can only register a passkey after they have signed in to your user pool at least once. ... You can also invoke users' browsers at any time to direct them to a managed login page for passkey registration."
+        }
+      ],
+      "state": "standing"
     }
   ],
   "principles": [],
@@ -541,6 +748,12 @@
       "id": "PARK10",
       "name": "A signed-in mark in the header",
       "text": "Nothing on the page says the reader is signed in; only the restricted buttons change from Sign in to download to Download. Show who is signed in, with Sign out, in the header.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK11",
+      "name": "Custom domain moves passkeys",
+      "text": "When the custom-domain follow-up gives sign-in its own domain, the passkey relying party moves from the prefix domain to it, and readers must register their passkeys again. Say so in that change and in the deploy notes.",
       "kind": "improvement"
     }
   ],
@@ -768,11 +981,103 @@
     },
     {
       "id": "PLAN3",
-      "topic": "visual-design",
-      "covers": "Make the reader's screens look good: a designed look for search and the dataset page, shown as mockups first, with themes from the archive config",
+      "topic": "ux-review-and-branding",
+      "covers": "A complete UX review of the reader's screens, a look of our own that another archive can rebrand from its config, and sign-in on our own page or a managed login themed to match",
       "waits_on": [
         "PLAN1"
-      ]
+      ],
+      "hash": "63bf3048346f1cd5d4045a4196ffff2c8ef46dd10952d91579db83547db86ecc",
+      "tasks": [
+        {
+          "id": "TASK8",
+          "heading": "Task 8: The brand block",
+          "does": "A strict Brand model (name, intro, contact, logo, favicon, primary colour, font) in the contract, the schema and config type regenerated, and a worked brand block in archive.yaml.",
+          "pulls_in": "A small SVG logo and favicon under examples/brand/",
+          "serves": [
+            "DCSN2"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK9",
+          "heading": "Task 9: The Reading room look and the brand at build time",
+          "does": "The Reading room CSS on brand custom properties, a Vite plugin that themes from the brand, the masthead, About page and footer, page titles, focus on navigation and a skip link.",
+          "pulls_in": "A shared shade function used again by Task 14",
+          "serves": [
+            "DCSN2",
+            "DCSN4"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK10",
+          "heading": "Task 10: Search",
+          "does": "Decision-ready result entries, plain-word facet labels, filters that collapse on a phone, facets kept on No results, a submit button, a checked year range, a pager only when needed, and the intro and count.",
+          "pulls_in": "A labels module",
+          "serves": [
+            "DCSN4"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK11",
+          "heading": "Task 11: The dataset page",
+          "does": "The reordered page that fits a phone, the restricted-access banner with one Sign in, the signed-in header with Sign out and Add a passkey, the drawn coverage box, Methods and versions, the usage panel beside the Download, column dictionary fixes, and error pages with a way forward.",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN3",
+            "DCSN4"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK12",
+          "heading": "Task 12: Download a resource whole, and Download all",
+          "does": "Zips of each version and each multi-file resource written beside the version by the page step that publish and reindex call, listed as file items, behind Download all and each set's Download.",
+          "pulls_in": "One copy of each version's files in the archive bucket; waits on the coordinating session's answer on ownership",
+          "serves": [
+            "DCSN4"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK13",
+          "heading": "Task 13: A static page for every version",
+          "does": "A static page per version from the same branded template at publish and in the reindex, and the site function rewrite for /datasets/\u003cid\u003e/v\u003cn\u003e.",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN4"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK14",
+          "heading": "Task 14: Themed sign-in, passkeys and the invitation email",
+          "does": "Managed login branding generated from the brand block on both clients, choice-based sign-in with password and passkey, the passkey relying party, and the invitation email in the archive's name.",
+          "pulls_in": "A brand.ts in the construct; no new AWS service",
+          "serves": [
+            "DCSN3"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK15",
+          "heading": "Task 15: The walk on web-test",
+          "does": "Merge, deploy web-test on your Go, walk it headless at both widths (look, second brand, themed sign-in, a passkey with a virtual authenticator, zips against their checksums, a cited page with the API cut off, axe), your look, then teardown on your Go.",
+          "pulls_in": "A test stage for the length of the walk; two Go presses and one look",
+          "serves": [
+            "DCSN2",
+            "DCSN3",
+            "DCSN4"
+          ],
+          "state": "keep"
+        }
+      ],
+      "approved": {
+        "hash": "63bf3048346f1cd5d4045a4196ffff2c8ef46dd10952d91579db83547db86ecc",
+        "at": "2026-11-14T12:38:40.507429-06:00",
+        "body": "# PLAN3: A look of our own, the UX review's changes, and themed sign-in with passkeys\n\n## Spec\n\n`spec.md` in this folder, approved for PLAN1's reader's flow, plus the decisions made since PLAN1 was built: DCSN2 (the Reading room look, `mockups/look-a-reading-room.html`), DCSN3 (Cognito's managed login themed from the archive config, with passkeys, call AGNT12), DCSN4 (all ten of the UX review's top changes, `documents/ux-review.md`) and call AGNT11 (one `brand:` block rebrands the app, the sign-in page and the invitation email). This plan changes the screens PLAN1 built; it doesn't add screens. PLAN2's submission, review and policy screens are written after this, in the new look.\n\n## The change\n\n**Brand.** `archive.yaml` gains an optional `brand:` block (name, intro, contact, logo, favicon, primary colour, font stack), validated by a `Brand` model in the contract. Today's look is the default when it's absent.\n\n**The look.** `packages/web` takes the Reading room look: serif headings, a masthead with the logo and name, Browse and About the archive links, a footer, one primary button style, coloured access labels. Everything rests on CSS custom properties set from the brand at build time, so changing the block rebrands it. Every page gets its own title, focus moves to the h1 on navigation, and a skip link leads each page.\n\n**Search** gets decision-ready result entries (an Open or Restricted label first, creators on their own line, a meta line with licence, kinds of file, files, size and updated date), plain-word facet labels, filters that collapse on a phone, facets kept on No results, a submit button, a year range that says when it's incomplete, a pager only when there's more than one page, and an intro and count from the brand.\n\n**The dataset page** is reordered (title and meta line, access banner, description, a summary strip with Download all, files, columns, about; the citation beside on desktop), fits a phone, explains restricted access with one Sign in and the contact, shows who is signed in with Sign out and Add a passkey, draws the spatial coverage as a box on a plain outline, adds Methods, Funding and Related works to About, lists the versions, shows the usage panel beside the Download that was pressed, tidies the column dictionary, and gives error pages a way forward.\n\n**Downloads.** A multi-file resource downloads whole, and a version downloads all at once, as zips the page-writing step writes beside each version. **Every version gets a static page**, so a cited `/datasets/\u003cid\u003e/v\u003cn\u003e` link reads with no API.\n\n**Sign-in.** Cognito's managed login is branded from the same block on the web and CLI clients, choice-based sign-in offers password and passkey, and the invitation email speaks in the archive's name.\n\n**Risk.** Low to moderate. The app still only reads. What a mistake could do: break sign-in for everyone (an auth change in Plan 4's construct), which the walk catches and a revert undoes; or leave a zip that doesn't match its version's files, which the zip step's test and the walk's checksum compare catch, and the reindex rewrites. Checks are unit tests with the API mocked, synth tests for the auth and site changes, backend tests for the zip and page steps, `just check`, and one walk on a test stage with your look at the end.\n\n**Cost.** No new AWS service. Passkeys need Cognito's Essentials plan, which the pool already has (CDK's default for a new pool), so no new charge. Zips add one copy of each version's files in the archive bucket. For you: two Go presses (deploy and teardown) and one look.\n\n## Left out\n\n- Sort by newest, title or relevance on search (S7's sort): `GET /api/search` takes no sort today; a Plan 6 change, as a follow-up.\n- BibTeX and RIS citation downloads, and a check that a stored citation's version matches (D11), beyond styling Copied.\n- `publishedAt` on the dataset answer (D12): the page takes it from the versions list instead.\n- A real map: the spatial box is drawn on a plain outline, no tiles or map library.\n- A custom domain for the site or sign-in (an existing follow-up; PARK11 notes passkeys re-register then).\n- Fonts on the sign-in page: Cognito can't take one.\n- The contributor, curator and admin screens (PLAN2).\n\n## Where\n\n| Path | What changes |\n| --- | --- |\n| `packages/contract/src/archive_contract/config.py`, its tests, the JSON Schema | The `Brand` model and `ArchiveConfig.brand` |\n| `archive.yaml`, `examples/brand/` | A worked brand block for the default archive, with its logo |\n| `packages/web/vite.config.ts`, `index.html`, `src/styles.css`, `src/App.tsx`, `src/routes/*`, `src/*.tsx` | The look, the brand at build time, every screen change |\n| `packages/infra/src/auth.ts`, `brand.ts` (new), `web.ts`, `research-archive.ts`, their tests | Managed login branding, passkeys, invitation email, the per-version page rewrite |\n| `packages/backend/src/archive_backend/pages.py`, `reindex.py`, `ingest.py` (the one call into the page step), their tests | Per-version pages and the zips |\n| `docs/planning-handoff.md` | Decision log rows for the brand block, passkeys and the zips |\n\n### Task 8: The brand block\n\n**Does:** Adds a strict `Brand` model to `archive_contract.config` and an optional `brand` field on `ArchiveConfig`: `name` (default the publisher), `intro` (one paragraph, at most 600 characters), `contact` (an email address), `logo` and `favicon` (paths relative to the config file; svg or png for the logo, svg or ico for the favicon; at most 200 KB each; the files must exist), `primaryColor` (`#rrggbb`) and `font` (a CSS font-family stack, optional). Regenerates the JSON Schema and the construct's config type. Adds a brand block to `archive.yaml` for the Invented Research Cooperative, with a small SVG logo under `examples/brand/`, and checks the config still writes under the 4 KB SSM limit.\n**Files:** `packages/contract/src/archive_contract/config.py`, `packages/contract/tests/test_config.py`, `packages/web/src/schema/archive-contract.schema.json`, `packages/infra/src/generated/archive-config.ts`, `archive.yaml`, `examples/brand/logo.svg`, `examples/brand/favicon.svg`\n**Checks:** `uv run pytest packages/contract`, `uv run mypy packages`, `just check-schema`\n**Serves:** DCSN2 (rests on call AGNT11)\n\n- Tests: a valid block loads; a bad colour, a missing logo file, a 300 KB logo, an unknown key and a bad email are each refused with a message naming the field; no brand block gives the defaults.\n\n### Task 9: The Reading room look and the brand at build time\n\n**Does:** Rebuilds `styles.css` on the Reading room mockup (`mockups/look-a-reading-room.html`): custom properties for the brand colour and its derived shades, ink, paper, rules, the heading and body fonts and the radius; serif headings; one primary button style; coloured access labels (green open, amber restricted, grey other levels); section spacing and a ~70ch measure. A Vite plugin reads the brand at build time: writes the `:root` properties after `styles.css`, copies the logo and favicon into `dist/brand/`, sets `\u003ctitle\u003e` and the favicon link in `index.html`, and defines `__BRAND__` (name, intro, contact, logo URL). One small module derives the hover, active and text-on-colour shades, shared with Task 14. The masthead shows the logo and name with Browse and About the archive; an About page renders the intro and contact; a footer names the publisher. Every route sets `document.title` (\"Search · {name}\", \"{dataset} · {name}\", \"Not found · {name}\") and moves focus to its h1; Clear filters returns focus to the search box. A skip link leads each page.\n**Files:** `packages/web/vite.config.ts`, `packages/web/src/brand.ts` (the shade function), `packages/web/index.html`, `packages/web/src/styles.css`, `packages/web/src/App.tsx`, `packages/web/src/routes/About.tsx`, their tests\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`, `npm run build -w packages/web`\n**Serves:** DCSN2, DCSN4 (rests on call AGNT11)\n\n- Tests: the build with a second brand (a test config) puts its colour in the CSS and its name in the title; the shade function gives AA contrast for text on the primary colour across a set of colours; each route's title; focus on the h1 after navigation; the skip link reaches main; axe finds nothing on each screen.\n\n### Task 10: Search\n\n**Does:** Result entries take the mockup's form: the access label first (\"Open\", \"Restricted\"), the title, creators and coverage years on a muted line, the description cut to three lines, and a meta line with the licence in words, the kinds of file (tables, GIS, documents, images, from the formats), the file count where known, the size and the published date. Facet labels map tokens to words (access levels, licence ids, formats as \"Shapefile (.shp)\"), keeping the token in the URL. Below 40rem the filters collapse behind \"Filters (n active)\". On No results the facet groups stay with their values from the archive at 0, the query is echoed, and Clear filters (keeping the query) sits beside Search everything. A submit button searches at once on Enter. The year boxes are text with a numeric keyboard, \"From [ ] to [ ]\" on one line, and say when a year is incomplete or the range is reversed. The pager shows only past one page, as \"Page 1 of n\". The home page opens with the brand's intro and \"N datasets in the archive\". The error line names the contact.\n**Files:** `packages/web/src/routes/Search.tsx`, `packages/web/src/routes/Search.test.tsx`, `packages/web/src/labels.ts` and its test, `packages/web/src/styles.css`\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`\n**Serves:** DCSN4\n\n- Tests: an entry shows the access label before the title and no raw extension; filters collapse at phone width and open with the count; No results keeps the facets; Enter searches at once; a three-digit year shows the hint and sends no filter; one page shows no pager; axe at 1280 and 390.\n\n### Task 11: The dataset page\n\n**Does:** Reorders the page: title, a meta line (creators · published · version · licence), the access banner, the description, a summary strip (files, size, kinds, coverage, with Download all from Task 12), Files, Columns, About; on desktop the citation sits in a right column near the top with Copy inside its box, and Copied shows beside it. Below 40rem: files become cards with a full-width Download, the columns tables scroll sideways inside a framed box, About stacks label over value, long URLs wrap. Restricted and other non-open datasets show a banner saying what the level means, who can sign in (invited accounts), and how to ask for access (the brand's contact), with one Sign in; file rows show a lock and \"Sign in above\". The header shows \"Signed in as {email}\" with Sign out and Add a passkey (managed login's passkey registration page) once signed in. Spatial coverage shows its description first, then the bounding box drawn on a plain outline in SVG, with the numbers in small type. About adds Methods, Funding and Related works when the manifest has them. A Versions list (number, published date, link) shows on every version, saying which one the citation points at. The usage panel appears beside the Download that was pressed, is announced, uses the look's form styles, and says its answers were sent anonymously. The column dictionary links a code list to its columns, shows \"No code list\" muted for undocumented codes, counts a description that repeats the name as none, and folds each table into an open details with its column count. Per-file downloads are one button style at least 32 px tall with the size inside. The error and loading states keep an h1; errors offer Try again, Search the archive, and the current version's link; a missing version links to the current one; a failed sign-in offers Back to the dataset and Try again.\n**Files:** `packages/web/src/routes/Dataset.tsx`, `packages/web/src/routes/Dataset.test.tsx`, `packages/web/src/UsagePanel.tsx`, `packages/web/src/Coverage.tsx`, `packages/web/src/App.tsx` (the signed-in header), `packages/web/src/auth.ts` (sign-out and the passkey link), `packages/web/src/routes/Callback.tsx`, `packages/web/src/styles.css`\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`\n**Serves:** DCSN3, DCSN4 (rests on call AGNT12)\n\n- Tests: at 390 the document doesn't scroll sideways (jsdom can't measure, so this is checked in the walk; the unit test checks the card markup); a restricted page shows one Sign in and the contact; signed in, the header names the reader and Sign out clears the token; the versions list marks the cited version; Methods renders; the usage panel sits beside the pressed button and is announced; a repeated-name description shows as none; axe at 1280 and 390.\n\n### Task 12: Download a resource whole, and Download all\n\n**Does:** The page-writing step that publish and the reindex both call gains a zip writer: for each version it writes `package.zip` (every file of the version, with `datapackage.json`, `README.md` and `checksums.sha256`) and, for each multi-file resource, `\u003cresource name\u003e.zip` (its members), beside the version under `\u003copen|restricted\u003e/\u003cid\u003e/\u003cv\u003e/_zips/`, each in one PUT with a full-object SHA-256 like every archived object. It skips a zip that already exists with the same member hashes, so a reindex rewrites only what changed. The zips are listed as file items, so restricted ones go through the existing download route and open ones through `/data`. The page's Download all and each multi-file row's Download point at them, with the member list in a \"Files in this set\" details. The weekly integrity check covers them because they are written the same way. Waits on the coordinating session's answer on who owns the zip (thread 997); if Plan 6 or 7 takes it, this task shrinks to the page's buttons.\n**Files:** `packages/backend/src/archive_backend/pages.py` (or a new `zips.py` beside it), `packages/backend/src/archive_backend/reindex.py`, `packages/backend/src/archive_backend/ingest.py` (its one call), their tests, `packages/infra/src/reindex.ts` (put on `_zips/`), `packages/web/src/routes/Dataset.tsx`\n**Checks:** `uv run pytest packages/backend`, `uv run mypy packages`, `npm test -w packages/infra`, `npm test -w packages/web`\n**Serves:** DCSN4\n\n- Tests: the version zip holds exactly the version's files and its manifest, and its entries' hashes match `checksums.sha256`; a shapefile set's zip holds its four members; a second run writes nothing new; a restricted zip is a file item the download route accepts.\n\n### Task 13: A static page for every version\n\n**Does:** The page step writes `site/datasets/\u003cid\u003e/v\u003cn\u003e/index.html` for every version from the same template (its own version, citation and file links, and a link to the current version), beside the current page, at publish and in the reindex. The site function sends `/datasets/\u003cid\u003e/v\u003cn\u003e` and `/datasets/\u003cid\u003e/v\u003cn\u003e/` to that file. The template takes the brand's name, logo and colour, so the static page looks like the app before it takes over.\n**Files:** `packages/backend/src/archive_backend/pages.py`, `packages/backend/src/archive_backend/reindex.py`, `packages/backend/tests/test_pages.py`, `packages/backend/tests/test_reindex.py`, `packages/infra/src/web.ts`, `packages/infra/test/web.test.ts`\n**Checks:** `uv run pytest packages/backend`, `npm test -w packages/infra`, `just check`\n**Serves:** DCSN4\n\n- Tests: a reindex over a dataset with two versions writes three pages (current, v1, v2); the site function maps `/datasets/x/v2` to its page and leaves `/datasets/x` as before; the versioned page escapes manifest text as the current one does.\n\n### Task 14: Themed sign-in, passkeys and the invitation email\n\n**Does:** A `brand.ts` in the construct builds managed login's settings document (primary button, link and focus colours with the shared derived shades, form logo on, light mode, header off) and assets (the logo as `FORM_LOGO`, the favicon) from the brand block, and `Auth.addAppClients` passes them to each client's `CfnManagedLoginBranding` instead of Cognito's defaults. The user pool turns on choice-based sign-in with password and passkey as first factors, passkey user verification preferred, the relying party the pool's prefix domain, and both app clients allow `USER_AUTH` alongside the code flow. The invitation email's subject and body use the brand's name and the site's address. Synth fails with a plain message if an asset is over the limit.\n**Files:** `packages/infra/src/brand.ts`, `packages/infra/src/auth.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/test/auth.test.ts`, `packages/infra/test/brand.test.ts`\n**Checks:** `npm run typecheck -w packages/infra`, `npm test -w packages/infra`, `just check`\n**Serves:** DCSN3 (rests on calls AGNT11, AGNT12)\n\n- Tests: each client's branding resource carries the brand colour and the logo asset and no `UseCognitoProvidedValues`; the pool's sign-in policy lists password and passkey; the relying party is the prefix domain; both clients allow `ALLOW_USER_AUTH`; the invitation email names the archive; the same shade function gives the app and the sign-in page the same button colour.\n\n### Task 15: The walk on web-test\n\n**Does:** Opens the PR with Tasks 8 to 14 and enables auto-merge. After it merges and you Go, deploys `ResearchArchive-web-test`, publishes the sample package open and again as restricted, invites a throwaway user, and walks it headless with Playwright at 1280 and 390: every check from PLAN1's walk, plus the new look and a second brand (a rebuild with a test config), no sideways scroll on a phone, page titles and focus, the restricted banner and one Sign in, sign-in on the themed managed login page, adding a passkey with a virtual authenticator and signing in with it, Download all and a shapefile's zip with their contents compared to `checksums.sha256`, a cited `/v1` page with the API cut off, and axe on every screen. Screenshots go in this folder's `screenshots/`. Then your look in your own browser, including signing in with a passkey on your own device. On your second Go, destroys the stage and confirms nothing is left.\n**Files:** none changed; the walk's notes and screenshots go in the task's result and the folder\n**Checks:** `just check` on main; `cdk deploy` and `just destroy web-test` exit 0\n**Serves:** DCSN2, DCSN3, DCSN4\n\n- The walk is a step on this folder's page, with a Go before the deploy and a Go before the teardown.\n- On any AWS auth error, stop and report; never copy or export credentials.\n"
+      }
     }
   ],
   "messages": [
@@ -1053,6 +1358,75 @@
       "at": "2026-11-14T11:29:15.693428-06:00",
       "state": "answered",
       "claim": "3bda5bef5e9c7848"
+    },
+    {
+      "id": 25,
+      "card": "plans",
+      "from": "user",
+      "action": "note",
+      "text": "i think we'll need more here.  i'd like a complete UX review of this as well.  we can plan this in parallel with subagents.  but we should have a complete page branded as our own that is easy for someone else to rebrand.  we should use our own page whenever possible, like the cognito signin should be ourselves or at least themed",
+      "at": "2026-11-14T11:58:19.475856-06:00",
+      "state": "answered",
+      "claim": "6f5479bf17d87677"
+    },
+    {
+      "id": 26,
+      "card": "plans",
+      "from": "agent",
+      "action": "reply",
+      "text": "Done: the UX review, the sign-in and branding research, and three looks are in. Three decisions are on the Decisions page (the look, sign-in, and which review changes go in), with the mockups on the look card; how rebranding works is my call AGNT11, reversible. The full review and research are under Artifacts (documents/ux-review.md, documents/signin-and-branding.md).",
+      "at": "2026-11-14T12:09:33.717758-06:00",
+      "answers": [
+        25
+      ]
+    },
+    {
+      "id": 27,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-14T12:20:33.653222-06:00",
+      "state": "answered",
+      "claim": "419443688280723c"
+    },
+    {
+      "id": 28,
+      "card": "DCSN3",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "text": "we also want to enable using passkeys",
+      "at": "2026-11-14T12:21:04.019553-06:00",
+      "state": "answered",
+      "claim": "9fc68999b6e2d0cd"
+    },
+    {
+      "id": 29,
+      "card": "DCSN3",
+      "from": "agent",
+      "action": "reply",
+      "text": "Passkeys are in, as call AGNT12. Managed login handles the whole passkey flow, so there's no passkey code in the app: the pool turns on choice-based sign-in with password and passkey, a reader is prompted to add a passkey after a password sign-in (an invited user signs in with the temporary password first), and the header's signed-in menu gets Add a passkey. The CLI's sign-in takes a passkey too. One thing to know: the passkey belongs to the sign-in page's domain, today the amazoncognito.com prefix domain, so when a custom domain arrives readers register their passkeys again once (follow-up PARK11).",
+      "at": "2026-11-14T12:21:53.347587-06:00"
+    },
+    {
+      "id": 30,
+      "card": "DCSN4",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-14T12:21:56.318078-06:00",
+      "state": "answered",
+      "claim": "b2e8e7b42d9e3141"
+    },
+    {
+      "id": 31,
+      "card": "PLAN3",
+      "from": "user",
+      "action": "approve-plan",
+      "at": "2026-11-14T12:38:40.507429-06:00",
+      "state": "answered",
+      "claim": "d7439c68628376ba"
     }
   ],
   "planned_history": [
