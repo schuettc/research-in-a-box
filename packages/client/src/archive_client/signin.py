@@ -23,6 +23,8 @@ from typing import Any, Self
 CALLBACK_PORT = 8765
 TIMEOUT = 300.0
 """Seconds to wait for the browser to come back to the callback."""
+REQUEST_TIMEOUT = 10.0
+"""Seconds one connection to the listener may take, so a silent one can't hold it."""
 
 _PAGE = (
     b"<!doctype html><title>Signed in</title>"
@@ -98,6 +100,10 @@ class _Callback(HTTPServer):
 
 class _Handler(BaseHTTPRequestHandler):
     server: _Callback
+
+    def setup(self) -> None:
+        self.request.settimeout(REQUEST_TIMEOUT)
+        super().setup()
 
     def do_GET(self) -> None:
         parts = urllib.parse.urlsplit(self.path)
@@ -176,7 +182,14 @@ def sign_in(
     """
     verifier, challenge = _pkce()
     state = secrets.token_urlsafe(32)
-    with _Callback(("127.0.0.1", port), _Handler) as server:
+    try:
+        listener = _Callback(("127.0.0.1", port), _Handler)
+    except OSError as exc:
+        raise SignInError(
+            f"port {port} is in use: another sign-in may still be waiting; finish it in the "
+            "browser or wait a few minutes"
+        ) from exc
+    with listener as server:
         redirect_uri = f"http://localhost:{server.server_address[1]}/callback"
         query = urllib.parse.urlencode(
             {
@@ -189,7 +202,11 @@ def sign_in(
                 "code_challenge_method": "S256",
             }
         )
-        open_browser(f"{config.base_url}/oauth2/authorize?{query}")
+        authorize = f"{config.base_url}/oauth2/authorize?{query}"
+        if not open_browser(authorize):
+            raise SignInError(
+                f"no browser could be opened to sign in; the sign-in address is {authorize}"
+            )
         params = _wait(server, timeout)
     if not secrets.compare_digest(params.get("state", ""), state):
         raise SignInError("the sign-in callback's state doesn't match; try again")

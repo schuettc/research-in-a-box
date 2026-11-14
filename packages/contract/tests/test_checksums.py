@@ -2,7 +2,7 @@ import hashlib
 import shutil
 from pathlib import Path
 
-from archive_contract import write_checksums
+from archive_contract import checksums_text, write_checksums
 from archive_contract.validate import validate_package
 
 SAMPLE = Path(__file__).parents[3] / "examples" / "sample-package"
@@ -42,3 +42,17 @@ def test_a_package_with_rewritten_checksums_validates(tmp_path: Path) -> None:
     write_checksums(root)
 
     assert validate_package(root) == []
+
+
+def test_checksums_text_hashes_replaced_content_instead_of_the_file_on_disk(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "a.txt").write_bytes(b"old\n")
+
+    text = checksums_text(tmp_path, {"a.txt": b"new\n", "b.txt": b"added\n"})
+
+    assert text == (
+        f"{hashlib.sha256(b'new\n').hexdigest()}  a.txt\n"
+        f"{hashlib.sha256(b'added\n').hexdigest()}  b.txt\n"
+    )
+    assert (tmp_path / "a.txt").read_bytes() == b"old\n"

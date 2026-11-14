@@ -208,3 +208,63 @@ def test_from_archive_refuses_a_document_missing_a_field(stub: Stub) -> None:
 def test_from_archive_refuses_an_archive_with_no_auth_config(stub: Stub) -> None:
     with pytest.raises(SignInError, match="404"):
         AuthConfig.from_archive(stub.url)
+
+
+def test_a_port_already_in_use_says_another_sign_in_may_be_waiting(stub: Stub) -> None:
+    import socket
+
+    with socket.socket() as taken:
+        taken.bind(("127.0.0.1", 0))
+        taken.listen()
+        port = taken.getsockname()[1]
+
+        with pytest.raises(SignInError, match=f"port {port} is in use"):
+            sign_in(config(stub), open_browser=lambda url: True, port=port, timeout=1)
+
+
+def test_a_browser_that_wont_open_is_reported_with_the_sign_in_url(stub: Stub) -> None:
+    with pytest.raises(SignInError, match="no browser could be opened") as raised:
+        sign_in(config(stub), open_browser=lambda url: False, port=0, timeout=5)
+
+    assert f"{stub.url}/oauth2/authorize?" in str(raised.value)
+
+
+def test_a_silent_connection_cant_hold_the_listener(
+    stub: Stub, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import socket
+
+    from archive_client import signin
+
+    monkeypatch.setattr(signin, "REQUEST_TIMEOUT", 0.2, raising=False)
+    stub.routes["/oauth2/token"] = (
+        200,
+        {"access_token": "a", "id_token": "i", "expires_in": 3600},
+    )
+    silent = socket.socket()
+
+    def open_browser(url: str) -> bool:
+        query = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query))
+        port = urllib.parse.urlsplit(query["redirect_uri"]).port
+        silent.connect(("127.0.0.1", port or 0))  # connects and never sends a byte
+
+        def visit() -> None:
+            time.sleep(0.1)
+            callback = (
+                query["redirect_uri"]
+                + "?"
+                + urllib.parse.urlencode({"code": "c", "state": query["state"]})
+            )
+            with urllib.request.urlopen(callback, timeout=10) as response:
+                response.read()
+
+        threading.Thread(target=visit, daemon=True).start()
+        # Without a socket timeout the listener waits on the silent connection until it closes.
+        threading.Timer(5, silent.close).start()
+        return True
+
+    started = time.monotonic()
+    tokens = sign_in(config(stub), open_browser=open_browser, port=0, timeout=30)
+
+    assert tokens.access_token == "a"
+    assert time.monotonic() - started < 3

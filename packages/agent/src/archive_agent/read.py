@@ -4,6 +4,7 @@ import hashlib
 import os
 import tempfile
 import urllib.parse
+from collections import Counter
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -100,7 +101,9 @@ def download(session: Session, id: str, version: int, paths: list[str], to: str)
     """Write the named files of one version under `to`, each checked against its SHA-256.
 
     Open files come from `/data/...`; restricted ones through the signed-in link route. A file
-    whose hash doesn't match is not kept and is listed under `failed`.
+    whose hash doesn't match is not kept and is listed under `failed`. A file with no SHA-256
+    of its own (none recorded, or one shared by several files) is written and listed under
+    `not_checked`.
     """
     root = Path(to).expanduser().resolve()
     targets = {path: _target(root, path) for path in paths}
@@ -111,6 +114,9 @@ def download(session: Session, id: str, version: int, paths: list[str], to: str)
     if missing:
         raise Refused(f"Version {version} of {id} has no file {', '.join(missing)}.")
     is_open = found.get("prefix") == "open"
+    # A multi-file resource's one hash is stamped on every part of it, so a hash several
+    # files share checks none of them (as the contract's validate skips it).
+    hashes = Counter(item.get("hash") for item in items.values() if item.get("hash"))
     written: list[dict[str, Any]] = []
     failed: list[dict[str, str]] = []
     for path, target in targets.items():
@@ -124,7 +130,11 @@ def download(session: Session, id: str, version: int, paths: list[str], to: str)
             )
             data = archive.fetch(link["url"])
         recorded = items[path].get("hash")
-        checked = isinstance(recorded, str) and recorded.lower().startswith("sha256:")
+        checked = (
+            isinstance(recorded, str)
+            and recorded.lower().startswith("sha256:")
+            and hashes[recorded] == 1
+        )
         if checked:
             actual = "sha256:" + hashlib.sha256(data).hexdigest()
             if actual != str(recorded).lower():
@@ -132,4 +142,5 @@ def download(session: Session, id: str, version: int, paths: list[str], to: str)
                 continue
         _write(target, data)
         written.append({"path": path, "to": str(target), "bytes": len(data), "checked": checked})
-    return {"written": written, "failed": failed}
+    not_checked = [w["path"] for w in written if not w["checked"]]
+    return {"written": written, "failed": failed, "not_checked": not_checked}

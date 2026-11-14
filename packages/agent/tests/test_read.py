@@ -226,3 +226,39 @@ def test_download_refuses_a_path_the_version_doesnt_have(connected: Any, tmp_pat
 
     with pytest.raises(Refused, match="data/b.csv"):
         read.download(Session(), "d1", 3, ["data/b.csv"], str(tmp_path))
+
+
+def test_download_skips_the_hash_check_for_a_hash_shared_by_several_files(
+    connected: Any, tmp_path: Path
+) -> None:
+    # Reindex stamps a multi-file resource's one hash on every part of it.
+    shared = sha(b"the whole set")
+    connected.json(
+        "GET /api/datasets/d1/versions/3",
+        {
+            "version": 3,
+            "prefix": "open",
+            "manifest": {},
+            "files": [
+                {"path": "data/sites.shp", "hash": shared},
+                {"path": "data/sites.dbf", "hash": shared},
+                {"path": "data/a.csv", "hash": sha(b"a,b\n")},
+            ],
+        },
+    )
+    connected.raw("GET /data/d1/3/data/sites.shp", b"shp")
+    connected.raw("GET /data/d1/3/data/sites.dbf", b"dbf")
+    connected.raw("GET /data/d1/3/data/a.csv", b"a,b\n")
+
+    result = read.download(
+        Session(), "d1", 3, ["data/sites.shp", "data/sites.dbf", "data/a.csv"], str(tmp_path)
+    )
+
+    assert result["failed"] == []
+    assert (tmp_path / "data" / "sites.dbf").read_bytes() == b"dbf"
+    assert {w["path"]: w["checked"] for w in result["written"]} == {
+        "data/sites.shp": False,
+        "data/sites.dbf": False,
+        "data/a.csv": True,
+    }
+    assert result["not_checked"] == ["data/sites.shp", "data/sites.dbf"]

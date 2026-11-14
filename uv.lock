@@ -65,7 +65,7 @@ requires-dist = [
     { name = "archive-client", editable = "packages/client" },
     { name = "archive-contract", editable = "packages/contract" },
     { name = "cruise", editable = "packages/tool" },
-    { name = "mcp", specifier = ">=1.20" },
+    { name = "mcp", specifier = ">=2.3,<3" },
 ]
 
 [[package]]

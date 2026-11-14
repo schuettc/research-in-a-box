@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from archive_agent.errors import LocalError
-from archive_contract import write_checksums
+from archive_contract import checksums_text
 from archive_contract.exports.readme import render_readme
 from archive_contract.manifest import Manifest
 from archive_contract.project import Project
@@ -159,9 +159,15 @@ def edit_manifest(folder: str, edits: list[dict[str, Any]]) -> dict[str, Any]:
         document = attempt
     if failures:
         raise LocalError("Nothing was written. " + " ".join(failures))
+    # Validated through the model, but the edited document itself is written, so nothing the
+    # person didn't approve is normalised. Every file is built before any is written.
     manifest = Manifest.model_validate(document)
-    data = manifest.model_dump(mode="json", by_alias=True, exclude_unset=True)
-    _replace(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-    _replace(root / README, render_readme(manifest, _project(root)))
-    write_checksums(root)
+    manifest_text = json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+    readme_text = render_readme(manifest, _project(root))
+    sums = checksums_text(
+        root, {MANIFEST: manifest_text.encode("utf-8"), README: readme_text.encode("utf-8")}
+    )
+    _replace(path, manifest_text)
+    _replace(root / README, readme_text)
+    _replace(root / CHECKSUMS, sums)
     return {"applied": len(edits), "written": [MANIFEST, README, CHECKSUMS]}

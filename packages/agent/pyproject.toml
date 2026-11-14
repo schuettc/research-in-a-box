@@ -7,7 +7,7 @@ dependencies = [
     "archive-client",
     "archive-contract",
     "cruise",
-    "mcp>=1.20",
+    "mcp>=2.3,<3",
 ]
 
 [project.scripts]

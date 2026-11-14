@@ -3,6 +3,7 @@
 import hashlib
 import os
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 
 from archive_contract.validate import CHECKSUMS, package_files
@@ -16,15 +17,32 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def write_checksums(root: Path) -> None:
-    """Rewrite `checksums.sha256` at `root`: `<sha256>  <path>` for every package file.
+def checksums_text(root: Path, replaced: Mapping[str, bytes] | None = None) -> str:
+    """The text of `checksums.sha256` for the package at `root`: `<sha256>  <path>` lines.
 
     Every path `package_files` lists (so not `_build/`, and no symlink) except the checksums
-    file itself, sorted, in the format `validate_package` reads. The file is written to a
-    temporary name and moved into place.
+    file itself, sorted, in the format `validate_package` reads. `replaced` maps relative
+    paths to content about to be written, which is hashed instead of the file on disk, so a
+    writer can build every file before writing any.
     """
+    replaced = replaced or {}
     paths, _ = package_files(root)
-    lines = "".join(f"{_sha256(root / p)}  {p}\n" for p in paths if p != CHECKSUMS)
+    lines = []
+    for path in sorted(set(paths) | set(replaced)):
+        if path == CHECKSUMS:
+            continue
+        data = replaced.get(path)
+        digest = hashlib.sha256(data).hexdigest() if data is not None else _sha256(root / path)
+        lines.append(f"{digest}  {path}\n")
+    return "".join(lines)
+
+
+def write_checksums(root: Path) -> None:
+    """Rewrite `checksums.sha256` at `root` from `checksums_text`.
+
+    The file is written to a temporary name and moved into place.
+    """
+    lines = checksums_text(root)
     target = root / CHECKSUMS
     with tempfile.NamedTemporaryFile(dir=root, prefix=f".{CHECKSUMS}.", delete=False) as stream:
         stream.write(lines.encode("utf-8"))

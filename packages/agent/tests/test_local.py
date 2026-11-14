@@ -133,3 +133,35 @@ def test_every_failing_edit_is_named(package: Path) -> None:
 def test_edit_manifest_refuses_a_folder_with_no_manifest(tmp_path: Path) -> None:
     with pytest.raises(LocalError, match="datapackage.json"):
         local.edit_manifest(str(tmp_path), [{"target": "title", "value": "x"}])
+
+
+def test_a_readme_that_fails_to_render_writes_nothing(
+    package: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    before = snapshot(package)
+
+    def broken(*args: object) -> str:
+        raise RuntimeError("render failed")
+
+    monkeypatch.setattr(local, "render_readme", broken)
+
+    with pytest.raises(RuntimeError, match="render failed"):
+        local.edit_manifest(str(package), [{"target": "title", "value": "Changed"}])
+
+    assert snapshot(package) == before
+
+
+def test_only_approved_fields_change_in_the_written_manifest(package: Path) -> None:
+    path = package / "datapackage.json"
+    document = json.loads(path.read_text())
+    document["archive:spatialCoverage"]["bbox"] = [-73, 44, -72, 45]
+    document["archive:published"] = "2024-05-01T12:00:00+00:00"
+    path.write_text(json.dumps(document, indent=2) + "\n")
+
+    local.edit_manifest(str(package), [{"target": "title", "value": "A new title"}])
+
+    written = path.read_text()
+    assert '"archive:published": "2024-05-01T12:00:00+00:00"' in written
+    after = json.loads(written)
+    assert [type(v) for v in after["archive:spatialCoverage"]["bbox"]] == [int] * 4
+    assert after == {**document, "title": "A new title"}
