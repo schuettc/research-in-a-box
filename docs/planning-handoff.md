@@ -119,7 +119,7 @@ my-dataset/
 - Each dataset sits under a parent project. Dataset pages have Overview, Metadata, Data and Documents tabs.
 - Tabular data lives in a database and is exported as CSV on request.
 - Access states: Unpublished, Downloadable, By Request, Description Only, and Linked, where FEMC holds the record and the data lives elsewhere.
-- Browsing is seven themes plus a separate advanced search. No API or bulk export is documented.
+- Browsing is six themes (air, climate change, forest, soil, water, wildlife) plus an All Projects tab and a separate advanced search. No API or bulk export is documented.
 - Submission is by requesting an account and following a PDF user guide.
 - Downloads are anonymous, with an optional form asking who you are and how you will use the data. FEMC uses this to justify funding.
 
@@ -344,7 +344,7 @@ Plans 1 and 2 should be planned first, in parallel with each other. Plan 2 is th
 - Recording what could not be imported and why.
 - Growing the corpus to 10 to 20 datasets. Still to add: one by-request dataset, one description-only record, and one with documents or images attached.
 - The request to the FEMC contact for a bulk export.
-- The FEMC archive config file: the ecology profile, seven themes and their access levels.
+- The FEMC archive config file: the ecology profile, six themes and their access levels.
 
 **Rules for collecting data.**
 - Hand-pick and download through the public pages.
