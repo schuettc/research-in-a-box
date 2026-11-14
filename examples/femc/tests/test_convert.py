@@ -131,6 +131,18 @@ def test_a_csv_table_with_its_columns_matched_to_the_record(tmp_path: Path) -> N
     ]
 
 
+def test_the_project_record_is_kept_beside_the_package(tmp_path: Path) -> None:
+    package, manifest, _ = run(dataset(tmp_path, "stream-counts"), tmp_path)
+
+    project = json.loads((package / "_build" / "project.json").read_text(encoding="utf-8"))
+    assert manifest["archive:project"] == project["id"]
+    assert project["title"] == "Invented Stream Monitoring"
+    assert project["abstract"] == (
+        "Invented streams, counted by invented people every invented summer."
+    )
+    assert [p["name"] for p in project["people"]] == ["Ada Placeholder"]
+
+
 def test_a_linked_record_points_at_the_url_in_its_citation(tmp_path: Path) -> None:
     _, manifest, lines = run(dataset(tmp_path, "census-linked"), tmp_path)
 

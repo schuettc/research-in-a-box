@@ -29,6 +29,8 @@ from femc.eml import Standardized, standardize
 
 RECORD = "eml.xml"
 NOT_IMPORTED = "not-imported.txt"
+PROJECT = "project.json"
+"""The project record from the EML, kept until the archive decides where project records live."""
 PROFILE = "https://datapackage.org/profiles/2.0/datapackage.json"
 CODE_COLUMNS = ["code", "label", "description"]
 DBF_NAME_LENGTH = 10
@@ -596,6 +598,8 @@ def _build(
     (root / MANIFEST).write_text(_json(manifest.dump()), encoding="utf-8")
     (root / "README.md").write_text(render_readme(manifest, record.imported.project), "utf-8")
     (root / BUILD).mkdir()
+    if record.imported.project is not None:
+        (root / BUILD / PROJECT).write_text(_json(record.imported.project.dump()), encoding="utf-8")
     (root / BUILD / NOT_IMPORTED).write_text(
         "".join(f"{line}\n" for line in builder.lines), encoding="utf-8"
     )
