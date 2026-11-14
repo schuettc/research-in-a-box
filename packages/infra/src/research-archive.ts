@@ -137,6 +137,9 @@ export class ResearchArchive extends Construct {
     }).distribution;
     this.operations.addDistribution(this.distribution);
     this.userPoolClients = auth.addAppClients(this.distribution.distributionDomainName);
+    if (!this.isProd) {
+      auth.addTestClient(this.distribution.distributionDomainName);
+    }
 
     new IntegrityCheck(this, "IntegrityCheck", {
       archive: this,
