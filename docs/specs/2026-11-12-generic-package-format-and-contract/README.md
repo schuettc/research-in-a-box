@@ -125,6 +125,7 @@ PLAN3 was added after the paper test found eight things the format couldn't hold
 | `wrap-up.md` | the agent, header by diazo | What was built, how it works now, and what went differently from the plan. |
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
+| `documents/` | the agent and the user | Every other file the plan holds, of any type: CSV, PDF, Markdown, transcripts. |
 
 ## Ids
 

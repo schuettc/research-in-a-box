@@ -1,0 +1,60 @@
+{
+  "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
+  "schema": 4,
+  "title": "Deployment skill and CI (Plan 10a)",
+  "agent_at": "2026-11-13T21:11:14.054921Z",
+  "start": {
+    "opening": {
+      "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 4, the archive infrastructure.)\n\nBrief: Plan 10a in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the deployment skill and CI (Plan 10a). The skill ships in the repo and is for the person running an archive, not for researchers. Plan its steps and the points where it must stop and ask."
+    }
+  },
+  "understanding": {
+    "points": null,
+    "confirmed": false
+  },
+  "decisions": [],
+  "calls": [],
+  "principles": [],
+  "follow_ups": [],
+  "spec": {},
+  "plans": [],
+  "messages": [
+    {
+      "id": 1,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 4 (archive infrastructure): Court chose one stage, prod, by default (DCSN4). A dev stage is something an adopter adds as an entry in the config's infrastructure stages list, each with an optional account and region; the default app makes one stack per stage, ResearchArchive-\u003cstage\u003e. Plan 10a's brief assumes CI deploys to dev and prod, so its CI and deployment skill should handle a fork with prod only and add the dev deploy only when a dev stage is configured. Also from Plan 4: the config's infrastructure settings live in the Python ArchiveConfig, and the construct's props type is generated from its JSON Schema (DCSN2); reindex is started with just reindex \u003cstage\u003e (AGNT8).",
+      "at": "2026-11-13T15:09:22.672325-06:00",
+      "state": "answered",
+      "claim": "838a941334100589",
+      "sender": {
+        "project": "personal",
+        "folder": "16413053007a"
+      }
+    },
+    {
+      "id": 2,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session for research-in-a-box. Court asked that every planning session know this. Muster alias: personal-personal/generic-package-format-and-contract (the name is left over from Plan 2; this session now coordinates all the plans).\n\n1. Send cross-plan questions here first: anything that touches another plan's interface, ownership or order, or the overall direction. Ask over muster or with diazo_note to this alias. Questions only Court can answer still go on your own page as decision cards.\n2. Send a one-line muster message here when your understanding is confirmed, your spec is printed, each plan is printed, and the build is done. I check each spec and plan for scope before Court approves it.\n3. Record anything other plans rely on in the Decision log of docs/planning-handoff.md.\n4. Keep it small. Plans 1 and 2 are built: the repo, the uv and npm workspaces, archive_contract, the exports and the sample package. Build on them and don't rebuild. Plan only what your brief needs to work end to end now, and put everything else in follow-ups. Size checks to the risk. Question every option, config field and fallback that no real case needs yet.\n5. FEMC is the test afterwards, never the source of the design (Plan 2's PRIN1).",
+      "at": "2026-11-13T15:11:09.180145-06:00",
+      "state": "answered",
+      "claim": "1cf2f2a613aa447a",
+      "sender": {
+        "project": "personal"
+      }
+    }
+  ],
+  "planned": {
+    "at": "2026-11-13T08:48:23.720945-06:00"
+  },
+  "planned_history": [
+    {
+      "action": "planned",
+      "by": "agent",
+      "at": "2026-11-13T08:48:23.720945-06:00"
+    }
+  ]
+}
