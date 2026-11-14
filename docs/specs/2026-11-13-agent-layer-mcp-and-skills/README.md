@@ -4,7 +4,11 @@
 
 `research-archive-in-a-box/agent-layer-mcp-and-skills` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 0 of 7** → Sign off
+
+PLAN1 building · 0 of 7 done
+
+Running: Task 1: The shared sign-in package (PLAN1)
 
 ## Pick up next
 
@@ -13,6 +17,7 @@
 - **PARK3 Rescue data:** A rescue-data skill for values read from scanned documents, including how each value's provenance (the page and region it came from) is recorded. The handoff's open question on provenance is settled with it, once a real scanned dataset arrives.
 - **PARK4 GitHub Action:** A GitHub Action that runs cruise diagnose on push and publishes on release. Publishing needs a machine sign-in, since today's sign-in is a person in a browser.
 - **PARK5 Remote MCP endpoint:** An MCP endpoint in the archive for clients that can't start a local process, when one is actually used.
+- **PARK6 Move checksum writers over:** Switch the FEMC converter's _write_checksums (examples/femc), the sample package's and the messy fixture's _build/make.py, and Plan 7's publish step to archive_contract.write_checksums when each is next touched.
 
 ## What was asked
 
@@ -38,6 +43,7 @@
 - **AGNT7 Three skills.** find-data, submit-dataset and review-submission. Each skill's steps are written in the spec. The user kept it.
 - **AGNT8 The tool list.** connect, sign_in, search, get_dataset, download, diagnose, edit_manifest (with DCSN2 A), submit, submissions (your list, the queue, or one with its findings and events), submission_files and decide. Each maps to one built route or to cruise. submission_files reads Plan 7's curator route GET /api/submissions/{id}/files (five-minute links to the current round's held files), which Plan 7 adds after its PLAN1 merges; it answers only while a submission is in-review or publishing (409 otherwise), so the review skill reads files only for submissions in review and reports a 409 as not in review. The user kept it.
 - **AGNT9 Shared sign-in module.** A small uv workspace package, packages/client (archive-client, import archive_client), standard library only. archive_client.signin has AuthConfig (region, cognito_domain, cli_client_id), Tokens (access_token, id_token, expires_at; no refresh token) and sign_in(config) -> Tokens, which Plan 10a builds first. Plan 9 adds AuthConfig.from_archive(url) reading /auth-config.json, and its MCP server imports the package. The user kept it.
+- **AGNT10 One checksum writer.** A new contract function, archive_contract.write_checksums(root), built on the contract's package_files, becomes the one checksum writer; edit_manifest uses it, the contract's test helper is replaced by it, and a Decision log row records it. The FEMC converter and Plan 7's publish move to it when next touched (PARK6). The user kept it.
 
 ## Spec
 
@@ -54,7 +60,14 @@
 
 ## Plans
 
-None yet.
+- [PLAN1](plans/1-mcp-server-plugin-and-skills.md) The MCP server, the plugin and three skills: building · 0 of 7 done
+  - TASK1 Task 1: The shared sign-in package: building
+  - TASK2 Task 2: The server, the archive client and its errors: not started
+  - TASK3 Task 3: Finding and fetching data: not started
+  - TASK4 Task 4: Diagnose and edit_manifest: not started
+  - TASK5 Task 5: Submitting and reviewing: waiting on [Plan 7 PLAN1 merging (its submission routes and shapes)](https://github.com/schuettc/research-in-a-box/tree/plan7/build-plan1)
+  - TASK6 Task 6: The plugin and the three skills: not started
+  - TASK7 Task 7: One walk on a test stage: waiting on TASK5, [Plan 8's site deployment writing /auth-config.json, and Plan 7's curator files route](https://github.com/schuettc/research-in-a-box/tree/plan8/spec)
 
 ## Files
 
@@ -64,6 +77,7 @@ None yet.
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |
 

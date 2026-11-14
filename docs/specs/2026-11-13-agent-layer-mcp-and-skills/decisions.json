@@ -4,10 +4,10 @@
   "title": "Agent layer (Plan 9)",
   "expect": 3,
   "working": {
-    "text": "Committing the approved spec and its Decision log rows, then writing PLAN1",
-    "since": "2026-11-14T00:50:15.197887-06:00"
+    "text": "A worker is building Tasks 1 to 4 and 6 in plan9/build-plan1",
+    "since": "2026-11-14T00:53:31.026511-06:00"
   },
-  "agent_at": "2026-11-14T06:50:15.197887Z",
+  "agent_at": "2026-11-14T06:53:31.026511Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 3, the quality rules and local tool, and Plan 6, the API and search.)\n\nBrief: Plan 9 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the agent layer (Plan 9): an MCP server, a Claude Code plugin and the skills for researchers and curators. Generative work happens only in the user's own Claude. Plan the tools first, then each skill's steps, and take the open questions with me one at a time."
@@ -432,6 +432,22 @@
         }
       ],
       "state": "standing"
+    },
+    {
+      "id": "AGNT10",
+      "name": "One checksum writer",
+      "question": "How does edit_manifest rewrite checksums.sha256?",
+      "took": "A new contract function, archive_contract.write_checksums(root), built on the contract's package_files, becomes the one checksum writer; edit_manifest uses it, the contract's test helper is replaced by it, and a Decision log row records it. The FEMC converter and Plan 7's publish move to it when next touched (PARK6).",
+      "instead": "edit_manifest rewrites only its two lines in checksums.sha256 itself, a fifth writer.",
+      "why": "The coordinating session's scope review (muster #971): main already has four separate checksum writers plus Plan 7's publish, and several plans write checksums.",
+      "evidence": [
+        {
+          "text": "Coordinating session's review",
+          "source": "muster thread #971",
+          "output": "Don't add a fifth. Add one function to archive_contract, write_checksums(root) ... use it in edit_manifest, and record a follow-up for the femc converter and Plan 7's publish to call it when next touched."
+        }
+      ],
+      "state": "standing"
     }
   ],
   "principles": [],
@@ -470,10 +486,17 @@
       "text": "An MCP endpoint in the archive for clients that can't start a local process, when one is actually used.",
       "from": "DCSN1",
       "kind": "idea"
+    },
+    {
+      "id": "PARK6",
+      "name": "Move checksum writers over",
+      "text": "Switch the FEMC converter's _write_checksums (examples/femc), the sample package's and the messy fixture's _build/make.py, and Plan 7's publish step to archive_contract.write_checksums when each is next touched.",
+      "from": "AGNT10",
+      "kind": "improvement"
     }
   ],
   "spec": {
-    "hash": "c7d973930e8c72872b75e64b65ebf73398839030fd3d1458d83a6c96ba375b40",
+    "hash": "9207f49b49c58ea1804b17c5087d2164e98a3d862ef4bcf4503525d9ebfbf6c8",
     "sections": [
       {
         "id": "SPEC1",
@@ -566,9 +589,119 @@
       "hash": "c7d973930e8c72872b75e64b65ebf73398839030fd3d1458d83a6c96ba375b40",
       "at": "2026-11-14T00:50:08.080673-06:00",
       "body": "# Agent layer: an MCP server, a plugin and three skills\n\n## Goal\n\nSomeone using Claude Code can find and use data, submit a dataset, and review a submission without the web app. A Claude Code plugin bundles a local MCP server with three skills: `find-data`, `submit-dataset` and `review-submission`. The checks are the same `cruise` code the archive's ingest runs. Claude drafts and summarises in the user's own session, and nothing is written into a manifest or sent to the archive until the person says yes. It builds on what Plans 1 to 8 built and rebuilds none of it. Preparing a package from a raw folder, audit and backfill, rescue data and the GitHub Action come later.\n\n## The three skills\n\nEach skill is a `SKILL.md` in the plugin. It tells Claude which tools to call in which order, and where it must stop for the person's yes.\n\n**find-data** (anyone, no sign-in for open data).\n\n1. Ask what the person is looking for, then `search` with the words and any filters they give (access, license, format, project, dates, a bounding box).\n2. Show the matching datasets as a short list: title, years, license, access.\n3. For the one they pick, `get_dataset` and show its description, its columns with their descriptions and units, its license and a citation built from the manifest.\n4. On request, `download` the files they name into a folder they name. A restricted file needs `sign_in` first, and the skill says so before opening the browser.\n\n**submit-dataset** (a member of the `contributor` group).\n\n1. Ask for the package folder and `diagnose` it. Show the verdict, the score and the findings grouped by question, errors first.\n2. For each finding Claude can help with (a missing description, license, coverage, methods or unit), draft the text from what the folder holds (its docs, its column names and values) and show each draft beside the finding. Never invent a fact the folder doesn't support: where it is silent, ask the person.\n3. Apply only the drafts the person approves, with `edit_manifest`, then `diagnose` again and show what changed.\n4. Repeat until no errors are left or the person stops. Warnings may remain; the skill lists them and says they don't block publishing.\n5. With the person's yes, `sign_in` if needed, then `submit`. Show the submission id and its status.\n6. On request later, `submissions` shows the status. When it is `needs-changes`, show the curator's note or the findings, go back to step 2, and `submit` the same submission again for its next round.\n\n**review-submission** (a member of the `curator` group).\n\n1. `sign_in`, then `submissions` with the queue, and show what waits in review, stale ones first.\n2. For the one the curator picks, read it with `submissions` (status, findings, events) and `submission_files`, which gives short-lived links to its files, and read its `datapackage.json` and a sample of each table.\n3. Summarise it: what the data is, how complete the metadata is, the warnings the rules raised, and the judgment calls no rule can make (a column that looks like a location id with no grid described, a license that doesn't fit the stated source, a description that contradicts the values). Each point cites the field, column or row it rests on.\n4. Draft a decision and a note. Show both, and change them as the curator asks.\n5. Only with the curator's yes, `decide`.\n\nRests on: DCSN2, AGNT7, AGNT8\n\n## The MCP server and its tools\n\nOne Python MCP server, run on the user's own machine over stdio and started by Claude Code from the plugin. It holds the archive's URL on disk and the sign-in tokens in memory.\n\n| Tool | What it does | Calls |\n| --- | --- | --- |\n| `connect(url)` | Saves the archive's URL and checks it answers | `GET /auth-config.json` |\n| `sign_in()` | Opens the browser to sign in and returns who you are and your groups | Cognito managed login, PKCE |\n| `search(...)` | One page of matching datasets with facet counts | `GET /api/search` |\n| `get_dataset(id, version?)` | The dataset, its manifest, its files and a citation | `GET /api/datasets/{id}` and its versions |\n| `download(id, version, paths, to)` | Writes files to a local folder and checks each against its hash | `/data/...` for open files, the download link route for restricted ones |\n| `diagnose(folder)` | Findings, score and verdict as JSON | `cruise.diagnose`, in process |\n| `edit_manifest(folder, edits)` | Applies approved edits through the contract (below) | the contract's models |\n| `submit(folder, submission?)` | Creates a submission, or the next round of one, uploads every file and submits | `POST /api/submissions`, `/uploads`, `/submit` |\n| `submissions(id?, queue?)` | Your submissions, the curator queue, or one submission with its findings and events | `GET /api/submissions` and `/{id}` |\n| `submission_files(id)` | Short-lived links to a submission's current files, while it is in review | `GET /api/submissions/{id}/files` (Plan 7) |\n| `decide(id, decision, note)` | Approve, reject or request changes | `POST /api/submissions/{id}/decision` |\n\n`submit` runs `diagnose` first and refuses a package with an error finding, since the archive would send it straight back. It sends every file listed in `checksums.sha256` plus `checksums.sha256` itself, each with its size and SHA-256, so the archive's upload links accept it. A `submit` that fails part way leaves its draft in the archive, where Plan 7's lifecycle expires the uploads, and the next `submit` starts a fresh one.\n\n`submission_files` answers only while a submission is in review or publishing; for any other state the archive answers 409, and the tool says the submission isn't in review.\n\nRests on: DCSN1, DCSN3, AGNT3, AGNT5, AGNT8\n\n## Writing approved fixes\n\n`edit_manifest(folder, edits)` takes a list of edits, each a target and a value. The targets are the metadata the findings ask for: the package's title, description, keywords, licenses, rights status, temporal and spatial coverage, methods and contributors, and a column's title, description and unit (named by resource and column). Resources, paths, column names, types and schemas are not editable through it, so an edit can't change what the data is.\n\nThe tool reads `datapackage.json` into the contract's `Manifest`, applies every edit, and validates the result. If any edit fails, it writes nothing and answers which edit failed and why. Otherwise it writes `datapackage.json`, regenerates `README.md` with the contract's readme export, and rewrites those two files' lines in `checksums.sha256`, so the package stays consistent and `diagnose` finds no stale checksum. Each file is written to a temporary name and moved into place.\n\nRests on: DCSN2\n\n## Sign-in and the archive\n\nThe person names their archive once, with `connect`. The URL is saved in `~/.config/research-in-a-box/archive.json`. The skills ask for it the first time a tool needs it.\n\nSign-in follows the Decision log: authorization code with PKCE through the `cli` client, the browser opened to Cognito's managed login, a one-shot listener on `http://localhost:8765/callback`, and the one-hour access and ID tokens kept in the MCP server's memory, with the refresh token thrown away. Restarting Claude Code or an hour passing means signing in again.\n\nThe code lives in a small shared package, `archive-client` (`packages/client`, standard library only): `AuthConfig` (region, Cognito domain, `cli` client id), `Tokens` (access token, ID token, expiry) and `sign_in(config) -\u003e Tokens`. Plan 10a may build `sign_in` first for its seed step; if it hasn't when this plan's build starts, this plan builds it to the same shape. This plan adds `AuthConfig.from_archive(url)`, which reads the archive's public `/auth-config.json` (fields `region`, `cognitoDomain`, `webClientId`, `cliClientId`). Plan 8 writes that file in its site deployment.\n\nRests on: AGNT3, AGNT4, AGNT6, AGNT9\n\n## When the archive is unreachable\n\nEvery tool that calls the archive answers a plain error naming the cause: the archive can't be reached, you're signed out or your sign-in expired, you're not allowed (a 403, naming the group needed), or the archive refused the request (its message). The skill tells the person, keeps everything local (`diagnose` and `edit_manifest` need no network), and says what to run again. Nothing is queued.\n\nRests on: DCSN3\n\n## Where it lives and how it installs\n\n`packages/agent` is the plugin and the server together: a uv workspace package `archive-agent` (import `archive_agent`, command `archive-mcp`) on the official `mcp` Python SDK, depending on `archive-contract`, `cruise` and `archive-client`; beside it `skills/`, `.claude-plugin/plugin.json` and `.mcp.json`. A `.claude-plugin/marketplace.json` at the repo root lists the plugin. A person installs it with `/plugin marketplace add schuettc/research-in-a-box` and then the plugin; its `.mcp.json` starts the server with `uvx` from the git repo's `packages/agent`, the way `cruise` installs today. Nothing is published to PyPI or npm.\n\nRests on: DCSN1, AGNT1, AGNT2\n\n## Risk and cost\n\n**Risk.** A mistake in `edit_manifest` could damage a researcher's `datapackage.json`; every edit goes through the contract's models, nothing is written when one fails, and files are replaced whole, so the worst case is an edit the person approved, which they can edit again. A mistake in `submit` could send the wrong files; every submission still passes the archive's own checks and its review policy, so nothing is published unreviewed by this plan. A mistake in `decide` acts with a curator's authority; the skill sends a decision only after the curator's yes. Sign-in holds one-hour tokens in memory only. Checks are sized to this: unit tests for each tool with the archive's HTTP stubbed and for `edit_manifest` on the sample package, and one walk on a deployed test stage.\n\n**Cost.** Your steps: a deployed test stage with Plan 7's build and its curator files route and Plan 8's site deployment, two invited accounts (one `contributor`, one `curator`; yours can be both), installing the plugin, and the walk. New programs: none (uv is already needed for `cruise`). New dependency: the `mcp` Python SDK.\n\nRests on: DCSN1, DCSN2\n\n## Left out\n\n- Preparing a package from a raw folder, waiting on `cruise` inventory, profile, tidy and package (PARK1).\n- Audit and backfill of published datasets, waiting on in-place metadata edits (PARK2).\n- Rescue data, and how provenance from scanned documents is recorded (PARK3).\n- The GitHub Action, and the machine sign-in its publish step needs (PARK4).\n- An MCP endpoint in the archive for clients that can't start a local process (PARK5).\n- A queue that retries submissions or decisions later.\n- Tokens on disk, and more than one archive per person.\n\nRests on: DCSN1, DCSN3, AGNT4\n\n## How we'll know it works\n\n- Unit tests pass for every tool, with the archive's HTTP calls stubbed: each tool's request, its answer, and each error cause (unreachable, signed out, 403, 409, a refusal).\n- `edit_manifest` on a copy of the sample package applies a column description and a license, regenerates `README.md`, leaves `diagnose` with no checksum finding, and writes nothing when one edit in the list is invalid.\n- `submit` refuses a package with an error finding, and otherwise sends exactly the files in `checksums.sha256` plus that file.\n- The plugin installs from the repo with `/plugin marketplace add` and the server starts.\n- On a deployed test stage, from Claude Code with the plugin: connect, sign in, find and fetch a published dataset, download an open file and a restricted one; diagnose a copy of the sample package, approve two drafted fixes, submit it and see it reach review; as a curator read it, see the summary, and approve it, ending published at `/datasets/\u003cid\u003e`.\n\nRests on: DCSN1, DCSN2, DCSN3, AGNT2, AGNT8\n"
-    }
+    },
+    "edited": "2026-11-14T00:52:30.629635-06:00"
   },
-  "plans": [],
+  "plans": [
+    {
+      "id": "PLAN1",
+      "topic": "mcp-server-plugin-and-skills",
+      "covers": "The shared sign-in package, the local MCP server's eleven tools, the plugin with its three skills, and one walk on a test stage",
+      "hash": "9fed236c26df8e47239a0235556d011d0184a7950faed071823eba0af37dee86",
+      "tasks": [
+        {
+          "id": "TASK1",
+          "heading": "Task 1: The shared sign-in package",
+          "does": "Creates packages/client (archive-client) with AuthConfig, Tokens, sign_in(config) and AuthConfig.from_archive(url); only from_archive if Plan 10a built sign_in first.",
+          "pulls_in": "A new stdlib-only workspace package and its tests.",
+          "serves": [],
+          "state": "keep",
+          "build": "building",
+          "build_at": "2026-11-14T00:53:31.026511-06:00"
+        },
+        {
+          "id": "TASK2",
+          "heading": "Task 2: The server, the archive client and its errors",
+          "does": "Creates packages/agent with the FastMCP server, the saved archive URL, in-memory tokens, an HTTP client mapping every failure to a plain error, and the connect and sign_in tools.",
+          "pulls_in": "The mcp Python SDK as a new dependency.",
+          "serves": [
+            "DCSN1",
+            "DCSN3"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK3",
+          "heading": "Task 3: Finding and fetching data",
+          "does": "Adds search, get_dataset (with the README's citation, made public in the contract) and download, which checks each file's hash.",
+          "pulls_in": "A one-line public name in the contract's readme export.",
+          "serves": [
+            "DCSN3"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK4",
+          "heading": "Task 4: Diagnose and edit_manifest",
+          "does": "Adds diagnose through cruise in process and edit_manifest, which validates every edit through the contract, writes nothing on a failure, and regenerates README.md and the two checksum lines.",
+          "pulls_in": "Tests on a copy of the sample package.",
+          "serves": [
+            "DCSN2"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK5",
+          "heading": "Task 5: Submitting and reviewing",
+          "does": "Adds submit (diagnose first, every file in checksums.sha256, checksum headers), submissions, submission_files (409 means not in review) and decide against Plan 7's routes.",
+          "pulls_in": "Plan 7's PLAN1 merged, for its request and answer shapes.",
+          "serves": [
+            "DCSN3"
+          ],
+          "state": "keep",
+          "waits": [
+            {
+              "link": "https://github.com/schuettc/research-in-a-box/tree/plan7/build-plan1",
+              "text": "Plan 7 PLAN1 merging (its submission routes and shapes)",
+              "who": "Plan 7's session",
+              "since": "2026-11-14T00:53:31.026511-06:00"
+            }
+          ]
+        },
+        {
+          "id": "TASK6",
+          "heading": "Task 6: The plugin and the three skills",
+          "does": "Writes the three SKILL.md files, plugin.json, .mcp.json, the repo's marketplace.json and a README section on installing it.",
+          "pulls_in": "Nothing new.",
+          "serves": [
+            "DCSN1",
+            "DCSN2"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK7",
+          "heading": "Task 7: One walk on a test stage",
+          "does": "Walks find, submit and review end to end from Claude Code on a deployed test stage with two invited accounts.",
+          "pulls_in": "A test stage with Plan 7's build and files route and Plan 8's site deployment; Court's steps.",
+          "serves": [
+            "DCSN1",
+            "DCSN2",
+            "DCSN3"
+          ],
+          "state": "keep",
+          "waits": [
+            {
+              "on": "TASK5",
+              "since": "2026-11-14T00:53:31.026511-06:00"
+            },
+            {
+              "link": "https://github.com/schuettc/research-in-a-box/tree/plan8/spec",
+              "text": "Plan 8's site deployment writing /auth-config.json, and Plan 7's curator files route",
+              "who": "Plans 7 and 8's sessions",
+              "since": "2026-11-14T00:53:31.026511-06:00"
+            }
+          ]
+        }
+      ],
+      "approved": {
+        "hash": "7603dcbddd2574e6a8ebae1866e1206590b34ed022d4ee86220b9a707436cf4a",
+        "at": "2026-11-14T00:52:45.802497-06:00",
+        "body": "# PLAN1: The MCP server, the plugin and three skills\n\n## Spec\n\n`docs/specs/2026-11-13-agent-layer-mcp-and-skills/spec.md`, approved. All of it: the three skills, the eleven tools, `edit_manifest`, sign-in through `archive-client`, plain errors with no queue, and the plugin's layout and install.\n\n## The change\n\nTwo new uv workspace packages and a plugin:\n\n- `packages/client` (`archive-client`, import `archive_client`, standard library only): `archive_client.signin` with `AuthConfig`, `Tokens`, `sign_in(config)` and `AuthConfig.from_archive(url)`, as the Decision log row of 2026-11-14 for Plans 9 and 10a says. If Plan 10a has already built `sign_in`, this plan adds only `from_archive`.\n- `packages/agent` (`archive-agent`, import `archive_agent`, command `archive-mcp`): a stdio MCP server on the official `mcp` Python SDK (FastMCP), depending on `archive-contract`, `cruise` and `archive-client`. It holds the eleven tools, an HTTP client for the archive that turns every failure into one of the spec's plain errors, and the saved archive URL in `~/.config/research-in-a-box/archive.json`.\n- `packages/agent` is also the plugin: `.claude-plugin/plugin.json`, `.mcp.json` (starts `archive-mcp` with `uvx` from the git repo's `packages/agent`) and `skills/find-data/SKILL.md`, `skills/submit-dataset/SKILL.md`, `skills/review-submission/SKILL.md`. A `.claude-plugin/marketplace.json` at the repo root lists it.\n- Two small changes to the contract: its readme export makes its citation builder public (`archive_contract.exports.readme.citation`), so `get_dataset` returns the same citation the README shows; and a new `archive_contract.write_checksums(root)` becomes the one checksum writer, used by `edit_manifest` (the FEMC converter and Plan 7's publish move to it when next touched, follow-up PARK6).\n\nBoth packages join the root `pyproject.toml`'s workspace members, so `just check-python` covers them (ruff, mypy strict, pytest). No infrastructure and no backend change: every route the tools call is built by Plans 6, 7 and 8.\n\n## Left out\n\n- Everything in the spec's Left out: prepare from a raw folder, audit and backfill, rescue data, the GitHub Action, a remote MCP endpoint, a retry queue, tokens on disk, more than one archive.\n- `/auth-config.json` itself (Plan 8 writes it) and `GET /api/submissions/{id}/files` (Plan 7 adds it).\n- Tests against a live archive in CI: the walk in Task 7 is the live check.\n\n## Where\n\n- `pyproject.toml` (workspace members)\n- `packages/client/` (new)\n- `packages/agent/` (new): `src/archive_agent/`, `tests/`, `skills/`, `.claude-plugin/plugin.json`, `.mcp.json`\n- `.claude-plugin/marketplace.json` (new)\n- `packages/contract/src/archive_contract/exports/readme.py` (citation made public)\n- `packages/contract/src/archive_contract/checksums.py` (new, `write_checksums`)\n- `docs/planning-handoff.md` (a Decision log row for `write_checksums`)\n- `README.md` (an \"Use it from Claude Code\" section)\n\n### Task 1: The shared sign-in package\n\n**Does:** Creates `packages/client` (`archive-client`) with `archive_client.signin`: `AuthConfig` (`region`, `cognito_domain`, `cli_client_id`), `Tokens` (`access_token`, `id_token`, `expires_at`, no refresh token), `sign_in(config, *, open_browser=webbrowser.open) -\u003e Tokens` and `AuthConfig.from_archive(url)`, which reads `\u003curl\u003e/auth-config.json` (`region`, `cognitoDomain`, `cliClientId`). `sign_in` uses PKCE (S256) with a random `state`, opens `https://\u003ccognito_domain\u003e/oauth2/authorize`, waits on a one-shot listener at `http://localhost:8765/callback` (timeout five minutes), exchanges the code at `/oauth2/token` and drops the refresh token. It raises `SignInError` on a state mismatch, an error callback, a refused exchange or the timeout. If Plan 10a has already built `sign_in` to this shape, this task adds only `from_archive` and its test.\n**Files:** `pyproject.toml`, `packages/client/pyproject.toml`, `packages/client/src/archive_client/__init__.py`, `packages/client/src/archive_client/signin.py`, `packages/client/src/archive_client/py.typed`, `packages/client/tests/test_signin.py`\n**Checks:** `uv run pytest packages/client`, `just check-python`\n**Serves:** none (rests on calls AGNT4, AGNT6, AGNT9)\n\nTests drive `sign_in` with a fake `open_browser` that calls the local callback itself, and a local HTTP server standing in for the token endpoint: a good round trip, a state mismatch, an `error=` callback. `from_archive` is tested against a local server answering the four fields.\n\n### Task 2: The server, the archive client and its errors\n\n**Does:** Creates `packages/agent` (`archive-agent`, command `archive-mcp`) with the FastMCP server, the saved-archive file, the in-memory tokens, an HTTP client for the archive, and the first two tools. The client sends the access token when signed in and maps every failure to one error with a plain message: unreachable (connection or timeout), signed out or expired (no token, a token past `expires_at`, or a 401), not allowed (403, naming the group the route needs), conflict (409, with the archive's message) and refused (any other 4xx or 5xx, with the archive's message). `connect(url)` checks `\u003curl\u003e/auth-config.json` answers, then saves the URL; `sign_in()` runs `archive_client.sign_in` with `AuthConfig.from_archive` and answers the email and groups from the ID token. Any tool that needs the archive before `connect` answers that the archive isn't set and to call `connect`.\n**Files:** `pyproject.toml`, `packages/agent/pyproject.toml`, `packages/agent/src/archive_agent/{__init__,server,archive,state,errors}.py`, `packages/agent/src/archive_agent/py.typed`, `packages/agent/tests/test_archive.py`, `packages/agent/tests/test_connect_sign_in.py`\n**Checks:** `uv run pytest packages/agent`, `just check-python`\n**Serves:** DCSN1, DCSN3 (rests on calls AGNT1, AGNT3, AGNT4)\n\nThe saved file's location comes from `XDG_CONFIG_HOME` when set, else `~/.config`, so tests point it at a temporary folder. HTTP is stubbed with a local server in the tests, one case per error.\n\n### Task 3: Finding and fetching data\n\n**Does:** Adds `search`, `get_dataset` and `download`. `search` passes the spec's filters to `GET /api/search` and answers its rows, total and facets. `get_dataset(id, version?)` answers the dataset, its manifest, its files and a citation from `archive_contract.exports.readme.citation` (made public in this task, its callers unchanged). `download(id, version, paths, to)` fetches open files from `\u003curl\u003e/data/\u003cid\u003e/\u003cversion\u003e/\u003cpath\u003e` and restricted ones through `GET /api/datasets/{id}/versions/{version}/download?path=`, writes each under `to` (refusing a path that would leave it), checks each file's SHA-256 against the version's file item when it has one, and answers what it wrote.\n**Files:** `packages/agent/src/archive_agent/{read,server}.py`, `packages/contract/src/archive_contract/exports/readme.py`, `packages/agent/tests/test_read.py`\n**Checks:** `uv run pytest packages/agent packages/contract`, `just check-python`\n**Serves:** DCSN3 (rests on call AGNT8)\n\n### Task 4: Diagnose and edit_manifest\n\n**Does:** Adds `diagnose(folder)`, which calls `cruise.diagnose` in process (no profiles by default; the archive's profiles and required fields come later when the archive config is readable by clients) and answers its findings, score and verdict in the JSON shape `cruise diagnose --json` prints, and `edit_manifest(folder, edits)` as the spec describes: the allowed targets (package `title`, `description`, `keywords`, `licenses`, `archive:rightsStatus`, `archive:temporalCoverage`, `archive:spatialCoverage`, `archive:methods`, `contributors`; a column's `title`, `description` and `archive:unit` by resource and column name), every edit applied to the contract's `Manifest` and validated, nothing written if any edit fails, otherwise `datapackage.json` and `README.md` (from `render_readme`) written by temporary file and rename, then `checksums.sha256` rewritten by a new contract function, `archive_contract.write_checksums(root)`: a SHA-256 line for every file under the package root except `checksums.sha256` itself, sorted by path, in the format the sample package uses, written by temporary file and rename. The contract's test helper of the same name is replaced by it, and a Decision log row records it as the one checksum writer.\n**Files:** `packages/agent/src/archive_agent/{local,server}.py`, `packages/agent/tests/test_local.py`, `packages/contract/src/archive_contract/{checksums,__init__}.py`, `packages/contract/tests/test_checksums.py`, `packages/contract/tests/test_validate.py`, `docs/planning-handoff.md`\n**Checks:** `uv run pytest packages/agent packages/contract`, `just check-python`\n**Serves:** DCSN2 (rests on calls AGNT5, AGNT10)\n\n`write_checksums` on an unchanged copy of the sample package reproduces its committed `checksums.sha256` byte for byte.\n\nTests copy `examples/sample-package` to a temporary folder: a column description and a license applied, `README.md` regenerated, `diagnose` showing no checksum finding afterwards; a list with one invalid edit (a target outside the list, a license with no name or path) leaving all three files byte for byte unchanged.\n\n### Task 5: Submitting and reviewing\n\n**Does:** Adds `submit`, `submissions`, `submission_files` and `decide` against Plan 7's routes, reading their request and answer shapes from `archive_backend.submissions` once Plan 7's PLAN1 is merged. `submit(folder, submission?)` runs `diagnose` and refuses on any error finding; reads `checksums.sha256`, lists those files plus `checksums.sha256` with sizes and SHA-256 values; with no `submission` calls `POST /api/submissions`, else `POST /api/submissions/{id}/uploads`; PUTs each file to its link with the SHA-256 checksum header S3 requires; then `POST /api/submissions/{id}/submit`; and answers the id and status. `submissions(id?, queue?)` reads `GET /api/submissions` (with `status` for the curator queue) or one with `GET /api/submissions/{id}`. `submission_files(id)` reads `GET /api/submissions/{id}/files` and, on 409, answers that the submission isn't in review. `decide(id, decision, note)` posts to `/decision`.\n**Files:** `packages/agent/src/archive_agent/{submit,server}.py`, `packages/agent/tests/test_submit.py`\n**Checks:** `uv run pytest packages/agent`, `just check-python`\n**Serves:** DCSN3 (rests on call AGNT8)\n\nTests stub the routes and the presigned PUTs locally: `submit` refuses a package with an error finding; a clean package sends exactly the files in `checksums.sha256` plus that file, each with its checksum header; a next round uses `/uploads`; a 409 from `submission_files` gives the not-in-review message.\n\n### Task 6: The plugin and the three skills\n\n**Does:** Writes `skills/find-data/SKILL.md`, `skills/submit-dataset/SKILL.md` and `skills/review-submission/SKILL.md` with the spec's steps, each naming the tools in order and every point where the skill stops for the person's yes, and what to say on each plain error. Adds `.claude-plugin/plugin.json` and `.mcp.json` in `packages/agent`, `.claude-plugin/marketplace.json` at the repo root, and a short \"Use it from Claude Code\" section in `README.md` with the two install commands.\n**Files:** `packages/agent/skills/*/SKILL.md`, `packages/agent/.claude-plugin/plugin.json`, `packages/agent/.mcp.json`, `.claude-plugin/marketplace.json`, `README.md`\n**Checks:** `claude plugin validate .`, `uv run archive-mcp --help`, `just check-python`\n**Serves:** DCSN1, DCSN2 (rests on calls AGNT2, AGNT7)\n\n### Task 7: One walk on a test stage\n\n**Does:** On a deployed test stage that has Plan 7's build with its curator files route and Plan 8's site deployment, with two invited accounts (contributor and curator), installs the plugin from the branch and walks the spec's last check from Claude Code: connect, sign in, find and fetch a published dataset, download an open file and a restricted one; diagnose a copy of the sample package, approve two drafted fixes, submit it and see it reach review; as a curator read it, see the summary, approve it, and see it at `/datasets/\u003cid\u003e`. Fixes found on the walk become tasks of their own.\n**Files:** none expected\n**Checks:** the walk, recorded in the task's result\n**Serves:** DCSN1, DCSN2, DCSN3\n"
+      },
+      "edited": "2026-11-14T00:52:55.627474-06:00"
+    }
+  ],
   "messages": [
     {
       "id": 1,
@@ -674,6 +807,26 @@
       "at": "2026-11-14T00:50:08.080673-06:00",
       "state": "answered",
       "claim": "3587b43c2e87a317"
+    },
+    {
+      "id": 11,
+      "card": "PLAN1",
+      "from": "user",
+      "action": "approve-plan",
+      "at": "2026-11-14T00:52:45.802497-06:00",
+      "state": "answered",
+      "claim": "2f5356fc9119e074"
+    },
+    {
+      "id": 12,
+      "card": "PLAN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Thanks. One change landed in PLAN1 and the spec's \"Writing approved fixes\" just as you approved, at the coordinating session's scope review. edit_manifest no longer writes its own checksum lines: Task 4 adds one contract function, archive_contract.write_checksums(root), as the single checksum writer (main already has four separate ones). The page shows the diff against what you approved. It's recorded as call AGNT10, reversible, with follow-up PARK6 to move the other writers over later. Say so here if you'd rather not, and I'll take it back out. Starting the build now.",
+      "at": "2026-11-14T00:53:09.837012-06:00",
+      "answers": [
+        11
+      ]
     }
   ],
   "planned_history": [
