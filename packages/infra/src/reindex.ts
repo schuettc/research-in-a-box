@@ -10,7 +10,8 @@ export interface ReindexProps {
 
 /**
  * The reindex: a durable function that rebuilds the inactive catalog table from the archive's
- * manifests with a bulk load, then flips the active-catalog parameter to it.
+ * manifests with a bulk load, then flips the active-catalog parameter to it and rewrites the
+ * catalog file and every dataset's page from it.
  */
 export class Reindex extends Construct {
   readonly alias: lambda.Alias;
@@ -32,6 +33,7 @@ export class Reindex extends Construct {
         ACTIVE_CATALOG_PARAMETER: archive.activeCatalogParameter.parameterName,
         ALERT_TOPIC_ARN: archive.alertTopic.topicArn,
         ARCHIVE_CONFIG_PARAMETER: archive.archiveConfigParameter.parameterName,
+        SITE_DOMAIN: archive.distribution.distributionDomainName,
       },
     });
     this.alias = new lambda.Alias(this, "Live", { aliasName: "live", version: fn.currentVersion });
@@ -39,6 +41,7 @@ export class Reindex extends Construct {
     archive.archiveBucket.grantRead(fn);
     archive.derivedBucket.grantReadWrite(fn, "reindex/*");
     archive.derivedBucket.grantPut(fn, "site/catalog.json");
+    archive.derivedBucket.grantPut(fn, "site/datasets/*");
     for (const table of tables) {
       table.grantReadWriteData(fn);
     }

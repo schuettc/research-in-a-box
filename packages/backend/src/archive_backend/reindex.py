@@ -4,7 +4,8 @@ A published version sits at `<open|restricted>/<datasetId>/<version>/` with `dat
 at its root. The durable handler empties the inactive table, writes every manifest's catalog
 items as DynamoDB JSON lines under the derived bucket's `reindex/<run>/data/`, bulk-loads them
 into that table, waits for the load to end, and flips the active-catalog parameter only when the
-load ends COMPLETED, then rewrites the catalog file from the table it flipped to. Every stage is
+load ends COMPLETED, then rewrites the catalog file and every dataset's page from the table it
+flipped to. Every stage is
 a checkpointed step, so a replay never repeats one. With the embeddings module on, each dataset
 item gets its embedding in the write step, before its line is written.
 """
@@ -31,7 +32,8 @@ from aws_durable_execution_sdk_python.waits import (
     WaitForConditionDecision,
 )
 
-from archive_backend.catalog_file import write_catalog_file
+from archive_backend import pages
+from archive_backend.catalog_file import _scan, write_catalog_file
 from archive_backend.config import read_archive_config
 from archive_backend.embeddings import Bedrock, with_embedding
 from archive_contract.manifest import Manifest
@@ -204,6 +206,51 @@ def dataset_item(
     return item
 
 
+def current_versions(items: list[dict[str, Any]]) -> list[tuple[str, int, str, list[str]]]:
+    """Each dataset's `(id, current version, manifest text, file paths)` from catalog items.
+
+    The paths are the version's file items that sit in the archive; a linked URL is left out.
+    """
+    by_dataset: dict[str, dict[str, dict[str, Any]]] = {}
+    for item in items:
+        by_dataset.setdefault(item["PK"]["S"], {})[item["SK"]["S"]] = item
+    found: list[tuple[str, int, str, list[str]]] = []
+    for dataset in by_dataset.values():
+        meta = dataset.get("META")
+        if meta is None or "currentVersion" not in meta:
+            continue
+        version = int(meta["currentVersion"]["N"])
+        sk = _sk(version)
+        current = dataset.get(sk)
+        if current is None:
+            continue
+        files = sorted(
+            path
+            for key, file in dataset.items()
+            if key.startswith(f"{sk}#FILE#")
+            for path in [file["path"]["S"]]
+            if "://" not in path
+        )
+        found.append((meta["id"]["S"], version, current["manifest"]["S"], files))
+    return sorted(found)
+
+
+@durable_step
+def _pages(_: StepContext, c: Clients, table: str, derived: str, domain: str) -> int:
+    """Render and write every dataset's page from its current version in `table`."""
+    found = current_versions(_scan(c.dynamodb, table))
+    for dataset_id, version, text, files in found:
+        html = pages.render_page(
+            Manifest.model_validate_json(text),
+            dataset_id=dataset_id,
+            version=version,
+            domain=domain,
+            files=files,
+        )
+        pages.write_page(c.s3, derived, html, dataset_id)
+    return len(found)
+
+
 def to_lines(items: list[dict[str, Any]]) -> str:
     """Bulk put items input: one `{"Item": {...}}` per line, newline-terminated."""
     return "".join(json.dumps({"Item": item}) + "\n" for item in items)
@@ -333,6 +380,7 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
     tables = {"A": os.environ["CATALOG_TABLE_A"], "B": os.environ["CATALOG_TABLE_B"]}
     parameter = os.environ["ACTIVE_CATALOG_PARAMETER"]
     topic = os.environ["ALERT_TOPIC_ARN"]
+    domain = os.environ["SITE_DOMAIN"]
 
     def start(_: object) -> dict[str, str]:
         active = c.ssm.get_parameter(Name=parameter)["Parameter"]["Value"]
@@ -410,6 +458,7 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
 
     flipped = status == "COMPLETED"
     rows: int | None = None
+    written_pages: int | None = None
     if flipped:
 
         def flip(_: object) -> None:
@@ -438,6 +487,8 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
                 )
 
             context.step(catalog_alert, name="alert")
+
+        written_pages = context.step(_pages(c, table, derived, domain), name="pages")
     else:
         subject = f"Reindex {run_id} on {target} ended {status}"
 
@@ -457,6 +508,7 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
         "items": count,
         "flipped": flipped,
         "catalog": rows,
+        "pages": written_pages,
     }
 
 
