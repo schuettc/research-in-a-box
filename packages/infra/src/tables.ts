@@ -6,7 +6,12 @@ import { Construct } from "constructs";
 export interface TablesProps {
   readonly stage: string;
   readonly isProd: boolean;
+  /** Give each catalog table the `datasets` vector index, for the embeddings module. */
+  readonly embeddings: boolean;
 }
+
+/** The vector index semantic search asks for the datasets nearest a query. */
+export const VECTOR_INDEX = "datasets";
 
 function key(name: string): dynamodb.Attribute {
   return { name, type: dynamodb.AttributeType.STRING };
@@ -51,6 +56,18 @@ export class Tables extends Construct {
         sortKey: key("GSI1SK"),
         projectionType: dynamodb.ProjectionType.ALL,
       });
+      if (props.embeddings) {
+        // Only dataset items carry `embedding`, so only they are in the index.
+        (table.node.defaultChild as dynamodb.CfnTable).vectorIndexes = [
+          {
+            indexName: VECTOR_INDEX,
+            vectorAttribute: { attributeName: "embedding" },
+            dimensions: 1024,
+            distanceFunction: "COSINE",
+            projection: { projectionType: "KEYS_ONLY" },
+          },
+        ];
+      }
       return table;
     };
     this.catalogTables = { a: catalog("CatalogA"), b: catalog("CatalogB") };

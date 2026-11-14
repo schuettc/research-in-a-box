@@ -241,3 +241,63 @@ test("the download rollup runs daily with no retries, reading logs and writing c
   expect(reads).toHaveLength(1);
   expect(reads[0]).toContain("/logs/*");
 });
+
+test("the API function knows its stage", () => {
+  const env = (
+    fn("archive_backend.api.handler").properties.Environment as {
+      Variables: Record<string, unknown>;
+    }
+  ).Variables;
+
+  expect(env.STAGE).toBe("prod");
+});
+
+test("without the embeddings module the API function has no Bedrock or SearchVectors grant", () => {
+  const granted = statements("archive_backend.api.handler").flatMap(actions);
+
+  expect(granted).not.toContain("bedrock:InvokeModel");
+  expect(granted).not.toContain("dynamodb:SearchVectors");
+});
+
+test("with the embeddings module the API function may embed and search both vector indexes", () => {
+  const stack = new Stack(testApp(), "E");
+  const archive = new ResearchArchive(stack, "Archive", {
+    config: {
+      publisher: "P",
+      infrastructure: {
+        alertEmail: "a@example.org",
+        stages: [{ name: "prod" }],
+        modules: { embeddings: {} },
+      },
+    },
+    stage: "prod",
+  });
+  const template = Template.fromStack(stack);
+  const json = template.toJSON();
+  const id = Object.keys(
+    template.findResources("AWS::Lambda::Function", {
+      Properties: { Handler: "archive_backend.api.handler" },
+    }),
+  )[0] as string;
+  const role = json.Resources[id].Properties.Role["Fn::GetAtt"][0];
+  const granted = Object.values(
+    template.findResources("AWS::IAM::Policy", { Properties: { Roles: [{ Ref: role }] } }),
+  ).flatMap(
+    (p) =>
+      (p as { Properties: { PolicyDocument: { Statement: never[] } } }).Properties.PolicyDocument
+        .Statement,
+  ) as { Action: string | string[]; Resource: unknown }[];
+
+  const bedrock = granted.filter((s) => actions(s).includes("bedrock:InvokeModel"));
+  expect(bedrock).toHaveLength(1);
+  expect(JSON.stringify(bedrock.map((s) => s.Resource))).toContain(
+    "::foundation-model/amazon.titan-embed-text-v2:0",
+  );
+  const vectors = granted.filter((s) => actions(s).includes("dynamodb:SearchVectors"));
+  const tableArn = (table: CfnElement) => ({ "Fn::GetAtt": [stack.getLogicalId(table), "Arn"] });
+  expect(vectors.map((s) => s.Resource)).toEqual([
+    [archive.catalogTables.a, archive.catalogTables.b].map((t) => ({
+      "Fn::Join": ["", [tableArn(t.node.defaultChild as CfnElement), "/index/datasets"]],
+    })),
+  ]);
+});

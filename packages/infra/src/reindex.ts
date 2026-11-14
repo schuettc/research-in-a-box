@@ -44,6 +44,9 @@ export class Reindex extends Construct {
     archive.activeCatalogParameter.grantRead(fn);
     archive.activeCatalogParameter.grantWrite(fn);
     archive.alertTopic.grantPublish(fn);
+    if (archive.embeddings) {
+      archive.grantEmbedding(fn);
+    }
     // Starting a bulk operation is authorized on the account, not on a table.
     fn.addToRolePolicy(
       new iam.PolicyStatement({ actions: ["dynamodb:StartBulkOperation"], resources: ["*"] }),

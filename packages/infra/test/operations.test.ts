@@ -105,3 +105,41 @@ test("the dashboard graphs the tables and CloudFront", () => {
   expect(body).toContain("AWS/CloudFront");
   expect(body).toContain("us-east-1");
 });
+
+test("with the embeddings module a SemanticFallback alarm notifies the alert topic, and none without", () => {
+  const stack = new Stack(testApp(), "E");
+  const built = new ResearchArchive(stack, "Archive", {
+    config: {
+      publisher: "P",
+      infrastructure: {
+        alertEmail: "a@example.org",
+        stages: [{ name: "prod" }, { name: "dev" }],
+        modules: { embeddings: {} },
+      },
+    },
+    stage: "dev",
+  });
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+    Namespace: "ResearchArchive",
+    MetricName: "SemanticFallback",
+    Dimensions: [{ Name: "Stage", Value: "dev" }],
+    Statistic: "Sum",
+    Period: 900,
+    Threshold: 5,
+    EvaluationPeriods: 2,
+    ComparisonOperator: "GreaterThanOrEqualToThreshold",
+    TreatMissingData: "notBreaching",
+    AlarmActions: [{ Ref: stack.getLogicalId(built.alertTopic.node.defaultChild as CfnTopic) }],
+  });
+  const body = JSON.stringify(template.findResources("AWS::CloudWatch::Dashboard"));
+  expect(body).toContain("SemanticFallback");
+
+  const without = Template.fromStack(archive("dev").stack);
+  without.resourcePropertiesCountIs(
+    "AWS::CloudWatch::Alarm",
+    { MetricName: "SemanticFallback" },
+    0,
+  );
+});

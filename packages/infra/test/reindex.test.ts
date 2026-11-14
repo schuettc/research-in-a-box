@@ -144,3 +144,42 @@ test("it may write the catalog file and nothing else under site/", () => {
   expect(JSON.stringify(writes[0]!.Resource)).toContain("/site/catalog.json");
   expect(JSON.stringify(writes[0]!.Resource)).not.toContain("/site/*");
 });
+
+function grantedActions(t: Template, id: string): string[] {
+  const role = (t.toJSON().Resources[id].Properties.Role as { "Fn::GetAtt": string[] })[
+    "Fn::GetAtt"
+  ][0];
+  return Object.values(
+    t.findResources("AWS::IAM::Policy", { Properties: { Roles: [{ Ref: role }] } }),
+  ).flatMap((p) =>
+    (
+      p as { Properties: { PolicyDocument: { Statement: { Action: string | string[] }[] } } }
+    ).Properties.PolicyDocument.Statement.flatMap((s) =>
+      Array.isArray(s.Action) ? s.Action : [s.Action],
+    ),
+  );
+}
+
+test("the reindex may call Bedrock only with the embeddings module", () => {
+  const embedded = new Stack(testApp(), "E");
+  new ResearchArchive(embedded, "Archive", {
+    config: {
+      publisher: "P",
+      infrastructure: {
+        alertEmail: "a@example.org",
+        stages: [{ name: "prod" }],
+        modules: { embeddings: {} },
+      },
+    },
+    stage: "prod",
+  });
+  const withModule = Template.fromStack(embedded);
+  const id = Object.keys(
+    withModule.findResources("AWS::Lambda::Function", {
+      Properties: { Handler: "archive_backend.reindex.handler" },
+    }),
+  )[0] as string;
+
+  expect(grantedActions(withModule, id)).toContain("bedrock:InvokeModel");
+  expect(grantedActions(template, reindexFunction().id)).not.toContain("bedrock:InvokeModel");
+});
