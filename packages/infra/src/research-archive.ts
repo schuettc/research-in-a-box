@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { CfnOutput, Stack } from "aws-cdk-lib";
 import type * as apigateway from "aws-cdk-lib/aws-apigateway";
 import type * as cloudfront from "aws-cdk-lib/aws-cloudfront";
@@ -11,6 +12,7 @@ import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import { Api } from "./api";
 import { Auth } from "./auth";
+import { loginBrand } from "./brand";
 import { stagesOf } from "./config";
 import type { ArchiveConfig } from "./generated/archive-config";
 import { Ingest } from "./ingest";
@@ -26,12 +28,17 @@ import { Web } from "./web";
 // The standard tier's limit on a parameter's value.
 const MAX_CONFIG_BYTES = 4096;
 
+/** Where archive.yaml sits: the brand's file paths are relative to it unless told otherwise. */
+const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
+
 /** The embeddings module's one model, as the contract's `Embeddings.model` allows. */
 const EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0";
 
 export interface ResearchArchiveProps {
   readonly config: ArchiveConfig;
   readonly stage: string;
+  /** The config file's folder, which the brand's logo and favicon paths are relative to. */
+  readonly configDir?: string;
 }
 
 export class ResearchArchive extends Construct {
@@ -129,7 +136,11 @@ export class ResearchArchive extends Construct {
       this.downloadCounts,
     ]);
 
-    const auth = new Auth(this, "Auth", { stage: props.stage, isProd: this.isProd });
+    const auth = new Auth(this, "Auth", {
+      stage: props.stage,
+      isProd: this.isProd,
+      brand: loginBrand(props.config, props.configDir ?? REPO_ROOT),
+    });
     this.userPool = auth.userPool;
 
     const api = new Api(this, "Api", {
