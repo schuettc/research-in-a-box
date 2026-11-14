@@ -1298,6 +1298,65 @@ table.listing tbody th {
   font-style: italic;
 }
 
+.tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  vertical-align: middle;
+  font-family: var(--font-body);
+}
+
+.tag.stale {
+  color: var(--restricted);
+}
+
+.queue-filter {
+  max-width: 16rem;
+  margin: 0 0 1.5rem;
+}
+
+.queue-id {
+  display: block;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+table.queue td,
+table.queue th {
+  white-space: normal;
+}
+
+.decision {
+  margin: 1.25rem 0 0;
+}
+
+.held .file-action {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.preview {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.preview table.cols {
+  min-width: 0;
+}
+
+.preview td {
+  white-space: nowrap;
+}
+
 /* Questions and confirmations are modal dialogs: they overlay the page, so opening one moves
    nothing on it. */
 .modal {
