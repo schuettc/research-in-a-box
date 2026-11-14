@@ -1,9 +1,9 @@
 ---
 diazo: research-archive-in-a-box/api-and-search
 file: PLAN1
-status: approved
+status: done
 approved: 2026-11-13T22:39:28-06:00
-hash: 956e3fb54d53f8ff986dab28d2b11fb8f75a4d9f202c98d4c41e265cbf771752
+hash: 0ac73b3fa188e4510489aa87a4f43891ef7ad267b3ea1ec41cda244d554aafa6
 rests_on: [AGNT1, AGNT10, AGNT2, AGNT3, AGNT6, AGNT7, AGNT8, AGNT9, DCSN1, DCSN2, DCSN3, DCSN4]
 record: README.md
 ---
@@ -124,7 +124,7 @@ Tests drive the resolver with API Gateway REST events and fakes for S3, DynamoDB
 
 ### Task 5: The test deploy
 
-**Does:** Merges Tasks 1 to 4, deploys `ResearchArchive-test`, walks every check in the spec's "How we'll know it works" with you, measures search round trips, and destroys the stack.
+**Does:** Merges Tasks 1 to 4 and Task 6, deploys `ResearchArchive-test`, walks every check in the spec's "How we'll know it works" with you, measures search round trips, and destroys the stack.
 **Files:** none (results go in the task's result line and the build thread)
 **Checks:** every action in STEP1 is done; `aws cloudformation describe-stacks --stack-name ResearchArchive-test` fails with "does not exist" at the end.
 **Serves:** DCSN1, DCSN2, DCSN3
@@ -136,9 +136,20 @@ STEP1's actions, in order:
 3. You: Go for the deploy.
 4. Agent: `just lambda-assets`, deploy `ResearchArchive-test` with a test `ARCHIVE_CONFIG`, upload the sample package twice with `archive:published` set (once `open`, once with `archive:access` set to `restricted`, under `restricted/`), run `just reindex test` and wait for `COMPLETED`.
 5. Agent: check `/catalog.json` has both rows; `GET /api/search?q=` with a word from the description finds both, filters by `access=restricted` to one, facet counts add up; `GET /api/datasets/<id>` returns the manifest and files; the download route signed out answers 401.
-6. You: open the sign-in link the agent gives (Plan 4's `cli` client with PKCE), sign up, and paste back the `localhost:8765` URL you land on, even though the page doesn't load.
+6. Agent invites you with `just invite-user test <your email>`. You: open the sign-in link the agent gives (Plan 4's `cli` client with PKCE), sign in with the temporary password from the invitation email, set your own, and paste back the `localhost:8765` URL you land on, even though the page doesn't load.
 7. Agent: exchange the code; the restricted download link fetches the file; DownloadCounts shows one restricted; a usage answer posts; `GET /api/admin/usage` answers 403; add your user to `admin`.
 8. You: sign in again with the new link and paste back the URL.
 9. Agent: `GET /api/admin/usage` answers the posted answer; download an open file through `/data`, invoke the rollup with `{"through": "<today>"}` once the log file has arrived, and check DownloadCounts shows it; time ten searches warm and one after fifteen idle minutes through CloudFront.
 10. You: Go for the teardown.
 11. Agent: `cdk destroy ResearchArchive-test` and confirm the stack, buckets and tables are gone.
+
+### Task 6: Invitation-only accounts
+
+**Does:** Turns off self-service sign-up and adds a recipe for an admin to invite a person by email, optionally into a group, so restricted data reaches only people the archive invited. Added at your word through the coordinating session; Task 5 deploys it.
+**Files:** `packages/infra/src/auth.ts`, `packages/infra/test/auth.test.ts`, `justfile`, `docs/planning-handoff.md`
+**Checks:** `npm test -w packages/infra` exits 0; `just check` exits 0.
+**Serves:** DCSN2
+
+- `selfSignUpEnabled: false` on the user pool; the synth test asserts `AdminCreateUserConfig.AllowAdminCreateUserOnly` is true.
+- `just invite-user <stage> <email> [group]`: reads the user pool id from the stack's resources, runs `aws cognito-idp admin-create-user` with the email as username, `email_verified=true` and Cognito's invitation email, then `admin-add-user-to-group` when a group is given. Uses the caller's `AWS_PROFILE` and region, like `just reindex`.
+- One Decision log row: accounts are invitation-only; restricted means invited.
