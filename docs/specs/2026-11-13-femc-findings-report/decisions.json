@@ -2,22 +2,419 @@
   "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
   "schema": 4,
   "title": "The FEMC report (Plan 10b)",
-  "agent_at": "2026-11-13T21:11:13.837548Z",
+  "expect": 2,
+  "agent_at": "2026-11-14T06:58:06.518999Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 5, the FEMC migration and its audit numbers.)\n\nBrief: Plan 10b in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the FEMC report (Plan 10b). Sections 1, 2 and 7 can be drafted from what we already know. Plan what each section needs, which findings we can already support with a specific record, and which need the audit tool first."
+    },
+    "findings": [
+      {
+        "text": "Plan 5's audit counts exist for all ten converted FEMC datasets: every one has 3 to 5 publish-blocking errors, scores run 50 to 85, and the most common warnings are missing units (328), descriptions that repeat the column name (249), placeholder values (203) and missing column descriptions (168).",
+        "source": "docs/specs/2026-11-13-femc-migration-and-practice-corpus/documents/femc-audit-counts.md (origin/main)",
+        "cases": "10 of 10 datasets"
+      },
+      {
+        "text": "The blocking errors are the same three gaps everywhere: no creator, no methods and no geographic coverage at the dataset level. I checked the raw EML, not just the audit: none of the ten records has an eml:creator, eml:methods or eml:geographicCoverage element. People are recorded on the parent project instead, under non-standard role tags (eml:principalInvestigator, eml:contentProvider).",
+        "source": "grep over practice-data/femc/*/eml.xml; practice-data/audit/audit.json",
+        "output": "creator:0 methods:0 geo:0 in every record; personnel:1 in every record",
+        "cases": "10 of 10 records"
+      },
+      {
+        "text": "No EML record carries a license, even where FEMC's page shows one (CC0 on Vegetation Class Raster, CC BY-NC-SA 4.0 on Mount Mansfield Quadrat Images). The license lives only on the web page.",
+        "source": "grep eml:intellectualRights over practice-data/femc/*/eml.xml; practice-data/femc/SOURCES.md",
+        "output": "license/rights:0 in all ten",
+        "cases": "10 of 10 records"
+      },
+      {
+        "text": "Metadata and file disagree: columns in the file with no attribute in the record (aerial survey, FIA), and attributes in the record with no column in the file (Data Rescue: AboutP1, AboutP2, ... HomeP1 and more). Each is listed by name in the converter's not-imported.txt.",
+        "source": "practice-data/packages/*/_build/not-imported.txt",
+        "cases": "3 of 5 tables"
+      },
+      {
+        "text": "Camels Hump: the dataset is titled census_data and described as 'Github repo of census_data' (26 characters); the place name appears only in the parent project's title and abstract. In Plan 6's test of 22 plain-language searches over the ten packages, strict keyword search found 11, any-word search 17, and embeddings ranked 17 first; none finds Camels Hump by place name.",
+        "source": "practice-data/femc/camels-hump-census/eml.xml; the coordinating session's note of 2026-11-14 (search numbers not rechecked by me)",
+        "cases": "1 record; 22 searches"
+      },
+      {
+        "text": "The repo is public (schuettc/research-in-a-box). Anything committed under docs/specs, including report drafts in this folder, is public before FEMC has seen it.",
+        "source": "gh api repos/schuettc/research-in-a-box",
+        "output": "private: false, visibility: public",
+        "cases": "1 repo"
+      },
+      {
+        "text": "The FEMC contact and the bulk-export request now belong to this plan; Plan 5 made no contact. The ten datasets are the whole corpus we will have until FEMC agrees to a bulk export, since the handoff forbids scraping the archive without their agreement.",
+        "source": "docs/planning-handoff.md Decision log (2026-11-13, 5 and 10b) and Plan 5's rules for collecting data",
+        "cases": "2 log lines"
+      }
+    ],
+    "rounds": [
+      {
+        "take": "The report can be written now, almost all of it.\n\nThe handoff's open question was *send a lighter version sooner, or wait for audit numbers from the full corpus*. That question has mostly answered itself. Plan 5 finished, and the ten datasets **are** the full corpus. There won't be a bigger one until FEMC agrees to a bulk export, and asking for that export is now this plan's job. Waiting for more numbers would mean waiting on the report's own question.\n\nWhat we can already back with a specific record (table below):\n\n- **Sections 1, 2 and 7** can be drafted from what we know, as the brief said.\n- **Section 3, what we found**, is the strongest part. Every finding names a dataset and a field, and I checked the big ones against the raw EML rather than trusting the audit. One example needed care: the audit says *no creator* in all ten, but FEMC does record people. It records them on the parent project, under non-standard tags. The report has to say that precisely, or FEMC will rightly push back.\n- **Section 4, before and after**, needs one dataset run through cleaning. The tool can't do that yet (Plan 3 built only diagnose and audit), so the *after* would be a hand-made package plus the audit score moving. Ozone or Data Rescue are the natural picks.\n- **Sections 5, 6 and 8** are writing work: what the kit does, the migration path (the femc converter already exists), and the questions, with the bulk-export request among them.\n\nMy direction: **write the whole report now from the ten datasets, and put the bulk-export request inside it as one of section 8's questions.** You send it to your contact yourself. A smaller teaser first would spend your one first impression on less evidence than we already have.\n\nOne thing I'd settle later, not now: the repo is public, so the draft shouldn't live in this folder or anywhere committed before FEMC sees it. I'll bring where it lives as a decision card once you've confirmed the direction.",
+        "visuals": [
+          {
+            "kind": "table",
+            "caption": "What each section needs, and whether we can back it today",
+            "table": {
+              "columns": [
+                "Section",
+                "What it needs",
+                "Can we back it now?"
+              ],
+              "rows": [
+                [
+                  "1 What the archive does well",
+                  "Specifics from their public pages: EML on every dataset, stable package ids, access states, themes, the usage form",
+                  "Yes, from their pages and the ten records"
+                ],
+                [
+                  "2 What we looked at",
+                  "The ten datasets, dates, how we got them (anonymous public downloads)",
+                  "Yes, from SOURCES.md"
+                ],
+                [
+                  "3 What we found",
+                  "Findings, each naming a dataset and field",
+                  "Yes: no creator/methods/coverage (10 of 10), license only on the page (10 of 10), file and record disagree (3 of 5 tables), Camels Hump unfindable, missing units and descriptions"
+                ],
+                [
+                  "4 Before and after",
+                  "One dataset as it is, and as a cleaned package with its score",
+                  "Partly: 'before' yes; 'after' needs a hand-cleaned package, since cruise has no tidy yet"
+                ],
+                [
+                  "5 What the kit offers",
+                  "Their daily work mapped to the kit",
+                  "Yes, writing work from what's built"
+                ],
+                [
+                  "6 What adopting would take",
+                  "A migration path from their EML",
+                  "Yes: the femc converter already converts all ten"
+                ],
+                [
+                  "7 Quick fixes",
+                  "Fixes they can make in their own system now",
+                  "Yes: add license and creator to EML, fix the distibution tag, real titles and descriptions"
+                ],
+                [
+                  "8 Questions for them",
+                  "Including the bulk-export request",
+                  "Yes, writing work"
+                ]
+              ],
+              "sample": "n = 10 datasets"
+            }
+          }
+        ],
+        "recommendation": "Write the whole report now from the ten-dataset audit, with the bulk-export request as a question in section 8, for you to send to your contact."
+      }
+    ],
+    "direction": {
+      "round": 1,
+      "at": "2026-11-14T00:35:38.869723-06:00",
+      "by": "user"
     }
   },
   "understanding": {
-    "points": null,
-    "confirmed": false
+    "points": [
+      {
+        "kind": "outcome",
+        "text": "A short, plain-language report for FEMC's archive staff and partners that shows what we found in their own data and what the kit would do about it, in the handoff's eight sections.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "The whole report is written now from the ten-dataset corpus and Plan 5's audit counts; no lighter version first and no wait for more data.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "The bulk-export request is one of the questions in section 8, and Court sends the report to the FEMC contact personally. This plan writes it; it makes no contact itself.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Every finding cites a specific record (dataset and field) FEMC can check, and every count comes from the audit tool, not impressions.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Collaborative and honest about limits: they have kept this data for decades, and we saw only public pages and ten datasets.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Nothing is invented about FEMC: claims rest on practice-data/, their public pages and the handoff. Where a record records something somewhere non-standard (people on the parent project), the report says exactly that.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "The repo is public, so no draft of the report, and nothing quoting FEMC's data values, is committed to it before FEMC has seen the report.",
+        "source": "assumed"
+      },
+      {
+        "kind": "constraint",
+        "text": "No new code for the report: it uses cruise audit, the femc converter and the converted packages as built. A new tool (such as cruise tidy) is not built for it.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "Court can read the finished report and send it as is: every claim in it traces to a named record or an audit count, and checking a sample of claims against the source finds none wrong.",
+        "source": "assumed"
+      }
+    ],
+    "confirmed": true
   },
-  "decisions": [],
-  "calls": [],
+  "decisions": [
+    {
+      "id": "DCSN1",
+      "name": "Where the draft lives",
+      "question": "Where should the report's drafts and the finished report live, given the repo is public?",
+      "example": "Section 3 quotes Camels Hump's 'Github repo of census_data' description and names the Data Rescue columns missing from its file. Committed under docs/specs in research-in-a-box, that is public on GitHub before your contact has read a word of it.",
+      "options": [
+        {
+          "id": "A",
+          "title": "On your machine, beside the data",
+          "includes": "The report in practice-data/report/ (already gitignored), next to the datasets and audit output it cites. A Markdown source and the PDF you send. Only a one-line pointer goes in the plan's record.",
+          "pulls_in": "No version history or off-machine copy beyond your own backups."
+        },
+        {
+          "id": "B",
+          "title": "In the private tools-ops repo",
+          "includes": "The report in tools-ops at docs/research-in-a-box/femc-report/, committed and pushed, so drafts are versioned and backed up on GitHub.",
+          "pulls_in": "A personal project's document in the subaud-tools organisation's ops repo, which is otherwise only .tools family work."
+        },
+        {
+          "id": "C",
+          "title": "A new private repo",
+          "includes": "A private repo just for the report (for example schuettc/femc-report).",
+          "pulls_in": "A new repo to create and keep for one document."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "The report quotes the same data values the audit output does, and Plan 5 already keeps that output uncommitted under practice-data/ for the same reason. Keeping the report there needs nothing new. Once FEMC has seen it, a version can be committed if they agree.",
+        "evidence": [
+          {
+            "text": "The repo is public",
+            "source": "gh api repos/schuettc/research-in-a-box",
+            "output": "private: false, visibility: public"
+          },
+          {
+            "text": "practice-data/ is gitignored, and Plan 5 kept the full audit output there because its findings quote data values",
+            "source": ".gitignore; femc-audit-counts.md",
+            "output": "practice-data/ ... the full output, whose findings quote data values, stays under practice-data/audit/ and is not committed"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    },
+    {
+      "id": "DCSN2",
+      "name": "The before-and-after dataset",
+      "question": "For section 4, how should we show a dataset 'after', when the local tool can't clean data yet and we may not invent what only FEMC knows?",
+      "example": "Ozone Bioindicators audits at 76 with 3 errors: no creator, no methods, no geographic coverage. The creators are on FEMC's project record and the license is on its web page, but the methods and the units of 14 columns exist only with FEMC. A cleaned package can fill the first two; it can't honestly fill the last two.",
+      "options": [
+        {
+          "id": "A",
+          "title": "After = filled only from FEMC's own public sources",
+          "includes": "Ozone re-packaged by hand with what FEMC already publishes elsewhere (people from the project record, license and access from the page, a real title), re-audited so the score moves, and each gap still open listed as 'only you can fill this'. Shown side by side with today's record.",
+          "pulls_in": "An hour or two of hand work on one package, kept in practice-data/; its changes.jsonl records each fill with its source."
+        },
+        {
+          "id": "B",
+          "title": "Before only, with what the audit asks for",
+          "includes": "Today's Ozone record beside the audit's list of what it needs, with no rebuilt package and no second score.",
+          "pulls_in": "Nothing new to build; the section loses its 'after' picture."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "The score moving because of facts FEMC already holds is the clearest argument the report has, and the gaps left over turn straight into section 7's quick fixes and section 8's questions. Ozone is the natural pick: small (165 rows), already the handoff's worked example, and its gaps are typical of the ten.",
+        "evidence": [
+          {
+            "text": "Ozone's audit",
+            "source": "femc-audit-counts.md row 1",
+            "output": "ozone-bioindicators | 3 | 24 | 1 | 76 | 5 of 8 | 40 of 61 | 46 of 50"
+          },
+          {
+            "text": "People are on the project record, not the dataset",
+            "source": "practice-data/femc/ozone-bioindicators/eml.xml",
+            "output": "eml:principalInvestigator x2, eml:contentProvider x3, eml:creator 0"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    }
+  ],
+  "calls": [
+    {
+      "id": "AGNT1",
+      "name": "Addressed to the contact",
+      "question": "Who is the report addressed to?",
+      "took": "Written to your FEMC contact by name, in a form they can forward to archive staff and partners unchanged.",
+      "instead": "A report addressed to FEMC as an organisation, with a separate short cover note to your contact.",
+      "why": "The handoff names staff and partners as the audience and says you have a contact there; one document that forwards cleanly serves both.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT2",
+      "name": "Markdown source, PDF to send",
+      "question": "What form does the report take?",
+      "took": "A Markdown source that renders to a plain PDF, which you attach to an email.",
+      "instead": "A web page you host and link to.",
+      "why": "A PDF forwards inside a university without anyone needing a link to stay up; Markdown keeps edits as small diffs.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT3",
+      "name": "People on the project, said precisely",
+      "question": "How does the report state the missing-creator finding?",
+      "took": "'None of the ten dataset records names a creator; people are recorded on the parent project, under FEMC's own role tags, so EML readers don't see them as the dataset's authors.'",
+      "instead": "The audit's plain wording, 'no creator in 10 of 10'.",
+      "why": "The plain wording is literally true of the dataset element but would read as 'FEMC doesn't record authors', which is false and the first thing they'd push back on.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT4",
+      "name": "Recheck borrowed numbers",
+      "question": "Do we quote Plan 6's search numbers as given?",
+      "took": "Quote them only after rereading Plan 6's own record of the 22 searches, cited by file.",
+      "instead": "Quote the coordinating session's note as is.",
+      "why": "Every count in the report comes from a source FEMC or Court could open; a relayed note isn't one.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT5",
+      "name": "Cite records by their page",
+      "question": "How does the report point FEMC to each record it cites?",
+      "took": "Each finding links the dataset's FEMC page (from SOURCES.md), with the field named and the EML record's page id in brackets where a field-level check needs it.",
+      "instead": "Cite by EML package id only (vmc.1872.4112.1 and so on).",
+      "why": "The brief asks that FEMC can check every finding; their staff open the dataset page, not the EML. The coordinating session asked for the same.",
+      "state": "standing"
+    }
+  ],
   "principles": [],
   "follow_ups": [],
-  "spec": {},
-  "plans": [],
+  "spec": {
+    "hash": "0f1405e6b9ab20c2ad576dad5f919e74148188c7b5318415cc46842ad7557f25",
+    "sections": [
+      {
+        "id": "SPEC1",
+        "heading": "Goal",
+        "decisions": []
+      },
+      {
+        "id": "SPEC2",
+        "heading": "The report, section by section",
+        "decisions": [
+          "AGNT3",
+          "AGNT4",
+          "AGNT5"
+        ]
+      },
+      {
+        "id": "SPEC3",
+        "heading": "The Ozone before-and-after",
+        "decisions": [
+          "DCSN2",
+          "DCSN1"
+        ]
+      },
+      {
+        "id": "SPEC4",
+        "heading": "Where it lives and how it reaches FEMC",
+        "decisions": [
+          "DCSN1",
+          "AGNT1",
+          "AGNT2",
+          "AGNT4",
+          "AGNT5"
+        ]
+      },
+      {
+        "id": "SPEC5",
+        "heading": "Left out",
+        "decisions": [
+          "DCSN1",
+          "AGNT2"
+        ]
+      },
+      {
+        "id": "SPEC6",
+        "heading": "How we'll know it works",
+        "decisions": [
+          "DCSN1",
+          "DCSN2",
+          "AGNT4",
+          "AGNT5"
+        ]
+      }
+    ],
+    "approved": {
+      "hash": "7642a0a54c1d53dca0ae885babeb4ef73c5c20bcf75336fa86f7a32671cd79da",
+      "at": "2026-11-14T00:56:57.265594-06:00",
+      "body": "# The FEMC report\n\n## Goal\n\nA short, plain-language report that shows FEMC's archive staff and partners what we found in their own data and what the kit would do about it. It is written now, whole, from the ten-dataset practice corpus and Plan 5's audit counts, and it asks FEMC for a bulk export as one of its questions. Court sends it to their FEMC contact; this plan writes it and makes no contact itself.\n\n## The report, section by section\n\nThe report follows the handoff's eight sections. Each section's sources are fixed here, so every sentence can be traced.\n\n| # | Section | What it says | Sources |\n| --- | --- | --- | --- |\n| 1 | What the archive does well | Specific strengths, stated first: an EML record for every dataset, stable package ids, a parent project for every dataset, five access states including Linked, seven browsing themes, anonymous downloads with an optional usage form that supports their funding case, and decades of monitoring data kept safe. | FEMC's public pages (the handoff's \"From their public pages\"), the ten EML records |\n| 2 | What we looked at | The ten datasets by name with a link to each FEMC page, the dates downloaded (2026-11-12 and 2026-11-13), how (anonymous public downloads, the usage form left blank, under FEMC's data policy), and what we did not see (anything behind an account, the database behind the CSV exports, any other dataset). | `practice-data/femc/SOURCES.md` |\n| 3 | What we found | The findings below, each naming a dataset page and a field, with counts from the audit. | `practice-data/femc/*/eml.xml`, Plan 5's `documents/femc-audit-counts.md`, `practice-data/audit/audit.json`, `practice-data/packages/*/_build/not-imported.txt` |\n| 4 | Before and after | Ozone Bioindicators as its record stands today, beside the same dataset as a package filled only from FEMC's own public sources, with both audit scores and the gaps only FEMC can fill. | The Ozone package of the next section |\n| 5 | What the kit offers | Their daily work (taking in a submission, checking it, publishing it, answering a request, reporting use) mapped to what the kit does, saying plainly which parts are built today and which are planned. | The handoff's plan briefs and the Decision log; what is merged on `main` |\n| 6 | What adopting it would take | A migration path from their existing EML: the `femc` converter already turns all ten records into packages that pass structure checks; what a full migration would need from them (the bulk export, their decisions on licenses and required fields); running the archive in their own AWS account. | Plan 5's wrap-up, `examples/femc/` |\n| 7 | Quick fixes they can make now | Changes in their own system that help with or without the kit: put the license shown on the page into the EML, name the dataset's creators on the dataset as well as the project, fix the `distibution` tag, give linked records a real title, description and the external data URL, and describe each column with its unit. | The findings in section 3 |\n| 8 | Questions for them | Whether they would share a bulk export of their EML records (and, where licenses allow, their tables) so the audit can cover the whole archive; which licenses the \"third party determines\" datasets carry; whether the people on the project are the dataset's authors; what they would want from the kit first. | Gaps left by sections 3 and 4 |\n\nThe findings section 3 rests on, each checked against the raw records:\n\n- None of the ten dataset records names a creator, methods or a geographic coverage. People are recorded on the parent project under FEMC's own role tags (principal investigator, content provider), so EML readers don't see them as the dataset's authors. (10 of 10 records.)\n- No EML record carries a license, including the two whose pages show one (CC0 on Vegetation Class Raster, CC BY-NC-SA 4.0 on Mount Mansfield Quadrat Images); four pages show no license at all. (10 of 10 records, 4 of 10 pages.)\n- Record and file disagree in 3 of 5 tables: columns in the file with no description (the aerial survey, FIA), and described columns missing from the file (Data Rescue Inventory's AboutP1, AboutP2 and others), each named in the converter's not-imported list.\n- Camels Hump's dataset is titled `census_data` and described as \"Github repo of census_data\"; its place name appears only on the parent project, and its data's address only inside the citation text, while its download link points back to FEMC's own page.\n- Column-level gaps, as audit counts across the ten: units missing 328 times, descriptions repeating the column name 249 times, placeholder values 203 times, descriptions missing 168 times, columns holding one value in every row 66 times.\n- Every record uses the misspelled `distibution` tag, so standard EML tools miss each dataset's download link.\n\nRests on: AGNT3, AGNT4, AGNT5\n\n## The Ozone before-and-after\n\nSection 4 shows Ozone Bioindicators twice. \"Before\" is its FEMC record as it stands, with today's audit: 3 errors, 24 warnings, 1 note, score 76.\n\n\"After\" is the converted Ozone package re-packaged by hand, filling only what FEMC already publishes somewhere else: the people from the project record as creators, the rights from what FEMC's page shows, and a title and description from the record's own project text. Each fill is a line in the package's `changes.jsonl` naming where it came from. The package is audited again with `cruise audit --config examples/femc/archive.yaml`, and the report shows the new score.\n\nWhat stays open is listed as \"only you can fill this\": the methods, the geographic coverage, the 14 missing units, the four columns with no description and the code list for the species column. These feed section 7 and section 8. Nothing is filled from our own guess.\n\nThe hand-made package lives in `practice-data/report/ozone-after/`, beside the report, and is never committed.\n\nRests on: DCSN2, DCSN1\n\n## Where it lives and how it reaches FEMC\n\nThe report is a Markdown file, `practice-data/report/femc-report.md`, rendered to `practice-data/report/femc-report.pdf`. `practice-data/` is gitignored, so neither the drafts, the PDF nor the Ozone package is committed to the public repo. This folder's record names the path and holds no copy.\n\nIt is addressed to Court's FEMC contact by name and written so it can be forwarded unchanged to archive staff and partners. Court attaches the PDF to an email of their own; whether and when to send it is Court's call. Once FEMC has seen it, a version can be committed if they agree; that is a follow-up, not part of this plan.\n\nEvery finding links the dataset's FEMC page from `SOURCES.md`, names the field, and gives the EML package id in brackets where a field-level check needs it. Counts come only from `cruise audit` output or a command whose output is in the report's working notes, never from a relayed message: Plan 6's search numbers are quoted only once Plan 6's own record of its searches is on `main`, and otherwise the Camels Hump finding rests on its record alone.\n\nRisk: a wrong or unkind claim reaches FEMC and costs Court the relationship; it is undone only by a correction email. Checks are sized to that: every claim is traced to its source before Court reads it. Cost to Court: reading the draft, and one send.\n\nRests on: DCSN1, AGNT1, AGNT2, AGNT4, AGNT5\n\n## Left out\n\n- Contacting FEMC: Court sends the report.\n- Any new code: no report generator, no `cruise tidy`, no change to the converter, contract or cruise.\n- Datasets beyond the ten: no more downloads, and no scraping, until FEMC agrees to a bulk export.\n- A lighter early version, and a hosted web page.\n- Committing any version of the report to the public repo before FEMC has seen it.\n\nRests on: DCSN1, AGNT2\n\n## How we'll know it works\n\n- `practice-data/report/femc-report.md` has all eight sections, and the PDF renders from it.\n- Every finding in section 3 links a FEMC dataset page and names a field; every count matches `femc-audit-counts.md` or a command recorded in the working notes.\n- The Ozone \"after\" package exists, passes `cruise audit` with fewer errors than 3, and every fill in its `changes.jsonl` names a FEMC source.\n- A reviewer from the other model family checks ten claims picked from the report against `practice-data/` and finds none wrong, and checks the tone section by section.\n- `git status` in the repo shows no file from `practice-data/report/`.\n- Court reads it and says it can go as is.\n\nRests on: DCSN1, DCSN2, AGNT4, AGNT5\n"
+    },
+    "edited": "2026-11-14T00:58:35.627015-06:00"
+  },
+  "plans": [
+    {
+      "id": "PLAN1",
+      "topic": "write-the-femc-report",
+      "covers": "The evidence notes, the Ozone after-package, the eight-section report and its PDF, all in gitignored practice-data/report/",
+      "hash": "76fde1a08adfa67d816af344eabe550fdffc168e39621e50cfbf232251518c99",
+      "tasks": [
+        {
+          "id": "TASK1",
+          "heading": "Task 1: The evidence notes",
+          "does": "Writes practice-data/report/notes.md: every claim with its FEMC page, field, package id, checking command and real output; re-runs the audit and confirms the counts; checks whether Plan 6's search record is on main.",
+          "pulls_in": "One uncommitted notes file; a re-run of cruise audit over the ten packages.",
+          "serves": [],
+          "state": "keep"
+        },
+        {
+          "id": "TASK2",
+          "heading": "Task 2: The Ozone after-package",
+          "does": "Copies the converted Ozone package to practice-data/report/ozone-after/, fills creators, rights and description only from FEMC's own sources with a changes.jsonl line each, rewrites checksums, re-audits, and lists the gaps only FEMC can fill.",
+          "pulls_in": "One hand-made, uncommitted package.",
+          "serves": [
+            "DCSN2",
+            "DCSN1"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK3",
+          "heading": "Task 3: The report",
+          "does": "Writes practice-data/report/femc-report.md in the eight sections, addressed to Court's contact, every claim backed by an entry in notes.md.",
+          "pulls_in": "The report's Markdown source, uncommitted.",
+          "serves": [
+            "DCSN1"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK4",
+          "heading": "Task 4: Review and the PDF",
+          "does": "An OpenAI reviewer checks ten claims against the sources and the tone of each section; wrong claims are fixed or cut; pandoc and headless Chrome render the PDF.",
+          "pulls_in": "One review dispatch; the PDF, uncommitted.",
+          "serves": [
+            "DCSN1"
+          ],
+          "state": "keep"
+        }
+      ],
+      "approved": {
+        "hash": "76fde1a08adfa67d816af344eabe550fdffc168e39621e50cfbf232251518c99",
+        "at": "2026-11-14T00:58:19.578904-06:00",
+        "body": "# PLAN1: Write the FEMC report\n\n## Spec\n\n`spec.md` in this folder: the report in the handoff's eight sections, written now from the ten-dataset corpus, with the Ozone before-and-after filled only from FEMC's own sources, kept in gitignored `practice-data/report/`, and sent by Court.\n\n## The change\n\nFour files and one folder under `practice-data/report/`, none committed:\n\n- `notes.md`: the working notes. Every claim the report makes, with the command that checks it and that command's real output.\n- `ozone-after/`: the converted Ozone package re-packaged by hand from FEMC's own public sources, with its `changes.jsonl` and its audit.\n- `femc-report.md`: the report.\n- `femc-report.pdf`: rendered from it.\n\nNo code in the repo changes. The only repo change is this folder's record.\n\nRisk: a wrong or unkind claim reaches FEMC; undone only by a correction email from Court. So every claim is traced in `notes.md` before the report cites it, and a reviewer from the other model family checks a sample and the tone. Cost to Court: reading the draft and sending it.\n\n## Left out\n\n- Contacting FEMC, any new code, any further download, a hosted page, and committing the report (spec's Left out).\n- A second before-and-after dataset.\n\n## Where\n\n- `practice-data/femc/` (the ten downloads, `SOURCES.md`), `practice-data/packages/` (the converted packages), `practice-data/audit/audit.json` (the full audit).\n- `docs/specs/2026-11-13-femc-migration-and-practice-corpus/documents/femc-audit-counts.md` on `main` (the counts).\n- `examples/femc/archive.yaml` (the config the audit runs with).\n- Plan 6's planning folder, `docs/specs/2026-11-13-api-and-search/`, for its record of the 22 searches once it is on `main`.\n\nEvery task works in the primary clone's `practice-data/` (it exists only there) and writes nothing inside the repo's tracked files.\n\n### Task 1: The evidence notes\n\n**Does:** Writes `practice-data/report/notes.md`: one entry per finding in the spec's section 3 and per strength in section 1, each with the dataset's FEMC page (from `SOURCES.md`), the field, the EML package id, the command that checks it and its real output. Re-runs `cruise audit --config examples/femc/archive.yaml --json` over the ten packages and confirms the counts still match `femc-audit-counts.md`. Checks whether Plan 6's record of its 22 searches is on `origin/main`; if it is, records the numbers with the file they come from, and if not, records that the Camels Hump finding rests on its record alone.\n**Files:** `practice-data/report/notes.md` (new, not committed)\n**Checks:** `uv run cruise audit --config examples/femc/archive.yaml --json practice-data/packages/\u003ceach of the ten\u003e` (exit 1 is expected: the packages have errors; the check is that the counts match); `git status --porcelain practice-data` (prints nothing)\n**Serves:** none (rests on calls AGNT4, AGNT5)\n\nThe creator finding is written as call AGNT3 words it: no creator on the dataset, people on the parent project under FEMC's own role tags. A finding the raw record doesn't bear out is dropped from the report and noted as dropped.\n\n### Task 2: The Ozone after-package\n\n**Does:** Copies `practice-data/packages/ozone-bioindicators/` to `practice-data/report/ozone-after/` and fills, by hand, only what FEMC publishes elsewhere: creators from the project record's people (`_build/project.json`), rights from what FEMC's page shows, and a description from the record's own project text. Adds one line per fill to `changes.jsonl` in the contract's Change shape, each naming its FEMC source, and rewrites `checksums.sha256` so structure validation passes. Re-audits it and records before and after counts in `notes.md`, with the list of gaps only FEMC can fill (methods, geographic coverage, the missing units, the undescribed columns, the species code list).\n**Files:** `practice-data/report/ozone-after/` (new, not committed), `practice-data/report/notes.md`\n**Checks:** `uv run cruise diagnose practice-data/report/ozone-after` (no structure errors); `uv run cruise audit --config examples/femc/archive.yaml practice-data/report/ozone-after` (fewer errors than the original's 3)\n**Serves:** DCSN2, DCSN1\n\nNothing is filled from a guess. If a field can only be filled by inventing a value, it stays empty and goes on the \"only you can fill this\" list.\n\n### Task 3: The report\n\n**Does:** Writes `practice-data/report/femc-report.md` in the spec's eight sections, addressed to Court's FEMC contact (name left as a placeholder for Court) and forwardable unchanged. Section 1 first and specific; section 3's findings each link the dataset page, name the field and give counts from `notes.md`; section 4 shows Ozone before and after with both scores; section 5 says plainly which parts of the kit are built and which are planned; section 6 the migration path; section 7 the quick fixes; section 8 the questions, with the bulk-export request. Plain language for archive staff, collaborative, and honest that we saw only public pages and ten datasets. Every claim in it has an entry in `notes.md`.\n**Files:** `practice-data/report/femc-report.md` (new, not committed)\n**Checks:** `grep -c '^## ' practice-data/report/femc-report.md` (8); `git status --porcelain practice-data` (prints nothing)\n**Serves:** DCSN1 (rests on calls AGNT1, AGNT3, AGNT5)\n\n### Task 4: Review and the PDF\n\n**Does:** A reviewer from the other model family (OpenAI, `openai-codex`) picks ten claims from the report, checks each against `practice-data/` and `notes.md`, and reads each section for tone toward people who have kept this data for decades. Findings are handled per receiving-code-review: a wrong claim is fixed or cut. Then renders the PDF: pandoc to standalone HTML with a plain stylesheet, printed to PDF by headless Chrome.\n**Files:** `practice-data/report/femc-report.md`, `practice-data/report/femc-report.pdf` (new, not committed)\n**Checks:** `pandoc practice-data/report/femc-report.md -s -o practice-data/report/femc-report.html`; `\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --print-to-pdf=practice-data/report/femc-report.pdf practice-data/report/femc-report.html`; the reviewer's ten claims all hold after fixes\n**Serves:** DCSN1 (rests on calls AGNT2, AGNT4)\n\nThe end look, Court reading the PDF and saying it can go as is, is the sign-off card's try list.\n"
+      }
+    }
+  ],
   "messages": [
     {
       "id": 1,
@@ -31,16 +428,143 @@
       "sender": {
         "project": "personal"
       }
+    },
+    {
+      "id": 2,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session: Plan 5 (FEMC migration) will not contact FEMC or draft the bulk-export request (Court chose its DCSN2 option C). Both now belong to Plan 10b. Plan 5 hands 10b only the audit numbers, from a corpus of 10 datasets.",
+      "at": "2026-11-13T21:59:42.532269-06:00",
+      "state": "answered",
+      "claim": "17a70a54969c1158",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 3,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "Correction from the coordinating session: reach me only over muster, at personal-personal/generic-package-format-and-contract. A diazo note to Plan 2's folder now goes to a different session.",
+      "at": "2026-11-13T22:13:43.516894-06:00",
+      "state": "answered",
+      "claim": "637582831aa4b378",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 4,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session, a finding for the report from Plan 6's search test: FEMC's Camels Hump record is titled 'census_data' and has a 26-character description, so no search on the converted corpus finds it by place name. It's a concrete case of weak metadata making data unfindable. Plan 6 ran 22 plain-language searches over Plan 5's ten packages: strict keyword search found 11, any-word keyword search found 17, and embeddings ranked 17 first.",
+      "at": "2026-11-14T00:02:33.100486-06:00",
+      "state": "answered",
+      "claim": "7196379c3419c953",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 5,
+      "card": "plan",
+      "from": "user",
+      "action": "start-planning",
+      "at": "2026-11-14T00:22:19.674236-06:00",
+      "state": "answered",
+      "claim": "e7600cf8a7d3da68"
+    },
+    {
+      "id": 6,
+      "card": "DIRN",
+      "from": "user",
+      "action": "direction",
+      "at": "2026-11-14T00:35:38.869723-06:00",
+      "state": "answered",
+      "claim": "9492a28fc5ca4111"
+    },
+    {
+      "id": 7,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-14T00:50:40.200436-06:00",
+      "state": "answered",
+      "claim": "8154933d4a76e5b8"
+    },
+    {
+      "id": 8,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "note",
+      "text": "what does this mean?  how would a research team that has deployed this use this",
+      "at": "2026-11-14T00:53:38.659661-06:00",
+      "state": "answered",
+      "claim": "7a142ed5962fba7f"
+    },
+    {
+      "id": 9,
+      "card": "DCSN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "It doesn't touch a deployed archive at all. This report isn't a feature of the kit: it's a one-off document from you to FEMC (\"here's what we found in your data\"), which the handoff lists as a deliverable beside the code. A research team that deploys the kit never sees it or anything like it.\n\nThis card is only about where you keep that one document while it's being written. The repo is public, so a draft committed under docs/specs would be readable on GitHub before your contact has seen it, and it quotes FEMC's records. Option A keeps the file on your machine in practice-data/report/, which git ignores (the downloaded FEMC data already lives there for the same reason). B and C keep it in a private GitHub repo instead, so it's versioned and backed up.\n\nWhat a deployed team gets that's related: they run `cruise audit` on their own packages and see the same kinds of findings (missing units, descriptions, license, creator) about their own data. Turning those findings into a written report for someone else isn't in the kit, and I'm not proposing to build it here.",
+      "at": "2026-11-14T00:53:47.417106-06:00",
+      "answers": [
+        8
+      ]
+    },
+    {
+      "id": 10,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-14T00:55:21.026615-06:00",
+      "state": "answered",
+      "claim": "3eafb3c567d6ddaa"
+    },
+    {
+      "id": 11,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-14T00:55:42.752837-06:00",
+      "state": "answered",
+      "claim": "53d517b5a6eaf899"
+    },
+    {
+      "id": 12,
+      "card": "spec",
+      "from": "user",
+      "action": "approve-spec",
+      "at": "2026-11-14T00:56:57.265594-06:00",
+      "state": "answered",
+      "claim": "ae77adb3dfa2a233"
+    },
+    {
+      "id": 13,
+      "card": "PLAN1",
+      "from": "user",
+      "action": "approve-plan",
+      "at": "2026-11-14T00:58:19.578904-06:00",
+      "state": "answered",
+      "claim": "9a0ae6ac0eacf34f"
     }
   ],
-  "planned": {
-    "at": "2026-11-13T08:48:26.436672-06:00"
-  },
   "planned_history": [
     {
       "action": "planned",
       "by": "agent",
       "at": "2026-11-13T08:48:26.436672-06:00"
+    },
+    {
+      "action": "started",
+      "by": "user",
+      "at": "2026-11-14T00:22:19.674236-06:00"
     }
   ]
 }
