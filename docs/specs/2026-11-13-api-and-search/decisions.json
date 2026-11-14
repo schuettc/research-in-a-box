@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "API and search (Plan 6)",
   "expect": 8,
-  "agent_at": "2026-11-14T06:22:52.626229Z",
+  "agent_at": "2026-11-14T16:58:57.748112Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 2, folder 8da653f233f9, and Plan 4, the archive infrastructure.)\n\nBrief: Plan 6 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the API and search (Plan 6). There is no relational database. Search is a catalog file filtered in the browser with DuckDB, plus an optional DynamoDB vector index. Plan the endpoints and the search design, and take the open questions with me one at a time."
@@ -254,6 +254,88 @@
           "what": "Destroy ResearchArchive-test and confirm its stack, buckets and tables are gone",
           "state": "done",
           "result": "cdk destroy exit 0; stack does not exist; no researcharchive-test buckets, tables or functions; user pool and /research-archive/test parameters gone; the S3 auto-delete helper's leftover log group deleted by hand; nothing left"
+        }
+      ]
+    },
+    {
+      "id": "STEP2",
+      "what": "Walk the test deploy of semantic search with me",
+      "why": "TASK11: proves semantic search on Plan 5's ten datasets, then that the same stack answers keyword results with the module off, then tears it down",
+      "how": "One action at a time; your part is two Go presses. No sign-in is needed: search is public.",
+      "done": true,
+      "done_at": "2026-11-14T10:58:44.278011-06:00",
+      "actions": [
+        {
+          "id": "A1",
+          "who": "agent",
+          "what": "Merge Tasks 7 to 10 once CI's python and typescript checks pass",
+          "state": "done",
+          "result": "research-in-a-box#30 merged as 6a74267 after three rebases onto other plans' Decision log rows; all checks passed"
+        },
+        {
+          "id": "A2",
+          "who": "user",
+          "what": "Go for the deploy",
+          "how": "1. Press Go to deploy `ResearchArchive-search-test` with semantic search on, under the `personal` profile in us-east-1.\n2. Only the ten datasets' `datapackage.json` records are uploaded, never their data files, so nothing from FEMC can be downloaded from it.\n\nIt costs a few dollars at most while it exists, plus a few cents of Bedrock, and is destroyed at A6.",
+          "state": "done",
+          "answered_at": "2026-11-14T10:04:24.867576-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "The agent deploys ResearchArchive-search-test now"
+            },
+            {
+              "id": "NOGO",
+              "label": "No go",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A3",
+          "who": "agent",
+          "what": "Deploy with embeddings on, upload the ten datapackage.json records with archive:published, reindex, check every dataset carries an embedding, run the 22 searches through CloudFront, check 'air pollution' puts the IMPROVE aerosol dataset first, and time ten warm searches and one after 15 idle minutes",
+          "state": "done",
+          "result": "deploy exit 0 from fab8a87; reindex SUCCEEDED (148 items, catalog 10, pages 10); all 10 META items carry a 1,024-number embedding, vector index ACTIVE; 22 searches live: 19 first, 21 in top 3, 22 found; 'air pollution' puts improve-fine-aerosol first; no SemanticFallback in the API log; warm median 0.29 s (n=10); after 16 idle minutes 3.58 s, then 0.30 s"
+        },
+        {
+          "id": "A4",
+          "who": "agent",
+          "what": "Redeploy with the module removed; check 'air pollution' answers keyword results with no error and 'ozone' still finds the ozone dataset",
+          "state": "done",
+          "result": "redeploy exit 0 in 86 s, no failures; 'air pollution' 200 with 0 keyword results (no error); 'ozone' 2 results, ozone-bioindicators first; both catalog tables have 0 vector indexes; API role has no Bedrock or SearchVectors permission; no SemanticFallback lines since the redeploy"
+        },
+        {
+          "id": "A5",
+          "who": "user",
+          "what": "Go for the teardown",
+          "how": "1. Press Go to destroy `ResearchArchive-search-test` and everything in it.",
+          "state": "done",
+          "answered_at": "2026-11-14T10:49:40.027929-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "The agent destroys ResearchArchive-search-test now"
+            },
+            {
+              "id": "NOGO",
+              "label": "Keep it for now",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A6",
+          "who": "agent",
+          "what": "Destroy ResearchArchive-search-test and confirm its stack, buckets, tables and leftover log groups are gone",
+          "state": "done",
+          "result": "cdk destroy exit 0; stack does not exist; 0 buckets, 0 tables, 0 functions, 0 /research-archive/search-test parameters, function log groups gone; the two CDK helper log groups (bucket deployment, auto-delete) deleted by hand; nothing left"
         }
       ]
     }
@@ -996,8 +1078,22 @@
     {
       "id": "PARK3",
       "name": "First search after idle",
-      "text": "On the test deploy the first search after 17 idle minutes took 2.81 s (warm searches 0.14 s median), above the about one second the spec estimated: a cold API Lambda loading Powertools, boto3 and the catalog. Measure the parts and decide whether it matters once Plan 8's search page exists; options are trimming imports, more memory, or SnapStart for Python.",
+      "text": "The first search after the API Lambda sits idle is slow: 2.81 s with keyword search alone (PLAN1's test deploy, 17 idle minutes) and 3.58 s with semantic search on (PLAN3's, 16 idle minutes); warm searches take 0.14 s and 0.29 s. A cold Lambda loading Powertools, boto3 and the catalog, plus the first Bedrock call. Measure the parts and decide whether it matters once Plan 8's search page exists; options are trimming imports, more memory, or SnapStart for Python.",
       "from": "TASK5",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK4",
+      "name": "Empty text breaks embedding",
+      "text": "With embeddings on, a manifest with no title, description or keywords (or text past Titan's input limit) makes Bedrock reject the call and fails the whole reindex batch, though the same manifest reindexes with embeddings off. Skip the embedding for empty text, and truncate long text.",
+      "from": "TASK8",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK5",
+      "name": "Bedrock throttling in reindex",
+      "text": "The reindex embeds datasets one call at a time, up to 200 per batch; Bedrock throttling raises out of the step. Fine at ten datasets; for large archives check the durable step's retry or add backoff.",
+      "from": "TASK8",
       "kind": "improvement"
     }
   ],
@@ -1234,7 +1330,7 @@
       "waits_on": [
         "PLAN1"
       ],
-      "hash": "0cb69533179c64e634fb8e2aae834c93e901549596c38885654aa3fd5a54ab32",
+      "hash": "e2d57470bd02fe32a34c0c9ee50133ac308ba0259c514484f2099076d8756b8f",
       "tasks": [
         {
           "id": "TASK7",
@@ -1244,7 +1340,10 @@
           "serves": [
             "DCSN6"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "d942575 + 6a706c7 (short words, review fix): ranked any-word matching; backend 98/98, check-python 0",
+          "build_at": "2026-11-14T00:36:12.490574-06:00"
         },
         {
           "id": "TASK8",
@@ -1255,7 +1354,10 @@
             "DCSN6",
             "DCSN7"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "2bebf85 + 94e45eb: modules.embeddings, with_embedding, reindex reads the setting through Plan 7's read_archive_config; pytest 0, check-schema 0",
+          "build_at": "2026-11-14T00:36:12.490574-06:00"
         },
         {
           "id": "TASK9",
@@ -1266,7 +1368,10 @@
             "DCSN6",
             "DCSN8"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "ccf1ac1 + c0a4b2c: fusion in /api/search, config read inside the fallback with SemanticFallback metric; pytest 0",
+          "build_at": "2026-11-14T00:36:12.490574-06:00"
         },
         {
           "id": "TASK10",
@@ -1277,7 +1382,10 @@
             "DCSN6",
             "DCSN7"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "7d17d44 + 94e45eb: vector index, grants, widget, alarm; ARCHIVE_CONFIG_PARAMETER and read grant for API and reindex; infra 60/60, just check 0; PR research-in-a-box#30",
+          "build_at": "2026-11-14T00:36:12.490574-06:00"
         },
         {
           "id": "TASK11",
@@ -1289,16 +1397,46 @@
             "DCSN7",
             "DCSN8"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "search-test deployed from fab8a87 with Plan 5's ten manifests (no data files): every dataset embedded, 22 searches live 19 first / 21 top 3 / 22 found, 'air pollution' first; module off answers keyword results with no index or Bedrock grant; warm 0.29 s, after idle 3.58 s (PARK3); destroyed with nothing left",
+          "build_at": "2026-11-14T10:58:44.278011-06:00"
+        },
+        {
+          "id": "TASK12",
+          "heading": "Task 12: Embeddings on Plan 7's publish",
+          "does": "Plan 7's publish landed first, so Plan 6 adds the agreed call: with the module on, publish sets the embedding on the dataset item before its put, and the ingest function gets the Bedrock grant.",
+          "pulls_in": "One call in ingest.py, one conditional grant with a synth test, a small PR touching Plan 7's file",
+          "serves": [
+            "DCSN6",
+            "DCSN7"
+          ],
+          "state": "keep",
+          "build": "done",
+          "result": "Merged as research-in-a-box#38 (1643ba7): publish sets the embedding before its put when the module is on, ingest Bedrock grant only when on; CI python and typescript passed",
+          "build_at": "2026-11-14T01:21:17.463919-06:00"
         }
       ],
       "approved": {
         "hash": "0cb69533179c64e634fb8e2aae834c93e901549596c38885654aa3fd5a54ab32",
         "at": "2026-11-14T00:23:08.084748-06:00",
         "body": "# PLAN3: Ranked keyword search and semantic search\n\n## Spec\n\n`docs/specs/2026-11-13-api-and-search/spec.md`, sections \"Search\", \"Semantic search\", \"Risk and cost\" and \"How we'll know it works\". PLAN1 is built and merged (research-in-a-box#22, #26): build on `archive_backend.search`, `archive_backend.api`, `archive_backend.reindex` (`catalog_items`, `dataset_item`), `archive_backend.catalog_file`, the `ReadApi` construct and Plan 4's `Tables`. The handoff's Decision log holds the catalog item shapes. The measurements behind DCSN6 to DCSN8 are on those cards. The implementer reads the spec beside this plan.\n\n## The change\n\nKeyword search ranks by how many words match instead of requiring every word. An optional `embeddings` module adds a vector index to both catalog tables, one shared function puts a Titan v2 embedding on each dataset item before it is written, and `/api/search` merges the vector index's nearest datasets with the keyword ranking by reciprocal rank fusion. Then one test deploy with Plan 5's ten datasets, embeddings on and then off, and the stack is destroyed.\n\n**Risk:**\n\n- Tasks 1 to 4 are local code and CI; a mistake is undone by reverting the PR.\n- Nothing here can expose a restricted file: search returns catalog rows, which are public at every access level.\n- A bad embedding or a dropped one only changes ranking, and a reindex rebuilds every embedding.\n- Task 5 creates real resources under a non-prod stage, all deleted with the stack, plus a few cents of Bedrock calls.\n\n**Cost:**\n\n- One walkthrough step for you (STEP2): Go for the deploy and Go for the teardown. No sign-in is needed; search is public.\n- New permissions only when the module is on: `bedrock:InvokeModel` on Titan v2 and `dynamodb:SearchVectors` on the index.\n- No new dependency: boto3 already has Bedrock and DynamoDB.\n\n## Left out\n\n- A score cut-off for semantic matches, and any model besides Titan v2 (spec, Left out).\n- Embedding the CLI or MCP server's own searches: they call `/api/search` like the web app.\n- Plan 7's call to the embedding function: whichever of Plan 6 and Plan 7 lands second adds it (muster thread 955).\n- The first search after idle (PARK3) stays its own follow-up; Task 5 measures it again with embeddings on.\n\n## Where\n\n- Worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-archive-in-a-box/plan6/semantic-search`, branch `plan6/semantic-search` from `origin/main`. Confirm with `git -C \u003cwt\u003e branch --show-current` before editing.\n- Python: `packages/contract/src/archive_contract/config.py` with its test, `packages/backend/src/archive_backend/{search,embeddings,api,reindex}.py` with their tests.\n- TypeScript: `packages/infra/src/tables.ts`, `packages/infra/src/read-api.ts`, `packages/infra/src/reindex.ts`, `packages/infra/src/research-archive.ts`, their tests, and the regenerated `packages/infra/src/generated/archive-config.ts`.\n- `packages/web/src/schema/archive-contract.schema.json` and `openapi.json` (regenerated), `docs/planning-handoff.md` (Decision log).\n- Global constraints:\n  - Lambdas read the embeddings setting only from the archive-config parameter, `/research-archive/\u003cstage\u003e/archive-config`, which Plan 7's PLAN1 adds. If it isn't on `origin/main` when Task 2 starts, Tasks 1 to 2's pure code goes ahead and the reading waits for it; never add a second way to read the config.\n  - The embedding is set on the item before it is written, never by a later UpdateItem (muster thread 955).\n  - `just check` must exit 0. Nothing reaches AWS in Tasks 1 to 4.\n  - Task 5 runs only with your Go on STEP2, under the `personal` profile, on a stage named `search-test`, never `prod`.\n  - On any AWS auth error, stop and report; never copy or export credentials.\n\n### Task 7: Ranked keyword matching\n\n**Does:** Changes `archive_backend.search` so a dataset matches when any word of `q` matches, ranked by how many words match with title words counting half again, common words ignored and plurals matched.\n**Files:** `packages/backend/src/archive_backend/search.py`, `packages/backend/tests/test_search.py`\n**Checks:** `uv run pytest packages/backend` exits 0; `just check-python` exits 0.\n**Serves:** DCSN6\n\n- Words: lower-case `[a-z0-9]+` runs of `q`, minus a fixed stop list (`a an and the of on in near from for to with by at as or`), each reduced by stripping a trailing `ies`, `es` or `s`; a field matches a word when the reduced word appears in it.\n- Score: count of words found in title, description, keywords or creators, plus 0.5 per word found in the title. A row with score 0 doesn't match when `q` is given.\n- Order: score descending, then `published` newest first with rows lacking it last, then `id`. With no `q`, order as today.\n- Facets: the `q` filter counts as \"score above 0\", so facet counting is unchanged otherwise.\n- Expose `keyword_ranking(rows, q) -\u003e list[str]` (ids in order) for Task 9's merge.\n- Tests: \"ozone damage on plants\" finds the ozone row first; a title word outranks a description-only word; \"species\" matches \"Species\"; \"on the\" alone matches nothing; existing filter, facet and paging tests keep passing.\n\n### Task 8: The embeddings setting and the shared function\n\n**Does:** Adds the optional `infrastructure.modules.embeddings` setting to the contract, and `archive_backend.embeddings.with_embedding(item, manifest, bedrock)`, which returns the dataset item with `embedding` set; the reindex calls it on every dataset item when the setting is on.\n**Files:** `packages/contract/src/archive_contract/config.py`, `packages/contract/tests/test_config.py`, `packages/web/src/schema/archive-contract.schema.json`, `packages/infra/src/generated/archive-config.ts`, `packages/backend/src/archive_backend/embeddings.py`, `packages/backend/tests/test_embeddings.py`, `packages/backend/src/archive_backend/reindex.py`, `packages/backend/tests/test_reindex.py`, `docs/planning-handoff.md`\n**Checks:** `uv run pytest packages/backend packages/contract` exits 0; `just check-python` exits 0; `just check-schema` exits 0.\n**Serves:** DCSN6, DCSN7 (rests on calls AGNT11, AGNT12, AGNT14)\n\n- Contract: `Modules.embeddings: Embeddings | None` (alias `embeddings`), where `Embeddings` is a strict model with `model: Literal[\"amazon.titan-embed-text-v2:0\"]` defaulting to that value. Present means on. Run `just schema`.\n- `MODEL`, `DIMENSIONS = 1024`. `embedding_text(manifest)` is the title, description and keywords joined by newlines, as measured. `embed(bedrock, text)` calls `invoke_model` with `{\"inputText\": text, \"dimensions\": 1024, \"normalize\": true}` and returns the list. `with_embedding(item, manifest, bedrock)` returns a copy of the DynamoDB-JSON item with `\"embedding\": {\"L\": [{\"N\": ...}, ...]}`.\n- Reindex: read the archive config from the archive-config parameter once per run; when `infrastructure.modules.embeddings` is set, each dataset item passes through `with_embedding` inside the write step, before the lines are written. Off, nothing changes.\n- One Decision log row: the setting's name, `with_embedding` as the one way an embedding is set, called before the put by reindex and by Plan 7's publish.\n- Tests with a fake Bedrock: the item gains a 1,024-number list and keeps every other attribute; the reindex calls it once per dataset when on and never when off.\n\n### Task 9: Semantic results in /api/search\n\n**Does:** When the setting is on and `q` is given, `/api/search` embeds `q`, asks the index for 50 nearest datasets, and merges them with the keyword ranking by reciprocal rank fusion before filtering and paging; on a Bedrock or index error it answers the keyword ranking alone.\n**Files:** `packages/backend/src/archive_backend/search.py`, `packages/backend/src/archive_backend/api.py`, `packages/backend/tests/test_search.py`, `packages/backend/tests/test_api.py`, `packages/web/src/schema/openapi.json`\n**Checks:** `uv run pytest packages/backend` exits 0; `just check-python` exits 0; `just check-schema` exits 0.\n**Serves:** DCSN6, DCSN8 (rests on calls AGNT13, AGNT15)\n\n- `search(rows, query, semantic: list[str] | None = None)`: with `semantic`, the candidates are the union of keyword matches and the semantic ids, ordered by `fuse(keyword_ids, semantic_ids)` where each id scores the sum of `1 / (60 + place)` over the lists it appears in (place from 1), ties by `id`. Filters other than `q`, facets, total and paging work on that list as they do today.\n- `api.py`: read the setting from the archive-config parameter (cached like the active table); with it on and `q` non-empty, `embed(q)` then `dynamodb.search_vectors(TableName=\u003cactive table\u003e, IndexName=\"datasets\", SearchVector=..., TopK=50)` and take the ids from the returned keys. Verify the boto3 parameter and response names against the installed botocore, not this plan.\n- Any exception from Bedrock or `search_vectors` logs a warning, emits one `SemanticFallback` count in CloudWatch embedded metric format (namespace `ResearchArchive`, dimension `Stage`, from the `STAGE` environment variable), and calls `search` without `semantic`.\n- Tests: fusion order on two hand-made lists; a semantic-only id appears and a filter still removes it; facets count the merged list; the error path answers keyword results and prints one metric line; with the setting off Bedrock is never called.\n\n### Task 10: The vector index and permissions\n\n**Does:** When `infrastructure.modules.embeddings` is set, adds the `datasets` vector index to both catalog tables, grants the API and reindex functions Bedrock on Titan v2 and the API `SearchVectors`, and puts the `SemanticFallback` count on the dashboard with an alarm.\n**Files:** `packages/infra/src/tables.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/src/read-api.ts`, `packages/infra/src/reindex.ts`, `packages/infra/src/operations.ts`, `packages/infra/test/tables.test.ts`, `packages/infra/test/read-api.test.ts`, `packages/infra/test/reindex.test.ts`, `packages/infra/test/operations.test.ts`\n**Checks:** `npm test -w packages/infra` exits 0; `just check` exits 0.\n**Serves:** DCSN6, DCSN7 (rests on calls AGNT12, AGNT14)\n\n- `Tables` takes `embeddings: boolean`. When true, on each catalog table's `node.defaultChild as dynamodb.CfnTable`, set `vectorIndexes` to one entry: `indexName: \"datasets\"`, `vectorAttribute: { attributeName: \"embedding\" }`, `dimensions: 1024`, `distanceFunction: \"COSINE\"`, `projection: { projectionType: \"KEYS_ONLY\" }`, no `searchSchema`. Plain `dynamodb.Table` stays (Decision log: bulk put items needs it).\n- Grants when on: `bedrock:InvokeModel` on `arn:aws:bedrock:\u003cregion\u003e::foundation-model/amazon.titan-embed-text-v2:0` for the API and reindex functions; `dynamodb:SearchVectors` on `\u003ctable arn\u003e/index/datasets` for both tables, for the API function.\n- The API function gets `STAGE`. When on, the operations dashboard gains a `SemanticFallback` widget, and one alarm on its sum, at least 5 in 15 minutes for 2 periods, notifies the alert topic, so an admin learns the module is failing rather than seeing weaker search.\n- Synth tests: with the module the index, grants, widget and alarm exist; without it, the template has no `VectorIndexes`, no Bedrock statement and no fallback alarm.\n\n### Task 11: The test deploy\n\n**Does:** Merges Tasks 7 to 10, deploys `ResearchArchive-search-test` with embeddings on, loads Plan 5's ten datasets, checks the spec's semantic checks, turns embeddings off and checks again, then destroys the stack.\n**Files:** none (results go in the task's result line and the build thread)\n**Checks:** every action in STEP2 is done; `aws cloudformation describe-stacks --stack-name ResearchArchive-search-test` fails with \"does not exist\" at the end.\n**Serves:** DCSN6, DCSN7, DCSN8\n\nSTEP2's actions, in order:\n\n1. Agent: open the PR for Tasks 7 to 10 and merge it once CI's `python` and `typescript` checks pass.\n2. You: Go for the deploy.\n3. Agent: deploy with a test config that has `stages: [search-test]` and `modules.embeddings: {}`; upload only each of Plan 5's ten packages' `datapackage.json` from `practice-data/packages/` (never committed), with `archive:published` set, under `open/` or `restricted/` by its access: the reindex and search read manifests only, and no FEMC data file is put where the test stage's CloudFront could serve it; `just reindex search-test`; check each dataset item has a 1,024-number `embedding`; run the 22 searches from DCSN6 through CloudFront and record found-first and top-3 counts; check `q=air pollution` puts the IMPROVE aerosol dataset first; time ten warm searches and one after 15 idle minutes.\n4. Agent: redeploy with the module removed; check `q=air pollution` answers keyword results (none) with no error, and `q=ozone` still finds the ozone dataset.\n5. You: Go for the teardown.\n6. Agent: destroy the stack and confirm the stack, buckets, tables and leftover log groups are gone.\n"
-      }
+      },
+      "edited": "2026-11-14T01:09:09.657305-06:00"
     }
   ],
+  "signoff": {
+    "due_at": "2026-11-14T10:58:44.278011-06:00",
+    "built": "Plan 6's API and search, on main: the read API, server search over catalog.json, restricted download links, download counts, the usage form and invitation-only accounts (PLAN1: research-in-a-box#22, #26); ranked keyword search and optional semantic search with Titan v2 and a DynamoDB vector index, also on Plan 7's publish (PLAN3: #30, #38). Both test deploys were walked with you and destroyed.",
+    "try": [
+      "Search works the way you expect from the results above: on the ten FEMC datasets, 19 of 22 plain-language searches put the right dataset first with semantic search on; 'ozone damage on plants' and 'air pollution' both find their dataset.",
+      "Restricted data reaches only people the archive invited: sign-up is off, an admin invites with just invite-user \u003cstage\u003e \u003cemail\u003e [group], and a signed-in user gets a five-minute link to a restricted file.",
+      "Semantic search is off unless an archive adds infrastructure.modules.embeddings: {} to archive.yaml; with it off, search is keyword-only and no Bedrock is called.",
+      "Nothing is running in your AWS account: both test stages, ResearchArchive-test and ResearchArchive-search-test, are destroyed.",
+      "Follow-ups for later are on the Overview: PARK1 linked-resource download links, PARK2 expiring CloudFront logs, PARK3 the slow first search after idle (2.8 to 3.6 s), PARK4 empty text breaking embedding, PARK5 Bedrock throttling on large reindexes."
+    ],
+    "posted_at": "2026-11-14T10:58:57.748112-06:00"
+  },
   "messages": [
     {
       "id": 1,
@@ -1689,6 +1827,41 @@
       "at": "2026-11-14T00:23:08.084748-06:00",
       "state": "answered",
       "claim": "38b2c2445fafc549"
+    },
+    {
+      "id": 37,
+      "card": "STEP2",
+      "from": "user",
+      "action": "answer",
+      "option": "A2",
+      "answer": "GO",
+      "at": "2026-11-14T10:04:24.867576-06:00",
+      "state": "answered",
+      "claim": "7dd446ce26bfbe54"
+    },
+    {
+      "id": 38,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session, at Court's word: main on schuettc/research-in-a-box is now protected. Every change goes through a pull request (direct pushes and force pushes are refused, admins included), and a merge needs the python, typescript and security checks green. Branches don't have to be up to date with main. Auto-merge is on for the repo (gh pr merge \u003cn\u003e --auto), and head branches are deleted on merge.",
+      "at": "2026-11-14T10:18:52.931644-06:00",
+      "state": "answered",
+      "claim": "044143b5f6bb0f44",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 39,
+      "card": "STEP2",
+      "from": "user",
+      "action": "answer",
+      "option": "A5",
+      "answer": "GO",
+      "at": "2026-11-14T10:49:40.027929-06:00",
+      "state": "answered",
+      "claim": "87f2165d38af28d7"
     }
   ],
   "planned_history": [
