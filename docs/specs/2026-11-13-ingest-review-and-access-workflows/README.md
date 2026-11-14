@@ -4,27 +4,30 @@
 
 `research-archive-in-a-box/ingest-review-and-access-workflows` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 7 of 9** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → ✓ Build → ✓ Sign off
 
-PLAN1 built · PLAN2 building · 0 of 2 done
+Signed off 2026-11-14 14:08.
+
+PLAN1 built · PLAN2 built
 
 ## Wrap-up
 
-### A contributor can now submit a package, a curator can review it, and an approved package is published and findable.
+### A contributor can now submit a package, a curator can review it and read its files, and an approved package is published and findable.
 
 #### How it works now
 
-A contributor creates a submission, uploads the package with links that S3 checks against each file's checksum, and submits it. GuardDuty scans every file, cruise runs the structure and quality checks, and a package with a blocking error goes straight back to the contributor with its findings. Under the review policy an admin sets at run time (review on or off, skip rules, two-curator cases, named reviewers per theme, reminders and a stale mark), a curator approves, rejects or requests changes, and a request for changes loops back through the checks when the contributor resubmits. An approved package gets its version, a checksummed copy under the archive's open or restricted prefix, its catalog entries and its own dataset page at `/datasets/<id>`. Curators get an email when a submission waits for them, and every step is an event in the audit log.
+A contributor creates a submission, uploads the package with links that S3 checks against each file's checksum, and submits it. GuardDuty scans every file, cruise runs the structure and quality checks, and a package with a blocking error goes straight back to the contributor with its findings. Under the review policy an admin sets at run time (review on or off, skip rules, two-curator cases, named reviewers per theme, reminders and a stale mark), a curator approves, rejects or requests changes, and a request for changes loops back through the checks when the contributor resubmits. An approved package gets its version, a checksummed copy under the archive's open or restricted prefix, its catalog entries and its own dataset page at `/datasets/<id>`. A curator can open the held package's files through five-minute links while it waits for them, which Plan 9's review skill uses. Curators get an email when a submission waits for them, and every step is an event in the audit log.
 
 #### Results
 
 - The review policy model and the `archive:published` field in the contract: PLAN1, research-in-a-box#21
 - The archive-config parameter and the shared config reader, split out early for Plan 6: PLAN1, research-in-a-box#28
 - The submissions API, the durable ingest, publish, dataset pages, the Ingest construct and `just ingest-e2e`: PLAN1, research-in-a-box#29
+- The curator files route, `GET /api/submissions/{id}/files`: PLAN2, research-in-a-box#52
 
 #### Different from the plan
 
-You chose not to wait a day for the reminder email (DCSN4), so the reminder never fired on AWS; it is covered by unit tests only (PARK17). The final review ran on Claude Opus, not OpenAI, because OpenAI's usage limit was reached. The test stage was deployed and run a second time after Plan 6's first plan landed underneath, and its first teardown got stuck on a waiting submission (PARK19).
+You chose not to wait a day for the reminder email (DCSN4), so the reminder never fired on AWS; it is covered by unit tests only (PARK17). The final review ran on Claude Opus, not OpenAI, because OpenAI's usage limit was reached. The test stage was deployed and run a second time after Plan 6's first plan landed underneath, and its first teardown got stuck on a waiting submission (PARK19). PLAN2 was added after PLAN1's sign-off, for the curator files route that Plans 8 and 9 asked for; its second task, moving ingest onto the shared page writer, had already been done by Plan 8 (#51), so it became a test. PLAN2's review also ran on Claude Opus for the same reason.
 
 ## Pick up next
 
@@ -41,11 +44,10 @@ You chose not to wait a day for the reminder email (DCSN4), so the reminder neve
 - **PARK12 Duplicate events on step retry:** Write each step's audit event after its SNS call, so a retried step doesn't record the same event twice (final review M1).
 - **PARK13 Hide callbackId in responses:** Leave callbackId out of GET /api/submissions responses (final review M3).
 - **PARK14 Partial META after failed publish:** A publish that fails after claiming its version leaves a partial dataset item (no title) in the catalog until a reindex. Clean the claim up in the failure path.
-- **PARK15 Curator file links route:** GET /api/submissions/{id}/files, for the curator group: five-minute presigned GETs for the current round's listed files under held/&lt;id>/, answered only while in-review or publishing (409 otherwise). Needed by Plan 9's review skill and Plan 8's curator screen. A small task after PR #29 merges, with a Decision log row. The same task moves the page write into pages.write_page (PARK16). From the coordinating session, thread 964.
-- **PARK16 Shared page writer for reindex:** Move the dataset page's S3 write out of ingest's durable _page step into pages.write_page(s3, bucket, html, dataset_id), which the _page step then calls. Plan 8's reindex calls only that and never edits ingest. render_page's signature stays stable. Built in the same task as PARK15, at the coordinating session's request.
 - **PARK17 Reminder unproven on AWS:** The day-1 reminder (a callback wait that times out, sends the reminder and waits again) has been tested only through a fake durable context. Its first real use on AWS is unproven: watch the first archive's first reminder, or leave a 1-day reminder waiting on the next test stage. Recorded at DCSN4 B.
 - **PARK18 Publish writes eml.xml:** Publish writes eml.xml, from the contract's EML export, into the version's prefix beside datapackage.json, and lists it in checksums.sha256 so the weekly integrity check holds. The brief asked for it; nobody needs it until a harvester does. Found by Plan 10b, via the coordinating session (thread 984).
 - **PARK19 Teardown stops running executions:** cdk destroy of a stage with a durable execution still running (a submission waiting for review) gets stuck deleting the ingest function's version, then fails DELETE_FAILED after about 10 minutes (Lambda::Version NotStabilized). Seen on ingest-test 2026-11-14 with one waiting submission; stopping it with StopDurableExecution let the retry go through. The teardown path (Plan 10a's deployment skill, and the ingest-e2e script's cleanup) should stop or wait out running executions first.
+- **PARK20 Tighten held/ grant test:** The synth test for the submissions role's held/* read would still pass if the GetObject statement were widened to the whole staging bucket. Assert the exact resource list (incoming/*, reports/*, held/*). From PLAN2's final review.
 
 ## What was asked
 
@@ -105,9 +107,9 @@ You chose not to wait a day for the reminder email (DCSN4), so the reminder neve
   - TASK5 Task 5: Publish and the dataset page: done. ac6caae (submitterIsCurator), b02633b (expired at 360 days), 0133a6e (dataset page), 0e5a215 (publish: version, fill, checksummed copy, catalog items via reindex builders, page, finish); just check exit 0. Catalog-file call is a marked spot until Plan 6's writer lands
   - TASK6 Task 6: The Ingest construct: done. 81e777e (page Cache-Control, datasetId pattern), 3f2dd01 (Ingest construct: durable fn + live alias, 10 GiB /tmp, submissions fn + routes, curators' topic, GuardDuty plan on incoming/, least-privilege grants, just add-curator); just check exit 0 (423 py, 55 ts)
   - TASK7 Task 7: The run on a test stage: done. 5b2374a, 541652f (e2e client, script, ingest-test config) plus review fixes; deployed run on ingest-test passed twice (875cb69, then rebased afd047f on Plan 6): all six paths; reminder decided early under DCSN4 B (PARK17). PR #29 merged as a22c85a
-- [PLAN2](plans/2-curator-files-and-page-writer.md) The curator files route and the shared page writer: building · 0 of 2 done
-  - TASK8 Task 8: The curator files route: not started
-  - TASK9 Task 9: The shared page writer: not started
+- [PLAN2](plans/2-curator-files-and-page-writer.md) The curator files route and the shared page writer: built
+  - TASK8 Task 8: The curator files route: done. 4470c1d: GET /api/submissions/{id}/files, curator only, 300 s links to held/&lt;id>/&lt;path> for files[round] only, 404/409 as planned; CDK route + held/* GetObject; Decision log row; just check exit 0
+  - TASK9 Task 9: The shared page writer: done. Plan 8's #51 landed the same change (ingest's _page via pages.write_page, plus per-version pages) first; after the rebase TASK9 is a test that publish writes both pages through the shared writer (55b93a5); just check exit 0 (708 py, 105 ts); PR #52 auto-merge on, checks re-running
 
 ## Steps
 

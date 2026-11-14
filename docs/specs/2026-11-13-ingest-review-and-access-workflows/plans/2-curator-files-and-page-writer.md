@@ -1,7 +1,7 @@
 ---
 diazo: research-archive-in-a-box/ingest-review-and-access-workflows
 file: PLAN2
-status: approved
+status: done
 approved: 2026-11-14T13:36:53-06:00
 hash: f4aa7639f6ff9b457d11c9ccaac6a04fe0a85fee0f738d39ba3bad3aca0fc5a2
 rests_on: [AGNT1, AGNT9]
