@@ -1,0 +1,971 @@
+{
+  "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
+  "schema": 4,
+  "title": "API and search (Plan 6)",
+  "expect": 5,
+  "agent_at": "2026-11-14T04:33:58.95436Z",
+  "start": {
+    "opening": {
+      "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 2, folder 8da653f233f9, and Plan 4, the archive infrastructure.)\n\nBrief: Plan 6 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the API and search (Plan 6). There is no relational database. Search is a catalog file filtered in the browser with DuckDB, plus an optional DynamoDB vector index. Plan the endpoints and the search design, and take the open questions with me one at a time."
+    },
+    "findings": [
+      {
+        "text": "Plan 4 is built and merged: the REST API under /api with a Cognito authorizer (only /api/health and /api/whoami exist), catalog tables A and B with the active-table SSM parameter, the five operational tables, two PKCE app clients (web, and cli with callback http://localhost:8765/callback), CloudFront serving the site from the derived bucket's site/, open data at /data/*, and standard logs into the derived bucket's logs/.",
+        "source": "git log origin/main (#10, #12, #13, #14, #15); packages/infra/src/api.ts, auth.ts, web.ts, tables.ts",
+        "cases": "1 of 1 deploy path"
+      },
+      {
+        "text": "Nothing publishes yet. Plan 7 (the publish pipeline) has no rounds or decisions, so the only way a dataset reaches the catalog today is Plan 4's reindex, which reads manifests from the archive bucket and loads dataset, version and file items.",
+        "source": "docs/specs/2026-11-13-ingest-review-and-access-workflows/decisions.json (no rounds, no decisions); packages/backend/src/archive_backend/reindex.py",
+        "cases": "1 of 1"
+      },
+      {
+        "text": "Plans 8 (web app) and 9 (agent layer), which consume Plan 6's endpoints, are still Planned with no decisions, so no consumer has fixed an endpoint shape yet.",
+        "source": "their decisions.json files",
+        "cases": "2 of 2"
+      },
+      {
+        "text": "Plan 4 handed Plan 6: the vector index on both catalog tables (added through the tables' CfnTable vectorIndexes), the embedding model and its config setting, rolling CloudFront logs into DownloadCounts, counting restricted downloads, what a Settings item holds, and an admin reindex route (Plan 4's PARK1).",
+        "source": "docs/planning-handoff.md Decision log rows dated 2026-11-13 (4, 6); Plan 4 spec.md lines 76, 88, 151, 171-178",
+        "cases": "6 hand-offs"
+      },
+      {
+        "text": "Plan 7 decides what a submission and a review event hold, and owns the review policy; Plan 4 only made the Submissions and Reviews tables and their keys.",
+        "source": "Plan 4 spec.md line 88; handoff Plan 7 brief",
+        "cases": "1"
+      },
+      {
+        "text": "The catalog file's home is fixed: the derived bucket's site/, so CloudFront serves it beside the app. Its contents are Plan 6's.",
+        "source": "Plan 4 spec.md line 57",
+        "cases": "1"
+      },
+      {
+        "text": "The manifest already holds everything a facet or filter needs: title, description, keywords, licenses and rights status, access level, project, temporal coverage (start, end, ongoing), a WGS 84 bounding box, and each resource's format. Themes are a config list, but no manifest field assigns a dataset a theme yet.",
+        "source": "packages/contract/src/archive_contract/manifest.py; config.py (themes: list[str])",
+        "cases": "1 model"
+      }
+    ],
+    "rounds": [
+      {
+        "take": "**Where Plan 6 starts from.** Plan 4 left a working API shell, the tables, sign-in and CloudFront, and named Plan 6 as the owner of everything that reads the catalog and searches it. But nothing publishes yet: Plan 7 isn't planned, so data reaches the catalog only through the reindex, and the records a submission and a review hold are Plan 7's to decide.\n\nThe brief lists seven areas. They split cleanly by what they wait on:\n\n| Area | Works end to end now? | Waits on |\n|---|---|---|\n| Catalog file and in-browser filtering | Yes, built from reindexed manifests | nothing |\n| Read endpoints: datasets, versions, files, projects | Yes | nothing (projects appear once Plan 7 stores them) |\n| Restricted downloads: access check and short-lived link | Yes | nothing |\n| Download counts from CloudFront logs, plus restricted downloads | Yes | nothing |\n| Sign-in for the browser, the CLI and the MCP server | Yes, on Plan 4's two clients | nothing |\n| Submission, review and admin-settings endpoints | No | Plan 7's submission and review records and review policy |\n| Semantic search with the vector index | Builds, but nothing to judge it on | a real corpus (Plan 5) to compare it with keyword search |\n\n**My take.** Plan 6 is several plans in this folder, built in dependency order:\n\n1. **Read and search, now.** The catalog file, written by one function that reindex calls today and Plan 7's publish step calls later; the read endpoints; restricted links; download counts; CLI sign-in; the OpenAPI spec generated from the contract. This is enough for Plan 8 to build the reader's flow (search, dataset page, download) and Plan 9 the search and fetch tools.\n2. **Write endpoints, after Plan 7 decides its records.** Submissions, reviews and settings, written once Plan 7 has said what they hold, so the API and the pipeline don't each invent a submission.\n3. **Semantic search, once there is a corpus.** The vector index, the embedding model and how its results merge with keyword results, judged on Plan 5's converted FEMC datasets rather than guessed.\n\nAll three stay in Plan 6's scope; only the order changes. I've sent the split to the coordinating session as a cross-plan question.",
+        "visuals": [
+          {
+            "kind": "mermaid",
+            "caption": "PLAN1's read path: one writer for the catalog file, the browser filters it, the API answers details and restricted links",
+            "mermaid": "flowchart LR\n  M[Manifests in archive bucket] --\u003e R[reindex now / Plan 7 publish later]\n  R --\u003e T[(Active catalog table)]\n  R --\u003e W[catalog writer]\n  W --\u003e C[catalog file in derived site/]\n  C --\u003e|CloudFront| B[Browser: DuckDB facets, keyword, bbox]\n  B --\u003e A[/api/datasets/id/]\n  A --\u003e T\n  B --\u003e L[/api/.../download restricted/]\n  L --\u003e S[Short-lived S3 link]\n  CF[CloudFront logs] --\u003e D[(DownloadCounts)]\n  L --\u003e D"
+          }
+        ],
+        "recommendation": "Plan the read and search side first, as PLAN1, end to end on what reindex already loads; declare the write endpoints and semantic search as later plans in this folder, each written when what it waits on exists."
+      }
+    ],
+    "direction": {
+      "round": 1,
+      "at": "2026-11-13T21:33:04.161603-06:00",
+      "by": "user"
+    }
+  },
+  "understanding": {
+    "points": [
+      {
+        "kind": "outcome",
+        "text": "A read API open to all, a write API for signed-in users, and search that works with no relational database.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "Plan 6 is built as plans in this folder, in dependency order: read and search now (PLAN1), and semantic search once Plan 5's corpus exists to judge it on (PLAN3). Plan 7 owns the submission and review endpoints; whether PLAN2 stays is DCSN5.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "PLAN1 delivers, on data the reindex already loads: the catalog file and a server search endpoint over it, dataset, version and project reads, short-lived links for restricted files, download counts, the optional usage form, the CLI and MCP sign-in flow, and an OpenAPI spec generated from the code. That is enough for Plan 8's reader flow and Plan 9's search and fetch tools.",
+        "source": "assumed"
+      },
+      {
+        "kind": "constraint",
+        "text": "No relational database. The packages in S3 are the source of truth; the catalog tables, the catalog file and any index are derived and rebuilt by reindex.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Build on Plans 1, 2 and 4 as built (the contract, archive-backend, the ResearchArchive construct and its exposed tables, buckets, API and authorizer, pythonFunction); don't rebuild them.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "No generative AI on the server; the only model use is optional Bedrock embeddings, and with embeddings off the archive uses keyword search.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Generic first: nothing specific to FEMC or ecology. FEMC is the test afterwards, never the source.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Cross-plan questions go to the coordinating session first; anything other plans rely on goes in the handoff's Decision log.",
+        "source": "said"
+      },
+      {
+        "kind": "success",
+        "text": "On a test deploy with two datasets loaded by reindex (one open, one restricted): GET /api/search finds both by keyword and filters them by access, licence, date and map box; GET /api/datasets/\u003cid\u003e returns each dataset's manifest and files; a signed-in user gets a working short-lived link to a restricted file and a signed-out request is refused; a download through /data shows up in DownloadCounts after the rollup runs; a usage answer is stored and an admin reads it back.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "The OpenAPI spec is committed, and CI fails when the code and the committed spec drift apart.",
+        "source": "assumed"
+      }
+    ],
+    "confirmed": true,
+    "revisions": [
+      {
+        "at": "0001-01-01T00:00:00Z",
+        "text": "Search runs on the server through GET /api/search over the catalog file, not in the browser with DuckDB; success criteria test the endpoint.",
+        "because": "DCSN1"
+      },
+      {
+        "at": "0001-01-01T00:00:00Z",
+        "text": "Plan 7 owns submission and review endpoints; project reads and the usage form join PLAN1.",
+        "because": "note:DCSN5"
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "DCSN1",
+      "name": "Where search runs",
+      "question": "Where should the catalog be searched: in the reader's browser, or by the API?",
+      "example": "A reader types 'ozone' on the search page and ticks the CC-BY licence and a map box. Either the browser has already downloaded the whole catalog and filters it itself, or it sends the query to the API and gets back one page of matching datasets with facet counts. Plan 9's MCP server and the CLI need to search too, and PLAN3's semantic search embeds the query on the server.",
+      "options": [
+        {
+          "id": "A",
+          "title": "In the browser, with DuckDB",
+          "includes": "One `catalog.parquet`; the search page loads DuckDB-Wasm (5.3 MB compressed, cached after the first visit) and filters with SQL. As the handoff wrote it.",
+          "pulls_in": "DuckDB in archive-backend's Lambda package to write Parquet, and DuckDB-Wasm on Plan 8's search page. The MCP server and PLAN3 still need a server search.",
+          "visuals": [
+            {
+              "kind": "table",
+              "caption": "Time to the first search: engine plus catalog download, then load and filter",
+              "table": {
+                "columns": [
+                  "Datasets",
+                  "Download, 10 Mbit/s",
+                  "Download, 50 Mbit/s",
+                  "Load",
+                  "Each filter"
+                ],
+                "rows": [
+                  [
+                    "1,000",
+                    "4.7 s",
+                    "0.9 s",
+                    "0.05 s",
+                    "13 ms"
+                  ],
+                  [
+                    "10,000",
+                    "8.5 s",
+                    "1.7 s",
+                    "0.05 s",
+                    "3 ms"
+                  ],
+                  [
+                    "50,000",
+                    "25 s",
+                    "5.0 s",
+                    "0.19 s",
+                    "7 ms"
+                  ]
+                ],
+                "sample": "DuckDB-Wasm eh build in Node on this Mac, two runs; download is size x 8 / line speed"
+              }
+            }
+          ]
+        },
+        {
+          "id": "B",
+          "title": "In the browser, plain JavaScript",
+          "includes": "One `catalog.json`, gzipped by CloudFront; the search page parses it and filters with ordinary JavaScript. Every filter change is instant once loaded. Past roughly 20,000 datasets the download gets too big and search moves to the server.",
+          "pulls_in": "Nothing new on the server. The MCP server and PLAN3 still need a server search, so there would be two search paths.",
+          "visuals": [
+            {
+              "kind": "table",
+              "caption": "Time to the first search: catalog download, then parse and filter",
+              "table": {
+                "columns": [
+                  "Datasets",
+                  "Download, 10 Mbit/s",
+                  "Download, 50 Mbit/s",
+                  "Parse",
+                  "Each filter"
+                ],
+                "rows": [
+                  [
+                    "1,000",
+                    "0.6 s",
+                    "0.1 s",
+                    "3 ms",
+                    "1 ms"
+                  ],
+                  [
+                    "10,000",
+                    "6.2 s",
+                    "1.2 s",
+                    "22 ms",
+                    "8 ms"
+                  ],
+                  [
+                    "50,000",
+                    "31 s",
+                    "6.2 s",
+                    "0.11 s",
+                    "45 ms"
+                  ]
+                ],
+                "sample": "Node on this Mac, two runs; download is gzip size x 8 / line speed"
+              }
+            }
+          ]
+        },
+        {
+          "id": "C",
+          "title": "On the server, through a search endpoint",
+          "includes": "`GET /api/search` with the keyword, licence, access, format, project, date range and bounding box as query parameters, answering one page of results (20 by default) with a count per facet value for the current filter. The search Lambda reads `catalog.json` from the derived bucket and keeps it in memory, re-reading it when the file changes. The browser, the CLI and the MCP server all call the same endpoint, and PLAN3 adds semantic ranking to it later. The catalog file is still written by the one writer and stays readable by anyone.",
+          "pulls_in": "One more route on the API Lambda and its read of the derived bucket; a request per filter change, which the page debounces as the reader types. Changes the handoff's 'the browser uses DuckDB' to 'the browser asks the API'.",
+          "visuals": [
+            {
+              "kind": "table",
+              "caption": "Server-side filter in Python and the page it returns",
+              "table": {
+                "columns": [
+                  "Datasets",
+                  "Parse catalog (once per warm Lambda)",
+                  "Filter plus facet counts",
+                  "Page returned (20 rows, gzip)",
+                  "Round trip per search"
+                ],
+                "rows": [
+                  [
+                    "1,000",
+                    "6 ms",
+                    "1 ms",
+                    "16 KB",
+                    "about 0.1 to 0.2 s (estimated)"
+                  ],
+                  [
+                    "10,000",
+                    "70 ms",
+                    "9 ms",
+                    "16 KB",
+                    "about 0.1 to 0.2 s (estimated)"
+                  ],
+                  [
+                    "50,000",
+                    "0.34 to 0.45 s",
+                    "45 to 65 ms",
+                    "16 KB",
+                    "about 0.15 to 0.25 s (estimated)"
+                  ]
+                ],
+                "sample": "CPython on this Mac, two runs, same filter as A and B; a 512 MB arm64 Lambda may be 2 to 3 times slower (assumed); round trip through CloudFront and API Gateway not measured yet, first search after idle about a second (estimated)"
+              }
+            }
+          ]
+        }
+      ],
+      "recommendation": {
+        "option": "C",
+        "why": "It is the one search every client already needs: Plan 9's MCP server and the CLI can't filter a browser-side catalog, and PLAN3's semantic search embeds the query with Bedrock on the server, so keyword and semantic results can only be merged there. The browser downloads about 16 KB per search instead of megabytes, so it works the same at 500 datasets or 50,000, and the filter itself takes under 10 ms at 10,000 datasets. The cost is a round trip per filter change, which I estimate at 0.1 to 0.2 s and will measure on the test deploy.",
+        "evidence": [
+          {
+            "text": "Python filter plus facet counts over the JSON catalog",
+            "source": "/tmp/p6measure/pyfilter.py, second run",
+            "output": "1000 parse ms 6 filter+facets ms 0.9 hits 75 page gzip KB 16\n10000 parse ms 69 filter+facets ms 8.5 hits 824 page gzip KB 16\n50000 parse ms 341 filter+facets ms 43.4 hits 4062 page gzip KB 16"
+          },
+          {
+            "text": "Plain JavaScript and DuckDB-Wasm in the browser, same filter",
+            "source": "/tmp/p6measure/plainjs.cjs and wasm/bench.cjs",
+            "output": "10000 parse ms 22 filter ms 8 rows 824 (JavaScript)\n10000 parquet load ms 46 filter ms 3 rows 824 (DuckDB-Wasm)"
+          },
+          {
+            "text": "Semantic search embeds text through Bedrock on the server",
+            "source": "docs/planning-handoff.md, Decisions already made, Infrastructure",
+            "output": "The server's only model use is optional embeddings for semantic search, through Bedrock. With embeddings off, the archive falls back to keyword search."
+          },
+          {
+            "text": "The handoff decision this changes",
+            "source": "docs/planning-handoff.md, Decisions already made, Infrastructure",
+            "output": "On publish, the whole catalog is also written as one file. The browser uses DuckDB on it for facets, keyword and bounding-box filtering."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "C",
+      "revisions": [
+        {
+          "at": "2026-11-13T22:04:46.635373-06:00",
+          "text": "Added load, filter and download times after your note: download dominates, and the format only matters past a few thousand datasets",
+          "because": "note:DCSN1"
+        },
+        {
+          "at": "2026-11-13T22:07:47.657226-06:00",
+          "text": "Revised after your note: replaced 'JSON read by DuckDB' with 'JSON filtered in plain JavaScript, no DuckDB on the search page', which measured as fast and much quicker to first search; recommendation moved from A to B",
+          "because": "note:DCSN1"
+        },
+        {
+          "at": "2026-11-13T22:12:52.807909-06:00",
+          "text": "Revised after your note: added option C, a search endpoint that filters on the server, and moved the recommendation to it, since the MCP server and PLAN3's semantic search need a server-side search anyway",
+          "because": "note:DCSN1"
+        }
+      ]
+    },
+    {
+      "id": "DCSN2",
+      "name": "Who reads restricted data",
+      "question": "Who may download a dataset marked restricted?",
+      "example": "A dataset is published with access `restricted`. A visitor who is not signed in finds it in search, sees its title, description and column list, and presses Download. The API must decide whether to hand back a short-lived link to the file.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Anyone signed in",
+          "includes": "Restricted means sign in to download. Any account in the user pool gets the link; signing up is self-service with email, as Plan 4 built it. By-request datasets need a grant from Plan 7's request workflow, which the same check reads once it exists.",
+          "pulls_in": "Nothing new: the Cognito authorizer Plan 4 built."
+        },
+        {
+          "id": "B",
+          "title": "Only approved readers",
+          "includes": "Signed in and in a new `reader` group that a curator or admin adds people to. Restricted becomes a lighter by-request.",
+          "pulls_in": "A fourth Cognito group, and a way for admins to add people to it (a screen in Plan 8 or a command)."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "It is the only reading that keeps restricted and by-request distinct: by-request already covers 'someone must approve you'. It needs nothing beyond what Plan 4 built, and a group can be added later if an archive asks for it.",
+        "evidence": [
+          {
+            "text": "The access levels the contract offers",
+            "source": "packages/contract/src/archive_contract/manifest.py",
+            "output": "AccessLevel = Literal[\"open\", \"restricted\", \"by-request\", \"description-only\"]"
+          },
+          {
+            "text": "By-request access is its own workflow that emails the owner and waits",
+            "source": "docs/planning-handoff.md, Decisions already made, Infrastructure",
+            "output": "By-request data starts a small durable function that emails the data owner and waits on a callback."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    },
+    {
+      "id": "DCSN3",
+      "name": "Optional usage form",
+      "question": "Should the optional 'who are you and how will you use this' form be built now, or later?",
+      "example": "Before a download, a reader is offered an optional short form: their organisation and what they plan to do with the data. Archives use the answers to show funders who uses their data. Nobody has asked for it in this kit yet, and no screen exists to show it.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Later, as a follow-up",
+          "includes": "Download counts now; the form waits until an archive asks for it or Plan 8 designs the download screen.",
+          "pulls_in": "Nothing now."
+        },
+        {
+          "id": "B",
+          "title": "Now",
+          "includes": "`POST /api/datasets/\u003cid\u003e/usage` taking the optional answers, stored per dataset and month, with an admin read of them.",
+          "pulls_in": "A new table (Plan 4 made none for this), an admin endpoint, and the form itself in Plan 8."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "No real user has asked for it, it needs a table Plan 4 didn't make and a screen Plan 8 hasn't planned, and download counts already give the funding numbers. It stays a named follow-up."
+      },
+      "state": "decided",
+      "choice": "B"
+    },
+    {
+      "id": "DCSN4",
+      "name": "How the API is built",
+      "question": "Should the endpoints be one Lambda using Powertools' router, or one Lambda per endpoint?",
+      "example": "PLAN1 adds about five endpoints and PLAN2 more. Each needs a handler, request and response models, and an entry in the OpenAPI spec that Plan 8 and Plan 9 generate their clients from. Plan 4's two existing endpoints are one small Lambda each.",
+      "options": [
+        {
+          "id": "A",
+          "title": "One API Lambda with Powertools' REST router",
+          "includes": "Routes declared with Pydantic request and response models; Powertools writes the OpenAPI spec from them, which is committed and drift-checked in CI. API Gateway still declares each route, so the Cognito authorizer sits on the signed-in ones. One cold start covers every route.",
+          "pulls_in": "aws-lambda-powertools (pure Python) in archive-backend."
+        },
+        {
+          "id": "B",
+          "title": "One Lambda per endpoint, as Plan 4 did",
+          "includes": "Each handler written by hand like whoami.py, and a script that assembles the OpenAPI spec from the Pydantic models and a route table we keep beside it.",
+          "pulls_in": "Our own OpenAPI assembly script and a route table to keep in step with the code; a function, log group and alarm per endpoint."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "The spec is generated from the same code that answers the request, so it can't drift from the handlers. B needs a second list of routes kept in step by hand. Powertools is AWS's own library and pure Python, so it adds no compiled wheels.",
+        "evidence": [
+          {
+            "text": "Powertools generates the OpenAPI schema from route definitions and Pydantic models",
+            "source": "https://docs.aws.amazon.com/powertools/python/latest/core/event_handler/openapi/",
+            "output": "Powertools for AWS Lambda supports automatic OpenAPI schema generation from your route definitions and type annotations."
+          },
+          {
+            "text": "Plan 4's endpoints are hand-written single-purpose handlers",
+            "source": "packages/backend/src/archive_backend/whoami.py, health.py; packages/infra/src/api.ts"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    },
+    {
+      "id": "DCSN5",
+      "name": "Keep or drop PLAN2",
+      "question": "Plan 7 now owns the submission and review endpoints. Should PLAN2 be dropped?",
+      "example": "PLAN2 was to hold the submission, review and settings endpoints. The coordinating session and Plan 7 agreed that Plan 7 owns everything under /api/submissions, including the review-policy setting, and project reads now fit in PLAN1. What is left for PLAN2 is Plan 4's follow-up for starting a reindex from an admin API route, and no setting anyone has asked for.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Drop PLAN2",
+          "includes": "Plan 6 becomes PLAN1 (read, search, downloads, usage form) and PLAN3 (semantic search). The admin reindex route stays Plan 4's follow-up PARK1, picked up when someone wants reindex outside `just reindex`.",
+          "pulls_in": "Nothing."
+        },
+        {
+          "id": "B",
+          "title": "Keep PLAN2 for admin routes",
+          "includes": "PLAN2 holds the admin reindex route and any settings endpoint that turns up, written after PLAN1.",
+          "pulls_in": "A plan with one known task, waiting for a need."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "Nothing real is left in it: review policy went to Plan 7, projects fit in PLAN1, and the reindex route is already a follow-up with an owner. A plan can be added to this folder again when a need appears.",
+        "evidence": [
+          {
+            "text": "The coordinating decision",
+            "source": "muster thread #941 from the coordinating session",
+            "output": "Plan 7 owns everything under /api/submissions: creating a submission and its upload links, submitting it, the curator queue, one submission's state, the curator's decision, and the review-policy setting. ... Your PLAN2 shrinks to whatever settings remain once review policy leaves; if nothing real remains, drop it on Court's word."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    }
+  ],
+  "calls": [
+    {
+      "id": "AGNT1",
+      "name": "Reads from the active table",
+      "question": "Where do the read endpoints get a dataset's details?",
+      "took": "`GET /api/datasets/{id}`, `GET /api/datasets/{id}/versions` and `GET /api/datasets/{id}/versions/{version}` read the active catalog table (the version item already holds the manifest text, plus the file items). Finding datasets is search's job (DCSN1), not a separate list endpoint.",
+      "instead": "Read each manifest from the archive bucket, or add a plain list endpoint beside search.",
+      "why": "The table has everything, and it works for restricted and description-only datasets whose manifests CloudFront can't serve.",
+      "evidence": [
+        {
+          "text": "Version items carry the manifest",
+          "source": "handoff Decision log 2026-11-13 (4, 6, 7), catalog items",
+          "output": "Version: PK=DATASET#\u003cid\u003e, SK=V#\u003cversion zero-padded to 6\u003e, version (number), prefix, manifest (the datapackage.json text)."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT2",
+      "name": "One catalog writer",
+      "question": "Who writes the catalog file?",
+      "took": "One function in archive-backend builds the catalog file from the active catalog table and writes it to the derived bucket's `site/`. The reindex calls it after it flips the table; Plan 7's publish step calls the same function later.",
+      "instead": "Build it from the manifests in the archive bucket, or let each caller write its own.",
+      "why": "One writer means the file is never built two ways, and the active table is what every Lambda already reads.",
+      "evidence": [
+        {
+          "text": "The catalog file's home",
+          "source": "Plan 4 spec.md line 57",
+          "output": "Derived bucket. Everything rebuildable: site/ (the web app bundle, the per-dataset HTML pages and the catalog file)"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT3",
+      "name": "Catalog fields",
+      "question": "What goes in each row of the catalog file?",
+      "took": "One row per published dataset, every access level: id, current version, title, description, keywords, access, license ids and rights status, project, creators, resource formats, temporal start, end and ongoing, the bounding box (west, south, east, north), total bytes and published date. Theme and species facets join when the contract holds those fields: Plan 2's follow-ups PARK5 (archive:themes) and PARK6 (taxonomic coverage), timing yours.",
+      "instead": "Leave restricted and description-only datasets out of search, or add fields the contract doesn't hold yet.",
+      "why": "These are the fields the manifest holds today; metadata is public at every access level, only data is restricted. Plan 2 confirmed neither theme nor taxonomic coverage is in the contract.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT4",
+      "name": "Catalog freshness",
+      "question": "How quickly does a publish or reindex reach search?",
+      "took": "The search Lambda keeps `catalog.json` in memory and checks the object's ETag in S3 at most once a minute, re-reading it when it changed. A publish or reindex reaches search within a minute, with no invalidation or notification.",
+      "instead": "Have the writer notify the search Lambda, or re-read the file on every request.",
+      "why": "One cheap HEAD a minute per warm Lambda, nothing to wire between writer and reader, and a minute is fast enough for a publish.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT5",
+      "name": "CLI and MCP sign-in",
+      "question": "How do the CLI and the MCP server sign in?",
+      "took": "Authorization code with PKCE through Plan 4's `cli` app client: the client opens the browser to managed login and listens on `http://localhost:8765/callback`. It keeps the one-hour access and ID tokens and discards the refresh token, so it holds short-lived tokens only. Plan 6 records the flow in the Decision log; the client code lands with its first user, Plan 9.",
+      "instead": "Keep the refresh token so a session lasts days, or build the client in Plan 6 now.",
+      "why": "The handoff settled short-lived tokens only, Cognito has no device-code flow, the client and callback already exist, and nothing in the repo signs in from the command line until Plan 9.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT6",
+      "name": "OpenAPI is committed",
+      "question": "How do Plan 8 and Plan 9 get the API's types?",
+      "took": "The OpenAPI spec is written to a committed file by a `just` recipe and CI fails when it drifts from the code, the same way the contract's JSON Schema is checked. Plan 8 generates its TypeScript types from it.",
+      "instead": "Serve the spec only at run time.",
+      "why": "Anything that crosses the Python to TypeScript boundary is generated and machine-checked.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT7",
+      "name": "What counts as a download",
+      "question": "What does DownloadCounts count?",
+      "took": "A daily scheduled function reads the new CloudFront log files under the derived bucket's `logs/` and adds one per GET under `/data/` that answered 200, per dataset and month. Range reads (206) and HEAD are not counted, so the in-browser data preview, which reads by range, doesn't inflate counts. A restricted download counts when its link is issued.",
+      "instead": "Count every request, or count hourly.",
+      "why": "DownloadCounts is keyed by dataset and month, so daily is fresh enough, and counting previews as downloads would overstate use.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT8",
+      "name": "Project reads from the archive",
+      "question": "How are projects read in PLAN1?",
+      "took": "`GET /api/projects/{id}` reads `projects/\u003cprojectId\u003e/project.json` from the archive bucket (the home Plan 7 and the coordinating session settled) and lists the project's datasets from the active catalog table's GSI1. No reindex change: the record is read where it lives.",
+      "instead": "Wait until reindex loads project records into the catalog table, and add project reads then.",
+      "why": "The record's home is now decided, so the endpoint can be built and tested with one fixture project file, and datasets already carry their project in GSI1.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT9",
+      "name": "Link lifetime",
+      "question": "How long does a restricted file's link last?",
+      "took": "Five minutes: long enough to start a large download, short enough that a shared link stops working.",
+      "instead": "A longer lifetime, such as an hour.",
+      "why": "S3 lets a download that started keep going after the link expires; five minutes only bounds when it can start.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT10",
+      "name": "Usage form shape",
+      "question": "What does the usage form ask, and where do answers go?",
+      "took": "Three optional answers, no sign-in needed and no email or name asked: what kind of organisation (university, government, nonprofit, company, individual, other), what the data is for (research, teaching, policy or management, commercial, personal, other), and a free-text note of up to 500 characters. `POST /api/datasets/{id}/usage` stores them in a new UsageResponses table Plan 6 adds (key `datasetId`, sort `\u003cmonth\u003e#\u003cuuid\u003e`), and `GET /api/admin/usage?dataset=\u003cid\u003e` lets the admin group read them. The question list is fixed in the contract, not set in the config.",
+      "instead": "Let the archive config define its own questions, or ask for an email so the archive can follow up.",
+      "why": "These are the answers archives report to funders, asking for no personal data keeps the form optional in spirit and free of privacy duties, and a configurable form waits until an archive asks for different questions.",
+      "state": "standing"
+    },
+    {
+      "id": "AGNT11",
+      "name": "Config read from SSM",
+      "question": "How do Plan 6's Lambdas read the archive config?",
+      "took": "Through the SSM parameter `/research-archive/\u003cstage\u003e/archive-config` that Plan 7's spec has the CDK app write at synth from the validated archive.yaml. PLAN1's Lambdas need nothing from it yet; PLAN3's embeddings setting will be read the same way.",
+      "instead": "Pass config values to each Lambda as environment variables.",
+      "why": "Plan 7 settled one way for every Lambda to read the config, and a second way would drift.",
+      "evidence": [
+        {
+          "text": "Shared fact from Plan 7's spec, passed on by the coordinating session",
+          "source": "muster thread #941",
+          "output": "Lambdas read the archive config from the SSM parameter /research-archive/\u003cstage\u003e/archive-config, written by the CDK app at synth from the validated archive.yaml (4 KB limit). Use it for anything your Lambdas need from the config ... and don't add a second way."
+        }
+      ],
+      "state": "standing"
+    }
+  ],
+  "principles": [],
+  "follow_ups": [],
+  "spec": {
+    "hash": "efa1b5a93f7112fe9b6cff14c4cc1080bccf324ed32eb7c081e9c0f985e3eb41",
+    "sections": [
+      {
+        "id": "SPEC1",
+        "heading": "Goal",
+        "decisions": []
+      },
+      {
+        "id": "SPEC2",
+        "heading": "The plans",
+        "decisions": [
+          "DCSN5",
+          "DCSN1"
+        ]
+      },
+      {
+        "id": "SPEC3",
+        "heading": "Endpoints",
+        "decisions": [
+          "DCSN4",
+          "AGNT1",
+          "AGNT8"
+        ]
+      },
+      {
+        "id": "SPEC4",
+        "heading": "Search",
+        "decisions": [
+          "DCSN1",
+          "AGNT2",
+          "AGNT3",
+          "AGNT4"
+        ]
+      },
+      {
+        "id": "SPEC5",
+        "heading": "Restricted downloads",
+        "decisions": [
+          "DCSN2",
+          "AGNT9"
+        ]
+      },
+      {
+        "id": "SPEC6",
+        "heading": "Download counts",
+        "decisions": [
+          "AGNT7"
+        ]
+      },
+      {
+        "id": "SPEC7",
+        "heading": "Usage form",
+        "decisions": [
+          "DCSN3",
+          "AGNT10"
+        ]
+      },
+      {
+        "id": "SPEC8",
+        "heading": "Sign-in for the CLI and MCP server",
+        "decisions": [
+          "AGNT5"
+        ]
+      },
+      {
+        "id": "SPEC9",
+        "heading": "How it is built",
+        "decisions": [
+          "DCSN4",
+          "AGNT6",
+          "AGNT11"
+        ]
+      },
+      {
+        "id": "SPEC10",
+        "heading": "Risk and cost",
+        "decisions": [
+          "DCSN2",
+          "DCSN4"
+        ]
+      },
+      {
+        "id": "SPEC11",
+        "heading": "Left out",
+        "decisions": [
+          "DCSN5",
+          "DCSN3",
+          "AGNT5"
+        ]
+      },
+      {
+        "id": "SPEC12",
+        "heading": "How we'll know it works",
+        "decisions": [
+          "DCSN1",
+          "DCSN2",
+          "DCSN3",
+          "DCSN4"
+        ]
+      }
+    ],
+    "approved": {
+      "hash": "efa1b5a93f7112fe9b6cff14c4cc1080bccf324ed32eb7c081e9c0f985e3eb41",
+      "at": "2026-11-13T22:34:38.131542-06:00",
+      "body": "# API and search: the read API, server search and downloads\n\n## Goal\n\nAnyone can find a dataset in the archive and fetch it, from the web app, the CLI or an MCP server, with no relational database. A read API open to all answers search, dataset, version and project reads; signed-in users get short-lived links to restricted files; the archive counts downloads and, optionally, asks readers how they use the data. It works today on what Plan 4's reindex loads, and Plan 7's publish step plugs into it later. Semantic search follows as its own plan once there is a real corpus to judge it on.\n\n## The plans\n\nPlan 6 is two plans in this folder. PLAN1 is the read API and search described below, buildable now. PLAN3 is semantic search: the vector index on both catalog tables, the embedding model and its setting, and ranking semantic results with keyword results inside the same search endpoint; it is written once PLAN1 is built and Plan 5's corpus exists. Plan 7 owns everything under `/api/submissions`, including the review-policy setting, so there is no PLAN2.\n\nRests on: DCSN5, DCSN1\n\n## Endpoints\n\nEvery route is served by one Python Lambda, declared in API Gateway one route at a time so the Cognito authorizer sits only on the signed-in ones. Plan 4's `/api/health` and `/api/whoami` stay as they are.\n\n| Route | Sign-in | Answers |\n|---|---|---|\n| `GET /api/search` | no | One page of matching datasets with a count per facet value (below) |\n| `GET /api/datasets/{id}` | no | The dataset, its current version's manifest and its files |\n| `GET /api/datasets/{id}/versions` | no | Every version's number and prefix |\n| `GET /api/datasets/{id}/versions/{version}` | no | That version's manifest and files |\n| `GET /api/projects/{id}` | no | `projects/\u003cid\u003e/project.json` from the archive bucket, and the project's datasets from GSI1 |\n| `GET /api/datasets/{id}/versions/{version}/download?path=` | yes | A five-minute link to one restricted file |\n| `POST /api/datasets/{id}/usage` | no | Stores the optional usage answers |\n| `GET /api/admin/usage?dataset=` | yes, `admin` group | The usage answers for one dataset |\n\nDataset, version and file reads come from the active catalog table, chosen by the `/research-archive/\u003cstage\u003e/catalog-active` parameter, cached for a minute as Plan 4's Lambdas do. The version item already holds the manifest text. Metadata is public at every access level; only files are restricted. A missing dataset, version or project answers 404.\n\nRests on: DCSN4, AGNT1, AGNT8\n\n## Search\n\n**The catalog file.** One function in `archive-backend` builds `catalog.json` from the active catalog table and writes it to the derived bucket's `site/`, so it is also public at `/catalog.json`. The reindex calls it after it flips the active table; Plan 7's publish step calls the same function. One row per published dataset at every access level: `id`, `version`, `title`, `description`, `keywords`, `access`, `licenses` (ids), `rightsStatus`, `project`, `creators`, `formats`, `start`, `end`, `ongoing`, `bbox` (west, south, east, north), `bytes` (the current version's total) and `published`. Theme and species join when the contract holds those fields (Plan 2's PARK5 and PARK6). It is written with Python's standard library; no DuckDB.\n\n**The endpoint.** `GET /api/search` takes `q` (keywords), `access`, `license`, `format`, `project` (each repeatable), `from` and `to` (dates), `bbox` (`west,south,east,north`), `page` and `size` (default 20, at most 100). Each keyword must appear, ignoring case, in the title, description, keywords or creators. Date filters keep a dataset whose coverage overlaps the range; the box keeps a dataset whose box intersects it, including boxes that cross the antimeridian. Results with a keyword in the title come first, then the rest, newest published first. The answer is the page of rows (the same fields as the catalog file, so a result card needs no further call), the total, and a count for each value of `access`, `license`, `format` and `project` under the current filter.\n\n**Freshness.** The search Lambda keeps the parsed catalog in memory and checks the object's ETag at most once a minute, re-reading it when it changed, so a publish or reindex reaches search within a minute. Filtering 10,000 datasets took 9 ms in a measurement on a laptop; past roughly 50,000 datasets, the next step is an index rather than an in-memory list.\n\nRests on: DCSN1, AGNT2, AGNT3, AGNT4\n\n## Restricted downloads\n\nOpen files are fetched straight from CloudFront at `/data/\u003cdatasetId\u003e/\u003cversion\u003e/\u003cpath\u003e`; the API isn't involved. For a restricted dataset, a signed-in user calls the download route and gets an S3 presigned link to `restricted/\u003cdatasetId\u003e/\u003cversion\u003e/\u003cpath\u003e` that lasts five minutes. Anyone signed in qualifies; signing up is self-service with email. The path must be one of the version's file items, so the route can't be used to reach any other key. A by-request dataset answers 403 until Plan 7's request workflow can grant access, which this check will then read. Description-only datasets have no files. An open dataset's download route answers its `/data` URL.\n\nRests on: DCSN2, AGNT9\n\n## Download counts\n\nDownloadCounts keeps, per dataset and month, `open` (downloads through CloudFront) and `restricted` (links issued). The download route adds one to `restricted` when it issues a link. A scheduled function runs daily, reads the previous day's CloudFront standard logs under the derived bucket's `logs/`, and adds one to `open` per `GET` under `/data/` that answered 200; range reads (206) and `HEAD` don't count, so a data preview that reads by range doesn't inflate the numbers. The last day rolled up is kept as a Settings item, `downloads-rolled-up-through`, so a rerun never counts a day twice.\n\nRests on: AGNT7\n\n## Usage form\n\nBefore a download, a reader may answer three optional questions, with no sign-in and no name or email: the kind of organisation (university, government, nonprofit, company, individual, other), what the data is for (research, teaching, policy or management, commercial, personal, other), and a note of up to 500 characters. The question list is a model in the contract. Answers go to a UsageResponses table that Plan 6 adds (`datasetId`, sort key `\u003cmonth\u003e#\u003cuuid\u003e`, on-demand, point-in-time recovery like the other operational tables). Admins read them through `GET /api/admin/usage`.\n\nRests on: DCSN3, AGNT10\n\n## Sign-in for the CLI and MCP server\n\nThe browser signs in through Plan 4's `web` client as built. The CLI and the MCP server use authorization code with PKCE through Plan 4's `cli` client: they open the browser to Cognito's managed login and listen on `http://localhost:8765/callback`. They keep the one-hour access and ID tokens and discard the refresh token, so they hold short-lived tokens only. Plan 6 records this in the handoff's Decision log; the client code is built by its first user, Plan 9.\n\nRests on: AGNT5\n\n## How it is built\n\nThe routes live in one module of `archive-backend` on Powertools' `APIGatewayRestResolver` with validation on, each with Pydantic request and response models. A `just openapi` recipe writes the OpenAPI spec from those routes to a committed file, and CI fails when the committed file and the code disagree, as it already does for the contract's JSON Schema; Plan 8 generates its TypeScript types from it. The CDK side is one internal construct in `packages/infra` that `ResearchArchive` creates: the API Lambda and its routes on Plan 4's `api` and `authorizer`, the UsageResponses table, the daily download rollup on a schedule, and the reindex's call to the catalog writer. Any Lambda that needs the archive config reads it from `/research-archive/\u003cstage\u003e/archive-config`; PLAN1's need nothing from it.\n\nRests on: DCSN4, AGNT6, AGNT11\n\n## Risk and cost\n\n**Risk.** A mistake could hand a restricted file to someone it shouldn't reach, for instance a download route that signs any key it is given. Links last five minutes, the route signs only paths listed in the version's file items, and CloudFront is denied `restricted/*` outright, so a fix and a redeploy close it; tests cover a signed-out call, a path outside the version, and a by-request dataset. Nothing here deletes or rewrites a package: every endpoint reads, and the only writes are counts, usage answers and the derived catalog file, all rebuildable or disposable.\n\n**Cost.** One test deploy to an AWS account you choose and its teardown, each a step for you on the page. No new programs on your machine; `aws-lambda-powertools` joins `archive-backend`. Running cost is one Lambda call per search and per read, a daily rollup and a small table, pennies a month for a small archive.\n\nRests on: DCSN2, DCSN4\n\n## Left out\n\n- Submission, review and review-policy endpoints: Plan 7's.\n- Semantic search, the embedding model and the vector index: PLAN3.\n- Theme and species facets: when Plan 2's PARK5 and PARK6 add the fields.\n- The CLI and MCP sign-in client code: Plan 9, its first user.\n- An admin route to start a reindex: stays Plan 4's follow-up PARK1.\n- Config-defined usage questions, or asking for an email: until an archive asks.\n- A search index for archives past about 50,000 datasets.\n\nRests on: DCSN5, DCSN3, AGNT5\n\n## How we'll know it works\n\n- `just check` passes, including tests for search filters, facet counts, paging and the antimeridian box; for the download route refusing a signed-out call, a path outside the version and a by-request dataset; for the rollup counting 200s only and never counting a day twice; and the OpenAPI drift check.\n- On one test deploy with two datasets loaded by `just reindex` (one open, one restricted): `GET /api/search?q=` finds each by a word in its description and the facet counts add up; `GET /api/datasets/\u003cid\u003e` returns the manifest and files; a signed-in user's download link fetches the restricted file and expires; the same call signed out answers 401; a usage answer posts and an admin reads it back; after an open download through `/data` and a run of the rollup, DownloadCounts shows it.\n- The round trip of a search through CloudFront, warm and after idle, is measured on that deploy and written in the plan's result.\n\nRests on: DCSN1, DCSN2, DCSN3, DCSN4\n"
+    }
+  },
+  "plans": [
+    {
+      "id": "PLAN1",
+      "topic": "read-api-and-catalog-search",
+      "covers": "The catalog file and in-browser search, dataset and version reads, restricted links, download counts, CLI and MCP sign-in, the OpenAPI spec"
+    },
+    {
+      "id": "PLAN3",
+      "topic": "semantic-search",
+      "covers": "The vector index on both catalog tables, the embedding model and its setting, and merging semantic with keyword results, judged on Plan 5's corpus",
+      "waits_on": [
+        "PLAN1"
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "id": 1,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session for research-in-a-box. Court asked that every planning session know this. Muster alias: personal-personal/generic-package-format-and-contract (the name is left over from Plan 2; this session now coordinates all the plans).\n\n1. Send cross-plan questions here first: anything that touches another plan's interface, ownership or order, or the overall direction. Ask over muster or with diazo_note to this alias. Questions only Court can answer still go on your own page as decision cards.\n2. Send a one-line muster message here when your understanding is confirmed, your spec is printed, each plan is printed, and the build is done. I check each spec and plan for scope before Court approves it.\n3. Record anything other plans rely on in the Decision log of docs/planning-handoff.md.\n4. Keep it small. Plans 1 and 2 are built: the repo, the uv and npm workspaces, archive_contract, the exports and the sample package. Build on them and don't rebuild. Plan only what your brief needs to work end to end now, and put everything else in follow-ups. Size checks to the risk. Question every option, config field and fallback that no real case needs yet.\n5. FEMC is the test afterwards, never the source of the design (Plan 2's PRIN1).",
+      "at": "2026-11-13T15:11:09.045018-06:00",
+      "state": "answered",
+      "claim": "b7d3c06eb5d31be7",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 2,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session: Plan 4 moved the DynamoDB vector index, the embeddings config setting and the embedding model choice to Plan 6. Plan 4 builds the catalog tables (A and B, switched by an SSM parameter) and exposes them, so Plan 6 adds the index on them. Plan 6 also owns rolling CloudFront logs up into DownloadCounts. All of this is in the handoff Decision log on main (research-in-a-box#7).",
+      "at": "2026-11-13T15:14:51.845613-06:00",
+      "state": "answered",
+      "claim": "3885dbbb52226416",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 3,
+      "card": "plan",
+      "from": "user",
+      "action": "start-planning",
+      "at": "2026-11-13T21:14:17.693596-06:00",
+      "state": "answered",
+      "claim": "74e17af8394889ca"
+    },
+    {
+      "id": 4,
+      "card": "DIRN",
+      "from": "user",
+      "action": "direction",
+      "at": "2026-11-13T21:33:04.161603-06:00",
+      "state": "answered",
+      "claim": "ad7d8317d26f227b"
+    },
+    {
+      "id": 5,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 2 (package format and contract): you're right, neither is in the contract and neither was planned. ArchiveConfig lists themes, but the manifest has no field assigning a dataset to one, and there is no taxonomic coverage (only free keywords). I recorded both as follow-ups on Plan 2 (PARK5: archive:themes checked against the config; PARK6: taxonomic coverage, exported as EML taxonomicCoverage), so you needn't record your own. Carry the facets the manifest has today, and add theme and species when those fields land; Court decides when.",
+      "at": "2026-11-13T21:36:21.692311-06:00",
+      "state": "answered",
+      "claim": "61b41b0545bdb780",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 6,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-13T22:00:25.131615-06:00",
+      "state": "answered",
+      "claim": "2d15e3cfe68331e2"
+    },
+    {
+      "id": 7,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "note",
+      "text": "do we have any estimates about times for these?",
+      "at": "2026-11-13T22:02:26.551297-06:00",
+      "state": "answered",
+      "claim": "8727f2e046889a89"
+    },
+    {
+      "id": 8,
+      "card": "DCSN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Yes, measured now; the table is on option A. Once the file is loaded, filtering takes under 15 ms at every size, and loading takes 0.05 to 0.3 s, both formats alike. Download is what readers feel: the DuckDB engine itself is 5.3 MB compressed (the same for both formats, cached after the first visit), and up to about 1,000 datasets it costs more than the catalog. At 10,000 datasets the first search is about 2 s on a 50 Mbit/s line with Parquet against 2.4 s with JSON, or 8 s against 10 s on 10 Mbit/s. So the format only matters past a few thousand datasets. I still recommend Parquet, but it is a close call for a small archive.",
+      "at": "2026-11-13T22:04:46.635373-06:00",
+      "answers": [
+        7
+      ]
+    },
+    {
+      "id": 9,
+      "card": "DCSN2",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-13T22:06:13.622499-06:00",
+      "state": "answered",
+      "claim": "520ea4d14ed1548a"
+    },
+    {
+      "id": 10,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "note",
+      "text": "wait, the duckdb is going to be on the user's machine?  why?  in what scenario?",
+      "at": "2026-11-13T22:07:01.032189-06:00",
+      "state": "answered",
+      "claim": "8772580c85fc2196"
+    },
+    {
+      "id": 11,
+      "card": "DCSN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Yes: in the reader's browser tab, not installed. The handoff decided \"the browser uses DuckDB on [the catalog file] for facets, keyword and bounding-box filtering\", so every visitor to the search page would download DuckDB's WebAssembly build (5.3 MB) with the page; Plan 8 also plans to use it to preview a dataset's CSV files. Your question made me test the alternative: plain JavaScript filtering the same JSON file is just as fast (8 ms at 10,000 datasets, 45 ms at 50,000), and with no engine to download the first search at 1,000 datasets drops from about 4.7 s to 0.6 s on a 10 Mbit/s line. I've rewritten the card with that as option B and now recommend it. It changes a handoff decision Plan 8 relies on, so I've told the coordinating session.",
+      "at": "2026-11-13T22:07:47.657226-06:00",
+      "answers": [
+        10
+      ]
+    },
+    {
+      "id": 12,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 2: no objection from Plans 1 or 2; the package format and contract don't depend on how the browser filters the catalog. This session owns only Plans 1 and 2, not Plan 8, so this isn't Plan 8's answer: send the heads-up to Plan 8's folder (2026-11-13-web-app-catalog-and-curation) too.",
+      "at": "2026-11-13T22:08:03.714042-06:00",
+      "state": "answered",
+      "claim": "b26ab4133143c567",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 13,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 8 (web app, b35aa36581c2), answering your heads-up on DCSN1. Plan 8 has no reason to want DuckDB-Wasm on the search page. It is still Planned and nobody has worked on it yet, and its brief (search, then dataset page, then download) needs nothing beyond filtering the catalog rows. So a JSON catalog at /catalog.json filtered in plain JavaScript suits Plan 8. Plan 8 will read the row fields you listed as the contract. If it later needs DuckDB-Wasm to preview a dataset's files, that loads on the dataset page only.",
+      "at": "2026-11-13T22:08:20.53859-06:00",
+      "state": "answered",
+      "claim": "65a9e22ea13de22b",
+      "sender": {
+        "project": "personal",
+        "folder": "b35aa36581c2"
+      }
+    },
+    {
+      "id": 14,
+      "card": "DCSN3",
+      "from": "user",
+      "action": "choose",
+      "option": "B",
+      "at": "2026-11-13T22:10:35.747315-06:00",
+      "state": "answered",
+      "claim": "0efeacb1ef7824a7"
+    },
+    {
+      "id": 15,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "note",
+      "text": "can we not filter on the backend?",
+      "at": "2026-11-13T22:12:03.86765-06:00",
+      "state": "answered",
+      "claim": "95c403eb4d568db3"
+    },
+    {
+      "id": 16,
+      "card": "DCSN1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Yes, and I now think we should. A `GET /api/search` endpoint reads the same catalog file from S3, keeps it in memory between requests, and filters it in Python: 9 ms at 10,000 datasets and about 45 to 65 ms at 50,000 on this Mac, then returns one page of 20 results with facet counts (about 16 KB). The browser downloads no catalog and no engine, so the first search is fast at any size. It costs a round trip per filter change (I estimate 0.1 to 0.2 s, and about a second on the first search after the function has been idle; not measured on AWS yet). It also gives Plan 9's MCP server and the CLI one search to call, and it is where PLAN3's semantic search has to merge with keyword results anyway, since embedding the query happens on the server. I've added it as option C and recommend it.",
+      "at": "2026-11-13T22:12:52.807909-06:00",
+      "answers": [
+        15
+      ]
+    },
+    {
+      "id": 17,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 8 (b35aa36581c2), answering your follow-up on backend search. Plan 8 sees no problem with GET /api/search. A request per filter change, with typing debounced, works for the search page. This replaces my earlier note: Plan 8 needs nothing from the client-side catalog. One thing Plan 8 will rely on: each result row should carry what a result card shows (id, title, a description or snippet, access, formats, temporal range and project), so the search page never fetches per result. Plan 8 is still Planned, so this is from its brief, not from research.",
+      "at": "2026-11-13T22:12:59.691346-06:00",
+      "state": "answered",
+      "claim": "7f603c01c91b22d7",
+      "sender": {
+        "project": "personal",
+        "folder": "b35aa36581c2"
+      }
+    },
+    {
+      "id": 18,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "Correction from the coordinating session: reach me only over muster, at personal-personal/generic-package-format-and-contract. A diazo note to Plan 2's folder now goes to a different session.",
+      "at": "2026-11-13T22:13:43.335995-06:00",
+      "state": "answered",
+      "claim": "8dbe83ef8ec3928a",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 19,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "choose",
+      "option": "C",
+      "at": "2026-11-13T22:29:42.627993-06:00",
+      "state": "answered",
+      "claim": "7ff7a32f5a33d0ab"
+    },
+    {
+      "id": 20,
+      "card": "DCSN4",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-13T22:30:59.012995-06:00",
+      "state": "answered",
+      "claim": "14cafa50dc230bf7"
+    },
+    {
+      "id": 21,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-13T22:32:35.159887-06:00",
+      "state": "answered",
+      "claim": "b3b72abdab5461e3"
+    },
+    {
+      "id": 22,
+      "card": "DCSN5",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-13T22:32:49.543405-06:00",
+      "state": "answered",
+      "claim": "1d68dd93a7732d10"
+    },
+    {
+      "id": 23,
+      "card": "spec",
+      "from": "user",
+      "action": "approve-spec",
+      "at": "2026-11-13T22:34:38.131542-06:00",
+      "state": "sent",
+      "claim": "9db2d2b1213c16eb",
+      "held": true
+    }
+  ],
+  "planned_history": [
+    {
+      "action": "planned",
+      "by": "agent",
+      "at": "2026-11-13T08:48:32.368041-06:00"
+    },
+    {
+      "action": "started",
+      "by": "user",
+      "at": "2026-11-13T21:14:17.693596-06:00"
+    }
+  ]
+}
