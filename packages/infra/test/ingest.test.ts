@@ -294,3 +294,12 @@ test("the submissions function may read incoming/, so submit can HEAD each decla
   expect(resources).toContain("/reports/*");
   expect(resources).not.toMatch(/"\/\*"/);
 });
+
+test("the ingest may claim a version on either catalog table with a conditional update", () => {
+  const updates = statements(INGEST).filter((s) => actions(s).includes("dynamodb:UpdateItem"));
+  const resources = JSON.stringify(updates.map((s) => s.Resource));
+
+  for (const table of [archive.catalogTables.a, archive.catalogTables.b]) {
+    expect(resources).toContain(stack.getLogicalId(table.node.defaultChild as CfnBucket));
+  }
+});

@@ -50,6 +50,7 @@ from aws_durable_execution_sdk_python.waits import (
     WaitForConditionConfig,
     WaitForConditionDecision,
 )
+from botocore.exceptions import ClientError
 
 from archive_backend import pages
 from archive_backend.reindex import catalog_items, dataset_item
@@ -102,6 +103,7 @@ class DynamoDB(Protocol):
     """The low-level client, for the catalog tables' DynamoDB JSON items."""
 
     def get_item(self, **kwargs: Any) -> dict[str, Any]: ...
+    def update_item(self, **kwargs: Any) -> dict[str, Any]: ...
     def batch_write_item(self, **kwargs: Any) -> dict[str, Any]: ...
 
 
@@ -534,33 +536,69 @@ def _slug(title: str) -> str:
     return f"{words}-{''.join(secrets.choice(string.ascii_lowercase) for _ in range(SUFFIX))}"
 
 
+def _meta_key(dataset_id: str) -> dict[str, Any]:
+    return {"PK": {"S": f"DATASET#{dataset_id}"}, "SK": {"S": "META"}}
+
+
 def _meta(c: Clients, table: str, dataset_id: str) -> dict[str, Any] | None:
-    key = {"PK": {"S": f"DATASET#{dataset_id}"}, "SK": {"S": "META"}}
+    key = _meta_key(dataset_id)
     item: dict[str, Any] | None = c.dynamodb.get_item(TableName=table, Key=key).get("Item")
     return item
+
+
+def _claim(c: Clients, table: str, dataset_id: str, version: int, sid: str) -> None:
+    """Claim the version on the dataset item, so no other publish takes the same one.
+
+    The catalog step's put of the whole dataset item replaces it, dropping `claimedBy`.
+    """
+    values = {":v": {"N": str(version)}, ":sid": {"S": sid}}
+    if version == 1:
+        condition = "attribute_not_exists(PK)"
+    else:
+        condition = "currentVersion = :prev"
+        values[":prev"] = {"N": str(version - 1)}
+    try:
+        c.dynamodb.update_item(
+            TableName=table,
+            Key=_meta_key(dataset_id),
+            UpdateExpression="SET currentVersion = :v, claimedBy = :sid",
+            ConditionExpression=condition,
+            ExpressionAttributeValues=values,
+        )
+    except ClientError as error:
+        if error.response["Error"]["Code"] != "ConditionalCheckFailedException":
+            raise
+        raise PublishConflict(
+            f"version {version} of dataset {dataset_id} was taken by another publish"
+        ) from None
 
 
 @durable_step
 def _version(_: StepContext, c: Clients, env: Env, sid: str) -> dict[str, Any]:
     """The dataset id (minted from the title when none was given) and its next version, read
-    from the active catalog table."""
+    from the active catalog table and claimed there."""
     item = _submission(c, sid)
     active = c.ssm.get_parameter(Name=env.active_catalog_parameter)["Parameter"]["Value"]
     table = env.catalog_table_a if active == "A" else env.catalog_table_b
     dataset_id = item.get("datasetId")
-    version = 1
-    if dataset_id:
-        meta = _meta(c, table, str(dataset_id))
+    if not dataset_id:
+        manifest = json.loads(_read(c, env.staging_bucket, _held(sid, MANIFEST)))
+        dataset_id = _slug(str(manifest.get("title") or ""))
+        # Kept before the claim, so a retry of this step claims the same id.
+        _set(c, sid, {"datasetId": dataset_id})
+    dataset_id = str(dataset_id)
+    meta = _meta(c, table, dataset_id)
+    if meta is not None and meta.get("claimedBy") == {"S": sid}:
+        # This step's own claim, from a try that failed after it.
+        version = int(meta["currentVersion"]["N"])
+    else:
         if bool(item.get("newVersion")) != (meta is not None):
             state = "is not" if meta is None else "already is"
             raise PublishConflict(f"dataset {dataset_id} {state} in the catalog")
-        if meta is not None:
-            version = int(meta["currentVersion"]["N"]) + 1
-    else:
-        manifest = json.loads(_read(c, env.staging_bucket, _held(sid, MANIFEST)))
-        dataset_id = _slug(str(manifest.get("title") or ""))
+        version = int(meta["currentVersion"]["N"]) + 1 if meta is not None else 1
+        _claim(c, table, dataset_id, version, sid)
     _set(c, sid, {"datasetId": dataset_id, "status": "publishing"})
-    return {"datasetId": str(dataset_id), "version": version, "table": table}
+    return {"datasetId": dataset_id, "version": version, "table": table}
 
 
 def _checksum_lines(text: str, changed: dict[str, bytes]) -> str:

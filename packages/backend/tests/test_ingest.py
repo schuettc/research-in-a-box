@@ -204,6 +204,19 @@ class FakeDynamoDB:
         item = self.items.get((TableName, Key["PK"]["S"], Key["SK"]["S"]))
         return {"Item": item} if item else {}
 
+    def update_item(
+        self, *, TableName: str, Key: dict[str, Any], ExpressionAttributeValues: Any, **_: Any
+    ) -> dict[str, Any]:
+        # The version claim on a dataset item none of these runs has published before.
+        key = (TableName, Key["PK"]["S"], Key["SK"]["S"])
+        assert key not in self.items
+        self.items[key] = {
+            **Key,
+            "currentVersion": ExpressionAttributeValues[":v"],
+            "claimedBy": ExpressionAttributeValues[":sid"],
+        }
+        return {}
+
     def batch_write_item(self, *, RequestItems: dict[str, Any]) -> dict[str, Any]:
         for table, requests in RequestItems.items():
             for request in requests:

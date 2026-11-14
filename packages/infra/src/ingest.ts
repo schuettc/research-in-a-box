@@ -110,8 +110,9 @@ export class Ingest extends Construct {
     archive.submissions.grant(fn, "dynamodb:GetItem", "dynamodb:UpdateItem");
     archive.reviews.grant(fn, "dynamodb:PutItem");
     archive.settings.grant(fn, "dynamodb:GetItem");
+    // Publish claims its version with a conditional update of the dataset item.
     for (const table of catalogTables) {
-      table.grant(fn, "dynamodb:GetItem", "dynamodb:BatchWriteItem");
+      table.grant(fn, "dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:BatchWriteItem");
     }
     archive.activeCatalogParameter.grantRead(fn);
     archive.archiveConfigParameter.grantRead(fn);

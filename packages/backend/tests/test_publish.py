@@ -1,4 +1,5 @@
 import base64
+import copy
 import hashlib
 import io
 import json
@@ -10,6 +11,7 @@ from typing import Any, cast
 
 import pytest
 from aws_durable_execution_sdk_python import DurableContext
+from botocore.exceptions import ClientError
 
 from archive_backend import ingest, reindex, submissions
 from archive_backend.ingest import Clients, Env
@@ -108,10 +110,43 @@ class FakeDynamoDB:
             "catalog-a": {},
             "catalog-b": {},
         }
+        self.stale: dict[str, dict[tuple[str, str], dict[str, Any]]] | None = None
 
     def get_item(self, *, TableName: str, Key: dict[str, Any]) -> dict[str, Any]:
-        item = self.tables[TableName].get((Key["PK"]["S"], Key["SK"]["S"]))
+        # A stale snapshot answers one read, as a publish that read before another wrote.
+        tables, self.stale = self.stale or self.tables, None
+        item = tables[TableName].get((Key["PK"]["S"], Key["SK"]["S"]))
         return {"Item": item} if item else {}
+
+    def update_item(
+        self,
+        *,
+        TableName: str,
+        Key: dict[str, Any],
+        UpdateExpression: str,
+        ConditionExpression: str,
+        ExpressionAttributeValues: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Only the `SET a = :x, ...` updates, under `attribute_not_exists(PK)` or `a = :x`."""
+        key = (Key["PK"]["S"], Key["SK"]["S"])
+        current = self.tables[TableName].get(key)
+        if ConditionExpression == "attribute_not_exists(PK)":
+            holds = current is None
+        else:
+            name, value = (part.strip() for part in ConditionExpression.split("="))
+            holds = current is not None and current.get(name) == ExpressionAttributeValues[value]
+        if not holds:
+            raise ClientError(
+                {"Error": {"Code": "ConditionalCheckFailedException", "Message": "no"}},
+                "UpdateItem",
+            )
+        item = current if current is not None else dict(Key)
+        assert UpdateExpression.startswith("SET ")
+        for assignment in UpdateExpression[4:].split(","):
+            name, value = (part.strip() for part in assignment.split("="))
+            item[name] = ExpressionAttributeValues[value]
+        self.tables[TableName][key] = item
+        return {}
 
     def batch_write_item(self, *, RequestItems: dict[str, Any]) -> dict[str, Any]:
         for table, requests in RequestItems.items():
@@ -202,6 +237,19 @@ class World:
         }
         for path, body in files.items():
             self.s3.objects[(STAGING, f"held/{sid}/{path}")] = body
+
+    def version(self, sid: str) -> dict[str, Any]:
+        """The version step alone."""
+        target: dict[str, Any] = ingest._version(self.clients, ENV, sid)(None)  # type: ignore[arg-type]
+        return target
+
+    def race(self, first: str, second: str) -> dict[str, Any]:
+        """Both version steps read the catalog, then `first` claims, then `second`."""
+        before = copy.deepcopy(self.dynamodb.tables)
+        target = self.version(first)
+        self.dynamodb.stale = before
+        self.version(second)
+        return target
 
     def publish(self, sid: str = SID) -> StepContext:
         context = StepContext()
@@ -341,3 +389,41 @@ def test_a_new_dataset_whose_id_was_taken_meanwhile_is_refused(world: World) -> 
         world.publish("sub-b")
 
     assert world.s3.keys(ARCHIVE, "open/stream/2/") == []
+
+
+def test_two_new_submissions_racing_for_version_1_of_one_id_claim_it_once(world: World) -> None:
+    world.hold("sub-a", _package(), datasetId="stream")
+    world.hold("sub-b", _package(), datasetId="stream")
+
+    with pytest.raises(ingest.PublishConflict):
+        world.race("sub-a", "sub-b")
+
+    world.publish("sub-a")
+    assert world.s3.keys(ARCHIVE, "open/stream/1/")
+    assert world.submissions.items["sub-b"]["status"] == "in-review"
+
+
+def test_two_new_versions_racing_for_the_next_version_claim_it_once(world: World) -> None:
+    world.hold("sub-a", _package(), datasetId="stream")
+    world.publish("sub-a")
+    world.hold("sub-b", _package(), datasetId="stream", newVersion=True)
+    world.hold("sub-c", _package(), datasetId="stream", newVersion=True)
+
+    with pytest.raises(ingest.PublishConflict):
+        world.race("sub-b", "sub-c")
+
+    world.publish("sub-b")
+    assert world.table()[("DATASET#stream", "META")]["currentVersion"] == {"N": "2"}
+
+
+def test_a_retried_version_step_keeps_its_own_claim(world: World) -> None:
+    world.hold(SID, _package(id=None))
+
+    first = world.version(SID)
+    again = world.version(SID)
+
+    assert again == first
+    assert world.table()[(f"DATASET#{first['datasetId']}", "META")]["claimedBy"] == {"S": SID}
+    world.publish()
+    meta = world.table()[(f"DATASET#{first['datasetId']}", "META")]
+    assert meta["currentVersion"] == {"N": "1"} and "claimedBy" not in meta
