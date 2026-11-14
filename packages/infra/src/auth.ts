@@ -1,4 +1,4 @@
-import { RemovalPolicy, Stack } from "aws-cdk-lib";
+import { CfnOutput, RemovalPolicy, Stack } from "aws-cdk-lib";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 
@@ -11,9 +11,11 @@ export interface AuthProps {
 export class Auth extends Construct {
   readonly userPool: cognito.UserPool;
   private readonly domain: cognito.UserPoolDomain;
+  private readonly isProd: boolean;
 
   constructor(scope: Construct, id: string, props: AuthProps) {
     super(scope, id);
+    this.isProd = props.isProd;
     this.userPool = new cognito.UserPool(this, "UserPool", {
       selfSignUpEnabled: false,
       signInAliases: { email: true },
@@ -67,5 +69,26 @@ export class Auth extends Construct {
       web: client("WebClient", [`https://${siteDomain}/auth/callback`], [`https://${siteDomain}/`]),
       cli: client("CliClient", ["http://localhost:8765/callback"]),
     };
+  }
+
+  /**
+   * The test-only `e2e` client, for non-prod stages: admin password sign-in, so `just
+   * ingest-e2e` signs in the throwaway users it creates. Its outputs are what the run reads.
+   */
+  addTestClient(siteDomain: string): cognito.UserPoolClient {
+    if (this.isProd) {
+      throw new Error("the e2e client is never created on a prod stage");
+    }
+    const client = this.userPool.addClient("E2eClient", {
+      userPoolClientName: "e2e",
+      generateSecret: false,
+      authFlows: { adminUserPassword: true },
+      disableOAuth: true,
+    });
+    const stack = Stack.of(this);
+    new CfnOutput(stack, "E2eClientId", { key: "E2eClientId", value: client.userPoolClientId });
+    new CfnOutput(stack, "UserPoolId", { key: "UserPoolId", value: this.userPool.userPoolId });
+    new CfnOutput(stack, "SiteDomain", { key: "SiteDomain", value: siteDomain });
+    return client;
   }
 }

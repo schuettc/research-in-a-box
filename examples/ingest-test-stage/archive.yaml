@@ -1,0 +1,10 @@
+# The archive config for the ingest-test stage, the one `just ingest-e2e ingest-test` runs on.
+# Deploy it with ARCHIVE_CONFIG pointing here, so archive.yaml is never edited for a test.
+# It lists only the test stage, so a deploy can't touch prod.
+publisher: Invented Research Cooperative
+profiles: [core, ecology]
+infrastructure:
+  alertEmail: archive-admin@example.org
+  monthlyBudgetUsd: 50
+  stages:
+    - name: ingest-test

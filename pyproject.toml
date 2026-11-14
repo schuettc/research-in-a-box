@@ -45,7 +45,7 @@ explicit_package_bases = true
 exclude = ["^packages/infra/assets/", "^packages/infra/cdk\\.out/"]
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "examples/femc"]
+testpaths = ["packages", "examples/femc", "scripts"]
 addopts = ["--import-mode=importlib"]
 
 [tool.ruff.lint.isort]

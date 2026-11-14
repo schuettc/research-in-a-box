@@ -11,11 +11,15 @@ export interface WebProps {
   readonly restApi: apigateway.RestApi;
 }
 
-// Plan 7 changes this when it writes per-dataset pages.
+// /datasets/<id> and /datasets/<id>/ read the dataset's own page; any other extensionless path
+// is the app's.
 const SITE_REWRITE = `function handler(event) {
   var request = event.request;
   var uri = request.uri;
-  if (uri.endsWith("/")) {
+  var dataset = uri.match(/^\\/datasets\\/([^\\/.]+)\\/?$/);
+  if (dataset) {
+    request.uri = "/datasets/" + dataset[1] + "/index.html";
+  } else if (uri.endsWith("/")) {
     request.uri = uri + "index.html";
   } else if (uri.substring(uri.lastIndexOf("/") + 1).indexOf(".") === -1) {
     request.uri = "/index.html";

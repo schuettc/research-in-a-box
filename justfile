@@ -10,7 +10,7 @@ check: check-python check-ts check-schema
 check-python:
     uv run ruff format --check
     uv run ruff check
-    uv run mypy packages examples/femc
+    uv run mypy packages examples/femc scripts
     uv run pytest
 
 # TypeScript: format check, lint, type check, tests, web build
@@ -61,7 +61,26 @@ invite-user stage email group="":
     fi
     echo "invited {{email}} to {{stage}} {{group}}"
 
-# Install archive-backend and its locked dependencies as arm64 Lambda wheels, without Docker
+# Subscribe a curator's email to the stage's curators' topic, for messages to their user id or to all
+add-curator stage email userId:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    topic="$(aws cloudformation describe-stacks --stack-name "ResearchArchive-{{stage}}" \
+        --query "Stacks[0].Outputs[?OutputKey=='CuratorTopic'].OutputValue" --output text)"
+    attributes="$(jq -cn --arg user '{{userId}}' \
+        '{FilterPolicy: ({audience: [$user, "all"]} | tojson)}')"
+    aws sns subscribe --topic-arn "$topic" --protocol email --notification-endpoint '{{email}}' \
+        --attributes "$attributes" --query SubscriptionArn --output text >/dev/null
+    echo "{{email}} subscribed to the {{stage}} curators' topic; they must confirm from the email"
+
+# Drive the sample package through the ingest pipeline on a deployed non-prod stage, with the
+# caller's AWS_PROFILE and region. Set INGEST_E2E_REVIEWER to your curator user id to receive
+# the reminder; the reminder run leaves one submission waiting, and the next day's run checks it.
+ingest-e2e stage:
+    uv run python scripts/ingest_e2e.py {{stage}}
+
+# Install archive-backend, its workspace packages (the contract and cruise) and its locked
+# dependencies as arm64 Lambda wheels, without Docker
 lambda-assets:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -69,8 +88,9 @@ lambda-assets:
     trap 'rm -rf "$tmp"' EXIT
     rm -rf packages/infra/assets/python
     uv export --package archive-backend --no-dev --no-hashes --frozen --no-emit-workspace -o "$tmp/requirements.txt"
-    uv pip install --python-platform aarch64-manylinux2014 --python-version 3.13 --only-binary :all: --target packages/infra/assets/python -r "$tmp/requirements.txt"
-    uv pip install --no-deps --python-version 3.13 --target packages/infra/assets/python packages/contract packages/backend
+    # manylinux_2_28: DuckDB ships no older aarch64 wheel; the python3.13 runtime (AL2023) has glibc 2.34.
+    uv pip install --python-platform aarch64-manylinux_2_28 --python-version 3.13 --only-binary :all: --target packages/infra/assets/python -r "$tmp/requirements.txt"
+    uv pip install --no-deps --python-version 3.13 --target packages/infra/assets/python packages/contract packages/tool packages/backend
 
 # Fail when the committed JSON Schema, the construct's config type or the OpenAPI spec differs from the code
 check-schema:

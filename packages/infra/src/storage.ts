@@ -8,7 +8,8 @@ export interface StorageProps {
 }
 
 /**
- * The staging, archive and derived buckets. The archive bucket keeps open data under `open/`
+ * The staging, archive and derived buckets. The staging bucket takes uploads under `incoming/`,
+ * keeps rounds that passed the checks under `held/` and diagnoses under `reports/`. The archive bucket keeps open data under `open/`
  * and restricted data under `restricted/`; the derived bucket holds `site/`, `reindex/` and
  * `logs/`. Those prefixes are conventions, not resources.
  */
@@ -30,7 +31,8 @@ export class Storage extends Construct {
 
     this.stagingBucket = new s3.Bucket(this, "Staging", {
       ...common,
-      lifecycleRules: [{ expiration: Duration.days(30) }],
+      // Only uploads expire: held/ and reports/ stay until publish, reject or abandon removes them.
+      lifecycleRules: [{ prefix: "incoming/", expiration: Duration.days(30) }],
     });
     this.archiveBucket = new s3.Bucket(this, "Archive", {
       ...common,
