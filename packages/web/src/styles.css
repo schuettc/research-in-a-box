@@ -161,13 +161,23 @@ dd {
   font: 600 1.3rem/1.15 var(--font-heading);
 }
 
+/* The nav keeps one width whatever areas the reader's groups add, and lists the public links
+   first in their own slot, so Browse, About and the Account button never move. */
 .masthead nav {
   margin-left: auto;
+  width: 27.5rem;
+  max-width: 100%;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 1.5rem;
   font-size: 0.95rem;
+}
+
+.nav-public,
+.nav-areas {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
 }
 
 .masthead nav a {
@@ -376,10 +386,28 @@ section.block > h2 {
     padding: 0.9rem 1rem;
   }
 
+  /* On a phone the areas take the row the Account button sits at the end of, kept even when
+     empty, so the masthead is one height whatever the reader's groups. */
+  .masthead .inner {
+    position: relative;
+  }
+
   .masthead nav {
     margin-left: 0;
     width: 100%;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+  }
+
+  .nav-public,
+  .nav-areas {
     gap: 0.5rem 1.25rem;
+  }
+
+  .nav-areas {
+    flex-basis: 100%;
+    min-height: 2.3rem;
+    padding-right: 8.5rem;
   }
 
   .mark .name {
@@ -1097,6 +1125,14 @@ table.cols tbody th {
 }
 
 @media (max-width: 40rem) {
+  /* After the account slot's own rule: on a phone it ends the areas' row. */
+  .account {
+    position: absolute;
+    right: 1rem;
+    bottom: 0.9rem;
+    margin-left: 0;
+  }
+
   .file {
     grid-template-columns: minmax(0, 1fr);
     padding: 1rem;

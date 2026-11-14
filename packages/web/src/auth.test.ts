@@ -22,6 +22,7 @@ const ID_TOKEN = jwt({
   iat: now,
   exp: now + 3600,
   email: "reader@example.org",
+  "cognito:groups": ["contributor", "curator"],
 });
 
 let fetchMock: Mock;
@@ -176,4 +177,16 @@ test("the page to return to is kept across the redirect for a failed sign-in", a
   await redirectUrl();
 
   expect(lastReturnTo()).toBe("/datasets/ds-1");
+});
+
+test("signed in, the reader's groups and id come from the ID token", async () => {
+  const { groups } = await import("./auth");
+  expect(groups()).toEqual([]);
+
+  const auth = await signedIn();
+
+  expect(auth.groups()).toEqual(["contributor", "curator"]);
+  // The same array each time, so React's external store sees no change.
+  expect(auth.groups()).toBe(auth.groups());
+  expect(auth.signedInSub()).toBe("reader-1");
 });

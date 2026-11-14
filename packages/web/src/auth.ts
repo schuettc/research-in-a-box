@@ -119,6 +119,31 @@ export function signedInEmail(): string | null {
   return typeof email === "string" ? email : null;
 }
 
+/** The signed-in reader's Cognito id (the ID token's `sub`), or null. */
+export function signedInSub(): string | null {
+  if (!user || user.expired) return null;
+  return user.profile.sub || null;
+}
+
+const NO_GROUPS: string[] = [];
+let groupsOf: { user: User; groups: string[] } | null = null;
+
+/**
+ * The signed-in reader's groups from the ID token's `cognito:groups`, or none. The same array
+ * is answered until the user changes, so React's external store sees no change between reads.
+ */
+export function groups(): string[] {
+  if (!user || user.expired) return NO_GROUPS;
+  if (groupsOf?.user !== user) {
+    const claim = user.profile["cognito:groups"];
+    const list = Array.isArray(claim)
+      ? claim.filter((group): group is string => typeof group === "string")
+      : NO_GROUPS;
+    groupsOf = { user, groups: list };
+  }
+  return groupsOf.groups;
+}
+
 // Navigate as oidc-client-ts does, through window.self, so tests can watch it.
 const go = (url: string) => window.self.location.assign(url);
 
