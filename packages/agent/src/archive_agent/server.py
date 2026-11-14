@@ -14,7 +14,7 @@ from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
-from archive_agent import __version__, read, state
+from archive_agent import __version__, local, read, state
 from archive_agent.archive import Archive
 from archive_agent.errors import NotConnected, Refused, SignInFailed, Unreachable
 from archive_agent.state import Session
@@ -141,6 +141,24 @@ def build(session: Session) -> MCPServer:
         into the local folder `to`, checking each against its recorded SHA-256. Restricted
         files need sign_in first. Answers what was written and anything that failed."""
         return read.download(session, id, version, paths, to)
+
+    @mcp.tool(name="diagnose")
+    def diagnose_tool(folder: str) -> dict[str, Any]:
+        """Check a local package folder with cruise, as the archive's ingest does. Answers
+        the structure verdict, the quality counts and score, every finding (errors block
+        publishing; warnings and notes don't) and the verdict line. Needs no network."""
+        return local.diagnose(folder)
+
+    @mcp.tool(name="edit_manifest")
+    def edit_manifest_tool(folder: str, edits: list[dict[str, Any]]) -> dict[str, Any]:
+        """Apply edits the person approved to a package folder's datapackage.json, then
+        regenerate README.md and checksums.sha256. Each edit is {"target", "value"}, plus
+        "resource" and "column" for a column. Package targets: title, description, keywords,
+        licenses, archive:rightsStatus, archive:temporalCoverage, archive:spatialCoverage,
+        archive:methods, contributors. Column targets: title, description, archive:unit. A
+        null value removes the property. If any edit fails, nothing is written and each
+        failing edit is named. Needs no network."""
+        return local.edit_manifest(folder, edits)
 
     return mcp
 
