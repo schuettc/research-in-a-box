@@ -68,9 +68,20 @@ test("the default behaviour serves site/ from the derived bucket through origin 
   const [association] = behaviour.FunctionAssociations as Json[];
   expect(association?.EventType).toBe("viewer-request");
   const code = functionCode(template, association?.FunctionARN);
-  expect(rewrite(code, "/datasets/ds-1")).toBe("/index.html");
   expect(rewrite(code, "/docs/")).toBe("/docs/index.html");
   expect(rewrite(code, "/assets/app.js")).toBe("/assets/app.js");
+});
+
+test("the site function sends /datasets/<id> to its page and other extensionless paths to the app", () => {
+  const { archive: a, stack, template } = archive();
+  const behaviour = distributionConfig(a, stack, template).DefaultCacheBehavior as Json;
+  const code = functionCode(template, (behaviour.FunctionAssociations as Json[])[0]?.FunctionARN);
+
+  expect(rewrite(code, "/")).toBe("/index.html");
+  expect(rewrite(code, "/about")).toBe("/index.html");
+  expect(rewrite(code, "/datasets/abc")).toBe("/datasets/abc/index.html");
+  expect(rewrite(code, "/datasets/abc/")).toBe("/datasets/abc/index.html");
+  expect(rewrite(code, "/app.js")).toBe("/app.js");
 });
 
 test("/data/* serves open/ from the archive bucket and strips /data", () => {
