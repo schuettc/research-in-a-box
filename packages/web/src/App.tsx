@@ -1,6 +1,6 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Link, NavLink, Route, Routes, useLocation, useParams } from "react-router";
-import { addPasskey, signedInEmail, signOut, subscribe } from "./auth";
+import { addPasskey, signedInEmail, signIn, signOut, subscribe } from "./auth";
 import { NavigatedContext, PageHeading, useTitle } from "./page";
 import { About } from "./routes/About";
 import { Callback } from "./routes/Callback";
@@ -33,25 +33,92 @@ function CurrentDataset() {
   return <Dataset id={id} />;
 }
 
-/** Who is signed in, with Sign out and Add a passkey; nothing when no one is. */
+/**
+ * The header's account slot, always in the same place: Sign in when no one is signed in, else
+ * one Account button whose menu names the reader and offers Add a passkey and Sign out.
+ */
 function Account() {
   const email = useSyncExternalStore(subscribe, signedInEmail);
   const { pathname, search } = useLocation();
-  if (!email) return null;
+  const [open, setOpen] = useState(false);
+  const slot = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const here = `${pathname}${search}`;
+
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (!slot.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open]);
+
+  if (!email) {
+    return (
+      <div className="account">
+        <button type="button" className="account-button" onClick={() => void signIn(here)}>
+          Sign in
+        </button>
+      </div>
+    );
+  }
+
+  function close() {
+    setOpen(false);
+    trigger.current?.focus();
+  }
+
   return (
-    <p className="account">
-      <span>Signed in as {email}</span>
+    <div className="account" ref={slot}>
       <button
+        ref={trigger}
         type="button"
-        className="link-button"
-        onClick={() => void addPasskey(`${pathname}${search}`)}
+        className="account-button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls="account-menu"
+        onClick={() => setOpen(!open)}
       >
-        Add a passkey
+        Account <span aria-hidden="true">▾</span>
       </button>
-      <button type="button" className="link-button" onClick={() => void signOut()}>
-        Sign out
-      </button>
-    </p>
+      {open && (
+        <div
+          id="account-menu"
+          className="account-menu"
+          role="menu"
+          aria-label="Account"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") close();
+          }}
+        >
+          <p className="account-who">
+            Signed in as <strong>{email}</strong>
+          </p>
+          <button
+            type="button"
+            role="menuitem"
+            autoFocus
+            onClick={() => {
+              setOpen(false);
+              void addPasskey(here);
+            }}
+          >
+            Add a passkey
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              void signOut();
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

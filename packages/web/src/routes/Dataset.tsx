@@ -480,6 +480,7 @@ function DatasetPage({ id, view }: { id: string; view: View }) {
 
   return (
     <article className="dataset">
+      {usageFor && <UsagePanel datasetId={id} onClose={() => setUsageFor(null)} />}
       <div className="ds-grid">
         <div className="ds-main">
           <PageHeading>{title}</PageHeading>
@@ -513,16 +514,10 @@ function DatasetPage({ id, view }: { id: string; view: View }) {
                 onDownload={downloaded(PACKAGE_ZIP)}
               />
             )}
-            {usageFor === PACKAGE_ZIP && (
-              <UsagePanel datasetId={id} onClose={() => setUsageFor(null)} />
-            )}
           </div>
 
           <section className="block" aria-labelledby="files-heading">
             <h2 id="files-heading">Files</h2>
-            <p className="visually-hidden" role="status">
-              {usageFor ? "Your download has started. Below it, an optional question." : ""}
-            </p>
             <ul className="files" aria-labelledby="files-heading">
               {resources.map((resource) => {
                 const label = resource.title ?? resource.name;
@@ -589,9 +584,6 @@ function DatasetPage({ id, view }: { id: string; view: View }) {
                           ))}
                         </ul>
                       </details>
-                    )}
-                    {usageFor === resource.name && (
-                      <UsagePanel datasetId={id} onClose={() => setUsageFor(null)} />
                     )}
                   </li>
                 );

@@ -8,6 +8,8 @@ import type { ArchiveConfig } from "./generated/archive-config";
 export const DEFAULT_PRIMARY = "#24395f";
 /** The app's focus ring (`--focus` in styles.css), so focus looks the same on both. */
 const FOCUS = "#c26a00";
+/** The app's page colour (`--paper` in styles.css), behind the sign-in form instead of Cognito's image. */
+const PAPER = "#fbf9f5";
 /** Cognito takes at most this many base64 characters per asset. */
 const MAX_ASSET_CHARS = 1_000_000;
 
@@ -69,6 +71,11 @@ export function brandingSettings(brand: LoginBrand): Record<string, unknown> {
     backgroundColor: rgba(background),
     textColor: rgba(ink),
   });
+  const outline = (colour: string) => ({
+    backgroundColor: "ffffffff",
+    borderColor: rgba(colour),
+    textColor: rgba(colour),
+  });
   return {
     categories: {
       global: {
@@ -93,6 +100,17 @@ export function brandingSettings(brand: LoginBrand): Record<string, unknown> {
           hover: button(hover),
           active: button(active),
         },
+      },
+      secondaryButton: {
+        lightMode: {
+          defaults: outline(brand.primaryColor),
+          hover: outline(hover),
+          active: outline(active),
+        },
+      },
+      pageBackground: {
+        image: { enabled: false },
+        lightMode: { color: rgba(PAPER) },
       },
       form: {
         logo: { enabled: true, formInclusion: "IN", location: "CENTER", position: "TOP" },

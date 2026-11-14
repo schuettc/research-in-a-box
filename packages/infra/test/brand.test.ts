@@ -91,3 +91,20 @@ test("synth stops with a plain message when an asset is over Cognito's limit", (
     /no logo file/,
   );
 });
+
+test("the sign-in page has the app's paper as a plain background and no stock image", () => {
+  const settings = brandingSettings({ name: "A", primaryColor: "#24395f" }) as Json;
+  const paper = /--paper:\s*#([0-9a-f]{6})/i.exec(readFileSync(STYLES, "utf-8"))?.[1];
+
+  expect(settings.components.pageBackground.image.enabled).toBe(false);
+  expect(settings.components.pageBackground.lightMode.color).toBe(`${paper?.toLowerCase()}ff`);
+});
+
+test("the sign-in page's secondary button (Not now, Use password instead) is in the brand colour", () => {
+  const settings = brandingSettings({ name: "A", primaryColor: "#8a2d3b" }) as Json;
+  const secondary = settings.components.secondaryButton.lightMode.defaults;
+
+  expect(secondary.borderColor).toBe("8a2d3bff");
+  expect(secondary.textColor).toBe("8a2d3bff");
+  expect(secondary.backgroundColor).toBe("ffffffff");
+});
