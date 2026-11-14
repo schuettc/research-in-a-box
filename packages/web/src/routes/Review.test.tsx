@@ -165,6 +165,21 @@ test("after a first approval of a two-curator review, Approve is disabled for th
   ).toBe(false);
 });
 
+test("after approving a one-curator review, the page says it's approved and being published, not that it waits for a second curator", async () => {
+  read = {
+    ...read,
+    submission: item({ submitter: "con-3", approvals: ["cur-1"], waiting: false }),
+    events: [
+      event("entered-review", { outcome: "one", audience: "all" }),
+      event("decided", { actor: "cur-1", decision: "approve" }),
+    ],
+  };
+  renderReview();
+
+  expect(await screen.findByText(/You approved it; it's being published/)).toBeDefined();
+  expect(screen.queryByText(/second curator/)).toBeNull();
+});
+
 test("while the pipeline isn't ready for a decision, the decision buttons wait", async () => {
   read = {
     ...read,

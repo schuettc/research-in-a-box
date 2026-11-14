@@ -231,7 +231,11 @@ export function Review({ id }: { id: string }) {
       {inReview && (
         <div className="note decision">
           {approvedByMe ? (
-            <p>You approved it; it waits for a second curator.</p>
+            needed === 2 && submission.approvals.length < 2 ? (
+              <p>You approved it; it waits for a second curator.</p>
+            ) : (
+              <p>You approved it; it's being published.</p>
+            )
           ) : !submission.waiting ? (
             <p>The archive is getting ready for the next decision; this page checks again.</p>
           ) : submission.approvals.length > 0 ? (
