@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "The FEMC report (Plan 10b)",
   "expect": 2,
-  "agent_at": "2026-11-14T06:58:06.518999Z",
+  "agent_at": "2026-11-14T16:05:00.967787Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 5, the FEMC migration and its audit numbers.)\n\nBrief: Plan 10b in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the FEMC report (Plan 10b). Sections 1, 2 and 7 can be drafted from what we already know. Plan what each section needs, which findings we can already support with a specific record, and which need the audit tool first."
@@ -298,7 +298,38 @@
     }
   ],
   "principles": [],
-  "follow_ups": [],
+  "follow_ups": [
+    {
+      "id": "PARK1",
+      "name": "Fill the contact's name",
+      "text": "Replace [CONTACT NAME] in practice-data/report/femc-report.md and re-render the PDF before sending.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK2",
+      "name": "Wire EML and DataCite into publish",
+      "text": "archive_contract.exports has EML and DataCite writers with no caller; publish (Plan 7) could write them beside each version so the report's section 5 row becomes true. Belongs to Plan 7's owner.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK3",
+      "name": "Quote Plan 6's search test",
+      "text": "Once Plan 6's record of its 22 searches is on main, the Camels Hump finding can cite it.",
+      "kind": "idea"
+    },
+    {
+      "id": "PARK4",
+      "name": "Audit the whole archive",
+      "text": "If FEMC agrees to a bulk export, run the same audit over every record and send them the results.",
+      "kind": "idea"
+    },
+    {
+      "id": "PARK5",
+      "name": "Commit the report after FEMC sees it",
+      "text": "Once FEMC has read it and agrees, a version of the report could be committed.",
+      "kind": "idea"
+    }
+  ],
   "spec": {
     "hash": "0f1405e6b9ab20c2ad576dad5f919e74148188c7b5318415cc46842ad7557f25",
     "sections": [
@@ -374,7 +405,10 @@
           "does": "Writes practice-data/report/notes.md: every claim with its FEMC page, field, package id, checking command and real output; re-runs the audit and confirms the counts; checks whether Plan 6's search record is on main.",
           "pulls_in": "One uncommitted notes file; a re-run of cruise audit over the ten packages.",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "practice-data/report/notes.md: six findings and six strengths traced; audit re-run (exit 0) matches Plan 5 on all ten rows and rule totals; Plan 6's search record not on main, so not quoted; aerial survey count taken from the converter (29), not the handoff (14)",
+          "build_at": "2026-11-14T01:05:32.880361-06:00"
         },
         {
           "id": "TASK2",
@@ -385,7 +419,10 @@
             "DCSN2",
             "DCSN1"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "practice-data/report/ozone-after/: creators filled from FEMC's citation and project record (2 changes.jsonl lines); diagnose exit 0 with no structure findings; audit errors 3 → 2, score 76 → 77; the remaining gaps (methods, coverage, 14 units, 7 descriptions, species code list) listed in notes.md",
+          "build_at": "2026-11-14T01:06:12.040562-06:00"
         },
         {
           "id": "TASK3",
@@ -395,7 +432,10 @@
           "serves": [
             "DCSN1"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "practice-data/report/femc-report.md: eight sections (grep exit 0, 8), about 2,400 words; claims checked against notes.md and main (Plan 7 ingest and pages, Plan 6 usage form and download counts); three unsupported phrases cut on my own pass; git status shows nothing from practice-data",
+          "build_at": "2026-11-14T01:08:01.872426-06:00"
         },
         {
           "id": "TASK4",
@@ -405,7 +445,10 @@
           "serves": [
             "DCSN1"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "Review by claude-bridge/claude-opus-5-5 (Codex at its usage limit): 9 of 10 claims held, 1 overstated (EML/DataCite export at publish); that row, the Camels Hump search claim, the units count (3 are ID columns), the structure-check and config sentences, the cost line and 8 tone points fixed; notes.md corrected (researchProject in 3 records). pandoc exit 0, Chrome print exit 0: femc-report.pdf, 7 pages, checked by eye; git status clean",
+          "build_at": "2026-11-14T01:15:43.092543-06:00"
         }
       ],
       "approved": {
@@ -415,6 +458,28 @@
       }
     }
   ],
+  "wrap_up": {
+    "file": "wrap-up.md",
+    "hash": "9882d113fba259bd44c40a45b8ff9741b18ebc8cf2dc18858578f93dbf084205",
+    "printed_at": "2026-11-14T10:05:00.967787-06:00",
+    "due_at": "2026-11-14T10:04:43.410252-06:00",
+    "plans_at_print": [
+      "PLAN1"
+    ]
+  },
+  "signoff": {
+    "due_at": "2026-11-14T01:15:43.092543-06:00",
+    "built": "The FEMC report, ready to send: practice-data/report/femc-report.pdf (7 pages) from femc-report.md, with every claim traced in notes.md and the Ozone before-and-after package in ozone-after/. Nothing from it is committed. The spec and plan are recorded in schuettc/research-in-a-box#36.",
+    "try": [
+      "Open practice-data/report/femc-report.pdf (in Finder: research-archive-in-a-box → practice-data → report) and read it as your contact would.",
+      "Replace [CONTACT NAME] in femc-report.md with your contact's name; I'll re-render the PDF, or run: cd practice-data/report \u0026\u0026 pandoc femc-report.md -s --embed-resources --css report.css -o femc-report.html, then print it to PDF.",
+      "Check that section 4 reads right to you: filling Ozone from FEMC's own pages moves its score only 76 to 77, and the report makes that the point (what's missing is knowledge only their staff hold).",
+      "Check section 5's 'Today' column matches how you want to describe the kit's state to FEMC.",
+      "Spot-check any claim against practice-data/report/notes.md, which gives the source and command for each."
+    ],
+    "posted_at": "2026-11-14T01:15:43.092543-06:00",
+    "signed_at": "2026-11-14T10:04:43.410252-06:00"
+  },
   "messages": [
     {
       "id": 1,
@@ -553,6 +618,15 @@
       "at": "2026-11-14T00:58:19.578904-06:00",
       "state": "answered",
       "claim": "9a0ae6ac0eacf34f"
+    },
+    {
+      "id": 14,
+      "card": "SIGNOFF",
+      "from": "user",
+      "action": "sign-off",
+      "at": "2026-11-14T10:04:43.410252-06:00",
+      "state": "answered",
+      "claim": "c8538a4d6215a5a2"
     }
   ],
   "planned_history": [

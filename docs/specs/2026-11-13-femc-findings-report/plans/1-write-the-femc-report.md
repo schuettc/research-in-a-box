@@ -1,7 +1,7 @@
 ---
 diazo: research-archive-in-a-box/femc-findings-report
 file: PLAN1
-status: approved
+status: done
 approved: 2026-11-14T00:58:19-06:00
 hash: 76fde1a08adfa67d816af344eabe550fdffc168e39621e50cfbf232251518c99
 rests_on: [AGNT1, AGNT2, AGNT3, AGNT4, AGNT5, DCSN1, DCSN2]
