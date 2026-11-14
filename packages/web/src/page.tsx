@@ -28,3 +28,40 @@ export function PageHeading({ children }: { children: ReactNode }) {
     </h1>
   );
 }
+
+/**
+ * A modal dialog: it overlays the page, so opening it moves nothing. Escape or `onClose`
+ * closes it, and focus goes back where it was.
+ */
+export function Modal({
+  label,
+  onClose,
+  wide = false,
+  children,
+}: {
+  label: string;
+  onClose: () => void;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = dialog.current;
+    const back = document.activeElement as HTMLElement | null;
+    if (element && !element.open) element.showModal();
+    return () => back?.focus();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className={wide ? "modal wide" : "modal"}
+      aria-labelledby={label}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+    >
+      {children}
+    </dialog>
+  );
+}

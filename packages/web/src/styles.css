@@ -1113,6 +1113,223 @@ table.cols tbody th {
   background: var(--soft);
 }
 
+/* Submissions: the contributor's and curator's pages */
+
+.page-actions {
+  margin: 0 0 1.5rem;
+}
+
+.status-line {
+  margin: 0 0 0.35rem;
+  font: 600 1.3rem/1.35 var(--font-heading);
+}
+
+.problem {
+  max-width: var(--measure);
+  margin: 1rem 0 0;
+  padding: 0.6rem 0.9rem;
+  border-left: 4px solid var(--danger);
+  background: #fff;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.curator-note {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
+}
+
+.note .label {
+  margin: 0;
+}
+
+.note > p:first-child {
+  margin-top: 0;
+}
+
+.note .actions {
+  margin-top: 0.75rem;
+}
+
+.dropzone {
+  max-width: 44rem;
+  padding: 1.5rem;
+  border: 2px dashed var(--field);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.dropzone.over {
+  border-color: var(--brand);
+  background: var(--soft);
+}
+
+.dropzone > p:first-child {
+  margin-top: 0;
+}
+
+.dropzone .choose:focus-within {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.package {
+  max-width: 44rem;
+}
+
+.overall {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.overall progress {
+  flex: 1;
+}
+
+progress {
+  accent-color: var(--brand);
+  height: 0.75rem;
+}
+
+.uploads {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.88rem;
+}
+
+.uploads li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8rem;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.2rem 0;
+}
+
+.uploads progress {
+  width: 100%;
+}
+
+table.listing tbody th {
+  font-weight: 600;
+}
+
+.checks-summary {
+  margin: 0 0 1rem;
+}
+
+.finding-group h3 {
+  font-size: 1.15rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.finding-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: var(--measure);
+}
+
+.finding {
+  padding: 0.7rem 0 0.7rem 0.9rem;
+  border-left: 4px solid var(--field);
+  margin-bottom: 0.6rem;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--rule);
+}
+
+.severity-error .finding {
+  border-left-color: var(--danger);
+}
+
+.severity-warning .finding {
+  border-left-color: var(--restricted);
+}
+
+.finding p {
+  margin: 0 0.9rem 0.2rem 0;
+}
+
+.finding-message {
+  font-weight: 600;
+}
+
+.finding-meta {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.rule-id {
+  margin-left: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.finding-fix {
+  font-size: 0.92rem;
+}
+
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: var(--measure);
+}
+
+.history li {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px dotted var(--rule);
+  font-size: 0.95rem;
+}
+
+.history time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.history-note {
+  display: block;
+  margin-top: 0.2rem;
+  font-style: italic;
+}
+
+/* Questions and confirmations are modal dialogs: they overlay the page, so opening one moves
+   nothing on it. */
+.modal {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  margin: auto;
+  padding: 1.5rem 1.6rem;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.2);
+}
+
+.modal.wide {
+  width: min(48rem, calc(100vw - 2rem));
+}
+
+.modal::backdrop {
+  background: rgb(20 24 32 / 0.45);
+}
+
+.modal h2 {
+  font-size: 1.25rem;
+  margin: 0 0 0.75rem;
+}
+
+.modal .dropzone,
+.modal .package {
+  max-width: none;
+}
+
 @media (max-width: 51rem) {
   .ds-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1125,6 +1342,15 @@ table.cols tbody th {
 }
 
 @media (max-width: 40rem) {
+  .history li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .uploads li {
+    grid-template-columns: minmax(0, 1fr) 5rem;
+  }
+
   /* After the account slot's own rule: on a phone it ends the areas' row. */
   .account {
     position: absolute;
