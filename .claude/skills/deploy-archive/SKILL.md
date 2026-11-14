@@ -66,11 +66,12 @@ tell the person.
 
 ### 3. ✋ Connect GitHub to AWS
 
-**What it does.** Creates, in their AWS account, GitHub's OIDC provider and one IAM role,
-`ResearchArchiveDeploy`. The role trusts only this fork's GitHub environments named for the stages
+**What it does.** Deploys the `ResearchArchiveDeploy` stack into their AWS account: GitHub's OIDC
+provider and one IAM deploy role. The role trusts only this fork's GitHub environments named for the stages
 (`repo:<owner>/<name>:environment:<stage>`) and may only assume CDK's bootstrap roles. It also
 bootstraps CDK in the account and region if that hasn't been done (a `CDKToolkit` stack with an
-S3 bucket), and creates one GitHub environment per stage holding the role's ARN and the region.
+S3 bucket), and creates one GitHub environment per stage holding the role's ARN and the region,
+which only `main` may deploy from.
 
 **What it costs.** The provider and role cost nothing. The CDK bootstrap bucket bills for the
 little it stores.
@@ -98,16 +99,21 @@ stage names, signed in to that account):
    aws cloudformation describe-stacks --stack-name ResearchArchiveDeploy --query "Stacks[0].Outputs[?OutputKey=='DeployRoleArn'].OutputValue" --output text
    ```
 
-4. For each stage in that account, create its environment and set its two variables (the
-   stage's own `region`, or the profile's region when the stage names none):
+4. For each stage in that account, create its environment so that only `main` can deploy from
+   it, then set its two variables (the stage's own `region`, or the profile's region when the
+   stage names none). The branch rule matters: the role trusts any workflow run in the stage's
+   environment, so without it a push to any branch whose workflow names `environment: prod`
+   could assume the role and deploy.
 
    ```
-   gh api -X PUT repos/<owner>/<name>/environments/<stage>
+   gh api -X PUT repos/<owner>/<name>/environments/<stage> --input - <<< '{"deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}}'
+   gh api -X POST repos/<owner>/<name>/environments/<stage>/deployment-branch-policies -f name=main -f type=branch
    gh api -X POST repos/<owner>/<name>/environments/<stage>/variables -f name=AWS_DEPLOY_ROLE_ARN -f value=<role-arn>
    gh api -X POST repos/<owner>/<name>/environments/<stage>/variables -f name=AWS_REGION -f value=<region>
    ```
 
-   A variable that already exists is changed with
+   A branch policy that already exists answers with an error; that is fine. A variable that
+   already exists is changed with
    `gh api -X PATCH repos/<owner>/<name>/environments/<stage>/variables/<NAME> -f name=<NAME> -f value=<value>`.
 
 Tell them that to require an approval before `prod` deploys, they add a required reviewer to the
@@ -198,13 +204,14 @@ them the site's URL:
 3. ✋ **Wait for:** "destroy <stage>". Then: `just destroy <stage>`. It deletes the stack and the
    log group CDK's S3 auto-delete helper leaves behind, and fails if the stack still exists.
 4. ✋ Only when no stage is left in that account (every stage `archive.yaml` puts there is
-   destroyed): offer removing the GitHub connection. What it does: deletes `ResearchArchiveDeploy`
-   (the OIDC provider and the role) and the stages' GitHub environments; CI can no longer deploy
-   to this account. **Wait for:** "remove the connection". Then:
+   destroyed): offer removing the GitHub connection. What it does: deletes the
+   `ResearchArchiveDeploy` stack (the OIDC provider and the deploy role) and the GitHub
+   environment of every stage in that account; CI can no longer deploy to this account.
+   **Wait for:** "remove the connection". Then, naming every stage in that account:
 
    ```
    cd packages/infra && npx cdk --app "npx tsx bin/deploy-access.ts" destroy -c githubRepo=<owner>/<name> --force
-   gh api -X DELETE repos/<owner>/<name>/environments/<stage>
+   for stage in <stage> <stage>; do gh api -X DELETE "repos/<owner>/<name>/environments/$stage"; done
    ```
 
    The CDK bootstrap stack stays; other CDK apps in the account may use it.
