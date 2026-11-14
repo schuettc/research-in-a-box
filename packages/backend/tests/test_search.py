@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Any
 
-from archive_backend.search import SearchQuery, search
+from archive_backend.search import SearchQuery, keyword_ranking, search
 
 
 def _row(dataset_id: str, **fields: Any) -> dict[str, Any]:
@@ -14,16 +14,65 @@ def _ids(rows: list[dict[str, Any]], **query: Any) -> list[str]:
     return [r["id"] for r in search(rows, SearchQuery(**query)).rows]
 
 
-def test_every_word_of_q_must_appear_ignoring_case() -> None:
+def test_any_word_of_q_matches_ignoring_case() -> None:
     rows = [
         _row("a", title="Stream temperature", description="Hourly loggers"),
         _row("b", description="stream chemistry", keywords=["Temperature"]),
         _row("c", creators=["Ada Stream"], description="TEMPERATURE"),
         _row("d", title="Lake temperature"),
+        _row("e", title="Soil cores"),
     ]
 
-    assert sorted(_ids(rows, q="stream TEMPERATURE")) == ["a", "b", "c"]
-    assert _ids(rows, q="  ") == ["a", "b", "c", "d"]
+    assert sorted(_ids(rows, q="stream TEMPERATURE")) == ["a", "b", "c", "d"]
+    assert _ids(rows, q="  ") == ["a", "b", "c", "d", "e"]
+
+
+def test_more_matching_words_rank_first() -> None:
+    rows = [
+        _row("plants", title="Forest plants", description="Leaf counts"),
+        _row("ozone", title="Ozone injury", description="Foliar damage to plants"),
+        _row("storm", title="Storm survey", description="Wind damage"),
+    ]
+
+    assert _ids(rows, q="ozone damage on plants") == ["ozone", "plants", "storm"]
+
+
+def test_a_title_word_outranks_a_description_only_word() -> None:
+    rows = [
+        _row("described", description="birds"),
+        _row("titled", title="Birds", published="2001-01-01T00:00:00Z"),
+    ]
+
+    assert _ids(rows, q="birds") == ["titled", "described"]
+
+
+def test_plurals_match_their_singular() -> None:
+    rows = [
+        _row("species", title="Species lists"),
+        _row("tree", description="One tree"),
+        _row("bat", keywords=["bat"]),
+    ]
+
+    assert _ids(rows, q="species") == ["species"]
+    assert _ids(rows, q="trees") == ["tree"]
+    assert _ids(rows, q="bats") == ["bat"]
+
+
+def test_common_words_alone_match_nothing() -> None:
+    rows = [_row("a", title="On the lake", description="the shore")]
+
+    assert _ids(rows, q="on the") == []
+    assert search(rows, SearchQuery(q="on the")).total == 0
+
+
+def test_keyword_ranking_lists_matching_ids_in_order() -> None:
+    rows = [
+        _row("b", description="lake"),
+        _row("a", title="Lake"),
+        _row("c", title="River"),
+    ]
+
+    assert keyword_ranking(rows, "lakes") == ["a", "b"]
 
 
 def test_title_matches_come_first_then_newest_published_then_id() -> None:
