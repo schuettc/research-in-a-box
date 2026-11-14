@@ -34,11 +34,19 @@ async function load(id: string, version: number | undefined): Promise<View> {
   const [answer, versions] = await Promise.all([getVersion(id, version), getVersions(id)]);
   const manifest = answer.manifest as Manifest;
   const latest = Math.max(...versions.versions.map((entry) => entry.version));
+  // Where the files are stored decides open or restricted; the manifest only tells
+  // by-request and description-only apart, and a manifest that doesn't say is open.
+  const said = manifest["archive:access"];
+  const access =
+    answer.prefix.split("/")[0] === "restricted"
+      ? said && said !== "open"
+        ? said
+        : "restricted"
+      : "open";
   return {
     version: answer.version,
     manifest,
-    // A manifest that doesn't say is treated as restricted, so its files go through the API.
-    access: manifest["archive:access"] ?? "restricted",
+    access,
     project: manifest["archive:project"] ?? null,
     published: answer.publishedAt ?? manifest["archive:published"] ?? null,
     newer: latest > answer.version ? latest : null,

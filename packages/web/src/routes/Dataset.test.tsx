@@ -159,6 +159,24 @@ test("the versioned route shows a note linking to the newer version", async () =
   expect(screen.getByText("Published 2024-07-01")).toBeDefined();
 });
 
+test("on the versioned route, an open prefix with no archive:access gives a plain /data link", async () => {
+  const unsaid = { ...MANIFEST };
+  delete unsaid["archive:access"];
+  fetchMock.mockImplementation(async (url: string) => {
+    const path = new URL(url, "https://site").pathname;
+    if (path === `/api/datasets/${ID}/versions/1`) {
+      return Response.json({ ...VERSION, manifest: unsaid });
+    }
+    if (path === `/api/datasets/${ID}/versions`) return Response.json(VERSIONS);
+    return Response.json({ message: "not found" }, { status: 404 });
+  });
+  renderDataset(1);
+  const files = await filesTable();
+
+  const logger = within(files).getByRole("link", { name: "Download Logger readings" });
+  expect(logger.getAttribute("href")).toBe(`/data/${ID}/1/data/logger.csv`);
+});
+
 test("the usage panel appears after a download and sends the answers", async () => {
   renderDataset();
   const files = await filesTable();
