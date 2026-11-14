@@ -4,7 +4,8 @@ A published version sits at `<open|restricted>/<datasetId>/<version>/` with `dat
 at its root. The durable handler empties the inactive table, writes every manifest's catalog
 items as DynamoDB JSON lines under the derived bucket's `reindex/<run>/data/`, bulk-loads them
 into that table, waits for the load to end, and flips the active-catalog parameter only when the
-load ends COMPLETED. Every stage is a checkpointed step, so a replay never repeats one.
+load ends COMPLETED, then rewrites the catalog file from the table it flipped to. Every stage is
+a checkpointed step, so a replay never repeats one.
 """
 
 from __future__ import annotations
@@ -28,6 +29,8 @@ from aws_durable_execution_sdk_python.waits import (
     WaitForConditionConfig,
     WaitForConditionDecision,
 )
+
+from archive_backend.catalog_file import write_catalog_file
 
 if TYPE_CHECKING:
     # Dev-only stubs: the Lambda asset is built without them.
@@ -113,19 +116,24 @@ def _file_item(
 def catalog_items(
     prefix: str, dataset_id: str, version: int, manifest_text: str
 ) -> list[dict[str, Any]]:
-    """The version item and one file item per resource path and `archive:files` member."""
+    """The version item and one file item per resource path and `archive:files` member.
+
+    The version item carries the manifest's `archive:published` as `publishedAt` when it has one.
+    """
     manifest = json.loads(manifest_text)
     pk = f"DATASET#{dataset_id}"
     sk = _sk(version)
-    items: list[dict[str, Any]] = [
-        {
-            "PK": _s(pk),
-            "SK": _s(sk),
-            "version": _n(version),
-            "prefix": _s(prefix),
-            "manifest": _s(manifest_text),
-        }
-    ]
+    version_item: dict[str, Any] = {
+        "PK": _s(pk),
+        "SK": _s(sk),
+        "version": _n(version),
+        "prefix": _s(prefix),
+        "manifest": _s(manifest_text),
+    }
+    published = manifest.get("archive:published")
+    if isinstance(published, str) and published:
+        version_item["publishedAt"] = _s(published)
+    items: list[dict[str, Any]] = [version_item]
     files: dict[str, dict[str, Any]] = {}
     for resource in manifest.get("resources") or []:
         name, fmt = resource.get("name"), resource.get("format")
@@ -358,12 +366,35 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
         status = str(ended["status"])
 
     flipped = status == "COMPLETED"
+    rows: int | None = None
     if flipped:
 
         def flip(_: object) -> None:
             c.ssm.put_parameter(Name=parameter, Value=target, Overwrite=True)
 
         context.step(flip, name="flip")
+
+        def catalog(_: object) -> dict[str, Any]:
+            try:
+                return {"rows": write_catalog_file(table, derived, dynamodb=c.dynamodb, s3=c.s3)}
+            except Exception as error:
+                return {"error": f"{type(error).__name__}: {error}"}
+
+        written = context.step(catalog, name="catalog")
+        rows = written.get("rows")
+        if "error" in written:
+            subject = f"Reindex {run_id} could not write the catalog file"
+            error = str(written["error"])
+
+            def catalog_alert(_: object) -> None:
+                c.sns.publish(
+                    TopicArn=topic,
+                    Subject=subject[:100],
+                    Message=f"Reindex {run_id} flipped to {target} but writing "
+                    f"s3://{derived}/site/catalog.json failed: {error}",
+                )
+
+            context.step(catalog_alert, name="alert")
     else:
         subject = f"Reindex {run_id} on {target} ended {status}"
 
@@ -376,7 +407,14 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
 
         context.step(alert, name="alert")
 
-    return {"run": run_id, "target": target, "status": status, "items": count, "flipped": flipped}
+    return {
+        "run": run_id,
+        "target": target,
+        "status": status,
+        "items": count,
+        "flipped": flipped,
+        "catalog": rows,
+    }
 
 
 handler = durable_execution(run)
