@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,8 +31,15 @@ interface Brand {
   contact: string | null;
   primaryColor: string;
   font: string | null;
-  /** The brand's files on disk, by the name they are served at under `/brand/`. */
+  /**
+   * The brand's files on disk, by the name they are served at under `/brand/`: the logo and
+   * favicon named by their content (`logo-<hash>.svg`), which the app and index.html use and
+   * which cache for a year, and the logo again as `logo.<ext>`, the stable name the static
+   * dataset pages use, deployed no-cache.
+   */
   files: Map<string, string>;
+  /** The content-named file of each kind. */
+  hashed: Map<"logo" | "favicon", string>;
 }
 
 /** The archive config: `ARCHIVE_CONFIG` when set, as the infra app reads it. */
@@ -47,9 +55,15 @@ function readBrand(): Brand {
     throw new Error("brand.font isn't a CSS font-family list");
   }
   const files = new Map<string, string>();
+  const hashed = new Map<"logo" | "favicon", string>();
   for (const kind of ["logo", "favicon"] as const) {
-    const file = brand[kind];
-    if (file) files.set(`${kind}${extname(file).toLowerCase()}`, resolve(dirname(path), file));
+    if (!brand[kind]) continue;
+    const file = resolve(dirname(path), brand[kind]);
+    const ext = extname(file).toLowerCase();
+    const hash = createHash("sha256").update(readFileSync(file)).digest("hex").slice(0, 8);
+    hashed.set(kind, `${kind}-${hash}${ext}`);
+    files.set(`${kind}-${hash}${ext}`, file);
+    if (kind === "logo") files.set(`logo${ext}`, file);
   }
   return {
     publisher: config.publisher,
@@ -59,11 +73,12 @@ function readBrand(): Brand {
     primaryColor,
     font: brand.font ?? null,
     files,
+    hashed,
   };
 }
 
 function brandUrl(brand: Brand, kind: "logo" | "favicon"): string | null {
-  const name = [...brand.files.keys()].find((file) => file.startsWith(`${kind}.`));
+  const name = brand.hashed.get(kind);
   return name ? `/brand/${name}` : null;
 }
 
@@ -95,7 +110,8 @@ const CONTENT_TYPES: Record<string, string> = {
 
 /**
  * The brand at build time: `virtual:brand.css` holds its colours and font, its logo and favicon
- * are copied to `/brand/`, and `index.html` takes its name and favicon.
+ * are copied to `/brand/` under their content-hashed names (and the logo under its stable name
+ * for the static pages), and `index.html` takes its name and favicon.
  */
 function branding(brand: Brand): Plugin {
   return {

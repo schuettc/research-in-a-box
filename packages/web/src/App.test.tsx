@@ -104,7 +104,7 @@ test("the masthead shows the brand's logo", () => {
   renderAt("/");
 
   const logo = screen.getByRole("banner").querySelector("img");
-  expect(logo?.getAttribute("src")).toBe("/brand/logo.svg");
+  expect(logo?.getAttribute("src")).toMatch(/^\/brand\/logo-[0-9a-f]{8}\.svg$/);
   expect(logo?.getAttribute("alt")).toBe("");
 });
 

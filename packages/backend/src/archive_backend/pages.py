@@ -59,7 +59,8 @@ class PageBrand:
 
 
 def page_brand(config: ArchiveConfig) -> PageBrand:
-    """The archive config's brand, as the web build serves it (the logo at `/brand/`)."""
+    """The archive config's brand, as the web build serves it: the logo at its stable
+    `/brand/logo.<ext>`, which the site deploys no-cache so a rebrand reaches these pages."""
     brand = config.brand
     if brand is None:
         return PageBrand(name=config.publisher, logo=None, color=DEFAULT_COLOR)

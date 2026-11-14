@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { IgnoreMode } from "aws-cdk-lib";
 import type * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
@@ -119,15 +120,22 @@ export class Web extends Construct {
   /**
    * Upload the web build and /auth-config.json into the derived bucket's `site/`. Pruning is
    * off in both deployments: catalog.json and datasets/ share the folder. The hashed assets
-   * cache for a year and go first; index.html, app.js and auth-config.json are no-cache and
-   * invalidated, so a release reaches readers at once.
+   * (the brand's logo and favicon among them, named by their content) cache for a year and go
+   * first; index.html, app.js, auth-config.json and brand/logo.<ext>, the stable logo the static
+   * dataset pages name, are no-cache and invalidated, so a release or a rebrand reaches readers
+   * at once. Both use gitignore matching, which can re-include brand/logo.<ext> after `/*`.
    */
   deploySite(authConfig: AuthConfig): void {
     if (!existsSync(WEB_BUILD)) {
       throw new Error("packages/web/dist is missing: run npm run build -w packages/web first");
     }
     const assets = new s3deploy.BucketDeployment(this, "SiteAssets", {
-      sources: [s3deploy.Source.asset(WEB_BUILD, { exclude: ["index.html", "app.js"] })],
+      sources: [
+        s3deploy.Source.asset(WEB_BUILD, {
+          exclude: ["/index.html", "/app.js", "/brand/logo.*"],
+          ignoreMode: IgnoreMode.GIT,
+        }),
+      ],
       destinationBucket: this.derivedBucket,
       destinationKeyPrefix: "site/",
       prune: false,
@@ -135,7 +143,10 @@ export class Web extends Construct {
     });
     const site = new s3deploy.BucketDeployment(this, "Site", {
       sources: [
-        s3deploy.Source.asset(WEB_BUILD, { exclude: ["*", "!index.html", "!app.js"] }),
+        s3deploy.Source.asset(WEB_BUILD, {
+          exclude: ["/*", "!/index.html", "!/app.js", "!/brand/", "/brand/*", "!/brand/logo.*"],
+          ignoreMode: IgnoreMode.GIT,
+        }),
         s3deploy.Source.jsonData("auth-config.json", { ...authConfig }),
       ],
       destinationBucket: this.derivedBucket,
@@ -143,7 +154,7 @@ export class Web extends Construct {
       prune: false,
       cacheControl: [s3deploy.CacheControl.noCache()],
       distribution: this.distribution,
-      distributionPaths: ["/index.html", "/app.js", "/auth-config.json"],
+      distributionPaths: ["/index.html", "/app.js", "/auth-config.json", "/brand/logo.*"],
     });
     site.node.addDependency(assets);
   }
