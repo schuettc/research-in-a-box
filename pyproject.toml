@@ -39,6 +39,7 @@ mypy_path = [
     "packages/tool/src",
     "packages/backend/src",
     "examples/femc/src",
+    "scripts",
 ]
 explicit_package_bases = true
 # Third-party code for the Lambda bundle: installed by just lambda-assets, staged by cdk synth
@@ -46,7 +47,8 @@ exclude = ["^packages/infra/assets/", "^packages/infra/cdk\\.out/"]
 
 [tool.pytest.ini_options]
 testpaths = ["packages", "examples/femc", "scripts"]
+pythonpath = ["scripts"]
 addopts = ["--import-mode=importlib"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["archive_contract", "cruise", "archive_backend", "femc"]
+known-first-party = ["archive_contract", "cruise", "archive_backend", "femc", "smoke"]

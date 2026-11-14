@@ -61,8 +61,8 @@ reindex-status stage:
     aws lambda get-durable-execution --durable-execution-arn "$arn" \
         --query "{status: Status, result: Result}" --output json
 
-# Invite a person to the stage by email, optionally into a group (contributor, curator or admin)
-invite-user stage email group="":
+# Invite a person to the stage by email, optionally into groups: a comma-separated list of contributor, curator and admin
+invite-user stage email groups="":
     #!/usr/bin/env bash
     set -euo pipefail
     pool="$(aws cloudformation describe-stack-resources --stack-name "ResearchArchive-{{stage}}" \
@@ -70,10 +70,46 @@ invite-user stage email group="":
     aws cognito-idp admin-create-user --user-pool-id "$pool" --username "{{email}}" \
         --user-attributes Name=email,Value="{{email}}" Name=email_verified,Value=true \
         --desired-delivery-mediums EMAIL >/dev/null
-    if [ -n "{{group}}" ]; then
-        aws cognito-idp admin-add-user-to-group --user-pool-id "$pool" --username "{{email}}" --group-name "{{group}}"
+    IFS=',' read -ra groups <<< "{{groups}}"
+    for group in "${groups[@]}"; do
+        group="${group// /}"
+        [ -n "$group" ] || continue
+        aws cognito-idp admin-add-user-to-group --user-pool-id "$pool" --username "{{email}}" --group-name "$group"
+    done
+    echo "invited {{email}} to {{stage}} {{groups}}"
+
+# Check the stage's site with no sign-in: site, health, search, the sample dataset's page and a download
+smoke stage:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    domain="$(aws cloudformation describe-stacks --stack-name "ResearchArchive-{{stage}}" \
+        --query "Stacks[0].Outputs[?OutputKey=='SiteDomain'].OutputValue" --output text)"
+    if [ -z "$domain" ] || [ "$domain" = "None" ]; then
+        echo "ResearchArchive-{{stage}} has no SiteDomain output"
+        exit 1
     fi
-    echo "invited {{email}} to {{stage}} {{group}}"
+    python3 scripts/smoke.py "$domain"
+
+# Delete the stage's stack and the log group CDK's S3 auto-delete helper leaves behind; run from a laptop, never CI
+destroy stage:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    (cd packages/infra && npx cdk destroy "ResearchArchive-{{stage}}" --force)
+    prefix="/aws/lambda/ResearchArchive-{{stage}}-CustomS3AutoDeleteObjects"
+    for group in $(aws logs describe-log-groups --log-group-name-prefix "$prefix" \
+        --query "logGroups[].logGroupName" --output text); do
+        aws logs delete-log-group --log-group-name "$group"
+        echo "deleted log group $group"
+    done
+    if answer="$(aws cloudformation describe-stacks --stack-name "ResearchArchive-{{stage}}" 2>&1)"; then
+        echo "ResearchArchive-{{stage}} still exists"
+        exit 1
+    fi
+    if ! grep -q "does not exist" <<< "$answer"; then
+        echo "could not confirm ResearchArchive-{{stage}} is gone: $answer"
+        exit 1
+    fi
+    echo "ResearchArchive-{{stage}} is gone"
 
 # Subscribe a curator's email to the stage's curators' topic, for messages to their user id or to all
 add-curator stage email userId:

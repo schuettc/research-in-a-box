@@ -1,4 +1,4 @@
-import { Stack } from "aws-cdk-lib";
+import { CfnOutput, Stack } from "aws-cdk-lib";
 import type * as apigateway from "aws-cdk-lib/aws-apigateway";
 import type * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import type * as cognito from "aws-cdk-lib/aws-cognito";
@@ -148,6 +148,10 @@ export class ResearchArchive extends Construct {
       restApi: this.api,
     }).distribution;
     this.operations.addDistribution(this.distribution);
+    new CfnOutput(Stack.of(this), "SiteDomain", {
+      key: "SiteDomain",
+      value: this.distribution.distributionDomainName,
+    });
     this.userPoolClients = auth.addAppClients(this.distribution.distributionDomainName);
     if (!this.isProd) {
       auth.addTestClient(this.distribution.distributionDomainName);
