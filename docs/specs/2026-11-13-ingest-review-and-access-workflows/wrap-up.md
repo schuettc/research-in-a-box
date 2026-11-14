@@ -1,7 +1,7 @@
 ---
 diazo: research-archive-in-a-box/ingest-review-and-access-workflows
 file: wrap-up
-status: printed
+status: out of date (PLAN2 added)
 hash: 26e49bfa81685d1930d8835a6404ba2e951af17374c10054b272e028fa86ab33
 rests_on: [PLAN1]
 record: README.md
