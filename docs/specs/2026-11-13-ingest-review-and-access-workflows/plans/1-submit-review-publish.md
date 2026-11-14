@@ -1,9 +1,9 @@
 ---
 diazo: research-archive-in-a-box/ingest-review-and-access-workflows
 file: PLAN1
-status: approved
+status: waiting
 approved: 2026-11-13T22:39:54-06:00
-hash: 22b15995438c84321c7c579feb0197dee72b5366db98e03f5a0b7b320d935306
+hash: 2626c3cfe8272b185c0458198dc7fcaeae7203725d69690b289204768fb645eb
 rests_on: [AGNT1, AGNT10, AGNT11, AGNT12, AGNT13, AGNT14, AGNT15, AGNT2, AGNT3, AGNT4, AGNT5, AGNT6, AGNT7, AGNT8, AGNT9, DCSN1, DCSN2, DCSN3]
 record: README.md
 ---
@@ -36,7 +36,7 @@ Everything in the spec's Left out section: by-request access, takedown and acces
 
 ## Where
 
-Branch `plan7/build-plan1` from `origin/main`, in the worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-archive-in-a-box/plan7/build-plan1`. One pull request per task, or one for the plan, against `main`, with auto-merge on once checks pass. The deployed run in Task 7 uses a non-prod stage named `test` through `ARCHIVE_CONFIG`, so `archive.yaml` is not edited.
+Branch `plan7/build-plan1` from `origin/main`, in the worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-archive-in-a-box/plan7/build-plan1`. One pull request per task, or one for the plan, against `main`, with auto-merge on once checks pass. The deployed run in Task 7 uses a non-prod stage named `ingest-test` through `ARCHIVE_CONFIG`, so `archive.yaml` is not edited. Plan 6 deploys and destroys its own `test` stage, so the two never collide. Accounts are invitation-only, so the run never relies on self-service sign-up.
 
 ### Task 1: The review policy model and matcher
 
@@ -194,8 +194,8 @@ Check the GuardDuty plan's CloudFormation properties against the AWS documentati
 ### Task 7: The run on a test stage
 
 **Does:** A test-only Cognito app client and `just ingest-e2e <stage>`, which drives the runs listed below.
-**Files:** `packages/infra/src/auth.ts`, `packages/infra/test/auth.test.ts`, `scripts/ingest_e2e.py`, `justfile`, a test config such as `examples/test-stage/archive.yaml`.
-**Checks:** `just check`; `just ingest-e2e test` against the deployed stage
+**Files:** `packages/infra/src/auth.ts`, `packages/infra/test/auth.test.ts`, `scripts/ingest_e2e.py`, `justfile`, a test config such as `examples/ingest-test-stage/archive.yaml`.
+**Checks:** `just check`; `just ingest-e2e ingest-test` against the deployed stage
 **Serves:** DCSN1, DCSN2, DCSN3 (rests on calls AGNT13, AGNT15)
 
 Adds a test-only Cognito app client `e2e` with `ADMIN_USER_PASSWORD_AUTH`, created only on non-prod stages, and `scripts/ingest_e2e.py` behind `just ingest-e2e <stage>`. The script:
