@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Submitting a dataset: two ways</title>
+<style>
+  :root { --brand:#24395f; --ink:#1f2328; --muted:#5b6370; --rule:#ddd6c8; --paper:#fbf9f5; --soft:#f3efe6; --radius:6px; --ok:#2e6b3f; --warn:#8a5a00; --err:#a3261c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:15px/1.55 system-ui,sans-serif; }
+  .tabs { display:flex; gap:8px; padding:10px 16px; background:#1f2328; }
+  .tabs button { font:inherit; font-size:13px; padding:5px 10px; border-radius:6px; border:1px solid #555; background:#2b3036; color:#fff; cursor:pointer; }
+  .tabs button[aria-selected=true] { background:#fff; color:#1f2328; }
+  header { border-top:6px solid var(--brand); border-bottom:1px solid var(--rule); background:#fff; }
+  header .in { max-width:64rem; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:14px; }
+  .logo { width:40px; height:40px; border-radius:4px; background:var(--brand); color:#fff; font:700 13px Georgia,serif; display:grid; place-items:center; }
+  .name { font:600 19px Georgia,serif; }
+  nav { margin-left:auto; display:flex; gap:22px; font-size:14px; } nav a { color:var(--ink); text-decoration:none; }
+  .acct { margin-left:16px; border:1px solid var(--rule); border-radius:var(--radius); padding:5px 12px; font-size:14px; background:#fff; }
+  main { max-width:64rem; margin:0 auto; padding:32px 24px 48px; }
+  h1 { font:600 30px/1.2 Georgia,serif; margin:0 0 6px; }
+  .lede { color:var(--muted); margin:0 0 24px; max-width:44rem; }
+  .screen { display:none; } .screen.on { display:block; }
+  .steps { display:flex; gap:0; margin:0 0 24px; padding:0; list-style:none; border-bottom:1px solid var(--rule); }
+  .steps li { padding:8px 16px 10px; font-size:14px; color:var(--muted); border-bottom:3px solid transparent; }
+  .steps li.now { color:var(--ink); font-weight:600; border-color:var(--brand); }
+  .card { background:#fff; border:1px solid var(--rule); border-radius:var(--radius); padding:20px 22px; margin-bottom:16px; }
+  .drop { border:2px dashed var(--rule); border-radius:var(--radius); padding:34px; text-align:center; background:#fff; }
+  .drop b { display:block; font:600 18px Georgia,serif; margin-bottom:4px; }
+  .muted { color:var(--muted); font-size:14px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; } th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--rule); } th { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .bar { height:6px; background:var(--soft); border-radius:3px; overflow:hidden; } .bar i { display:block; height:100%; background:var(--brand); }
+  .pill { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:1px 7px; border-radius:4px; border:1px solid; }
+  .err { color:var(--err); border-color:var(--err); } .warn { color:var(--warn); border-color:var(--warn); } .note { color:var(--muted); border-color:var(--rule); } .ok { color:var(--ok); border-color:var(--ok); }
+  .finding { display:grid; grid-template-columns:7rem 1fr; gap:10px; padding:10px 0; border-bottom:1px solid var(--rule); }
+  .btn { font:inherit; padding:8px 16px; border-radius:var(--radius); border:1px solid var(--rule); background:#fff; cursor:pointer; }
+  .btn.primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .row { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
+  label { display:block; font-weight:600; font-size:14px; margin:12px 0 4px; } input,textarea,select { width:100%; font:inherit; padding:8px 10px; border:1px solid var(--rule); border-radius:var(--radius); background:#fff; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:40rem) { .two { grid-template-columns:1fr; } nav { display:none; } }
+</style>
+</head>
+<body>
+<div class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-s="a">A · Upload a package made with cruise</button>
+  <button role="tab" aria-selected="false" data-s="b">B · Build the package in the browser</button>
+</div>
+<header><div class="in"><div class="logo">IRC</div><div class="name">Invented Research Cooperative</div><nav><a href="#">Browse</a><a href="#">Submit</a><a href="#">About the archive</a></nav><span class="acct">Account ▾</span></div></header>
+<main>
+<section class="screen on" id="a">
+  <h1>Submit a dataset</h1>
+  <p class="lede">Prepare the package on your own machine with <code>cruise</code>, then drop its folder here. The archive runs the same checks again and shows you the same findings before a curator sees it.</p>
+  <ol class="steps"><li class="now">1 · Choose the folder</li><li>2 · Upload</li><li>3 · Checks</li><li>4 · Review</li></ol>
+  <div class="drop"><b>Drop your package folder here</b><span class="muted">or <u>choose a folder</u> · it must hold datapackage.json and checksums.sha256</span></div>
+  <div class="card" style="margin-top:16px">
+    <strong>stream-temperature/</strong> <span class="muted">· 15 files · 50.7 kB · new dataset</span>
+    <table style="margin-top:10px"><tr><th>File</th><th>Size</th><th style="width:40%">Upload</th></tr>
+      <tr><td><code>datapackage.json</code></td><td>9.1 kB</td><td><div class="bar"><i style="width:100%"></i></div></td></tr>
+      <tr><td><code>data/logger.csv</code></td><td>3.4 kB</td><td><div class="bar"><i style="width:100%"></i></div></td></tr>
+      <tr><td><code>data/logger.xlsx</code></td><td>41.9 kB</td><td><div class="bar"><i style="width:62%"></i></div></td></tr>
+      <tr><td class="muted" colspan="3">12 more</td></tr></table>
+    <div class="row"><button class="btn">Cancel</button><button class="btn primary">Submit for checks</button></div>
+  </div>
+  <div class="card">
+    <strong>Checks</strong> <span class="pill ok">passed</span> <span class="muted">· score 87 · 0 errors · 1 warning · 2 notes · waiting for a curator</span>
+    <div class="finding"><span class="pill warn">warning</span><span><b>logger.battery_v has no description.</b><br><span class="muted">Add a description in datapackage.json, or answer the curator if they ask.</span></span></div>
+    <div class="finding"><span class="pill note">note</span><span>qc_flag holds codes with no code list.</span></div>
+  </div>
+</section>
+
+<section class="screen" id="b">
+  <h1>Submit a dataset</h1>
+  <p class="lede">Describe the dataset step by step and add its files; the archive writes the package, runs the checks and shows the findings.</p>
+  <ol class="steps"><li>1 · About</li><li class="now">2 · People and rights</li><li>3 · Files</li><li>4 · Columns</li><li>5 · Checks</li></ol>
+  <div class="card">
+    <div class="two"><div><label>Creator</label><input value="Ada Invented"></div><div><label>Affiliation</label><input value="Example Lab"></div></div>
+    <div class="two"><div><label>Licence</label><select><option>CC BY 4.0</option></select></div><div><label>Access</label><select><option>Open</option></select></div></div>
+    <label>Temporal coverage</label><div class="two"><input value="2024-06-01"><input placeholder="ongoing"></div>
+    <div class="row"><button class="btn">Back</button><button class="btn primary">Next: files</button></div>
+  </div>
+  <div class="card"><strong>Columns · logger.csv</strong> <span class="muted">· 9 columns, inferred from the file</span>
+    <table style="margin-top:8px"><tr><th>Column</th><th>Type</th><th>Unit</th><th>Description</th></tr>
+    <tr><td><code>timestamp</code></td><td>datetime</td><td></td><td><input value="Local standard time of the reading"></td></tr>
+    <tr><td><code>water_temp_c</code></td><td>number</td><td>degC</td><td><input value="Water temperature"></td></tr>
+    <tr><td><code>battery_v</code></td><td>number</td><td>V</td><td><input placeholder="Describe this column"></td></tr></table>
+  </div>
+</section>
+</main>
+<script>
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===b.dataset.s));document.querySelectorAll('[data-s]').forEach(x=>x.setAttribute('aria-selected',x===b));});
+</script>
+</body>
+</html>

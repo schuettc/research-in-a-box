@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
   "schema": 4,
   "title": "Web app (Plan 8)",
-  "expect": 4,
-  "agent_at": "2026-11-14T18:24:01.365611Z",
+  "expect": 5,
+  "agent_at": "2026-11-14T21:28:41.999285Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 6, the API and search, and Plan 7, the ingest pipeline, for the submission screens.)\n\nBrief: Plan 8 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the web app (Plan 8): a static React with Vite app on S3 and CloudFront, backed by the API. Start with the reader's flow from search to dataset page to download, since findability is the main problem we set out to fix. The generated `README.md` in `practice-data/packages/ozone-bioindicators/` shows what a dataset page has to present."
@@ -269,6 +269,159 @@
           "result": "just destroy web-test exit 0; no web-test buckets, tables, functions, user pool or /research-archive/web-test parameters left; the site upload helper's log group was left behind and deleted by hand (PARK9)"
         }
       ]
+    },
+    {
+      "id": "STEP2",
+      "what": "Walk the new look and sign-in on a web-test stage with me",
+      "why": "Task 15, the last task of PLAN3: proves the branded look, the review's changes, the zips, the per-version pages and passkey sign-in on a real deploy",
+      "how": "One action at a time; the current one opens on its own. Screenshots are in this folder's screenshots/ (plan3-*.png).",
+      "done": true,
+      "done_at": "2026-11-14T15:26:51.114134-06:00",
+      "actions": [
+        {
+          "id": "A1",
+          "who": "agent",
+          "what": "Merge research-in-a-box#51 once its checks pass",
+          "state": "done",
+          "result": "research-in-a-box#51 merged as 6e111a2 after CI passed on eab1b96"
+        },
+        {
+          "id": "A1F",
+          "who": "agent",
+          "what": "Keep one frame on every view (PRIN1): measure the header, nav, heading, content and footer on every view, fix what moves",
+          "state": "done",
+          "result": "8 views at 1280 and 390: the scrollbar gutter is always reserved, the dataset page's eyebrow line is gone so every h1 starts at y=130 (154 on a phone), and the footer stays at the window's bottom on short pages; header, nav, h1 and content identical on every view; web 95/95, tsc 0; 454e6ac on plan8/steady-layout"
+        },
+        {
+          "id": "A1L2",
+          "who": "user",
+          "what": "Look locally: change views and check nothing moves",
+          "how": "The app runs locally against a stand-in API with the sample dataset (tmux window `p8-local`). Reload, then switch between these and watch the header, the nav and the page heading:\n```\nhttp://localhost:5199/\n```\n```\nhttp://localhost:5199/about\n```\n```\nhttp://localhost:5199/datasets/stream-temperature-sample\n```\n```\nhttp://localhost:5199/datasets/stream-temperature-sample-restricted\n```\nAlso try a phone-width window. Not shown locally: the themed sign-in and passkeys, real downloads and zips, and the static per-version pages; those come in the deployed walk.",
+          "state": "done",
+          "answered_at": "2026-11-14T14:16:53.082992-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "OK",
+              "label": "Looks good: deploy it",
+              "detail": "I open the PR for the layout fix, then the deploy Go opens"
+            },
+            {
+              "id": "CHANGES",
+              "label": "Needs changes",
+              "hands_back": true
+            }
+          ],
+          "choice": "OK"
+        },
+        {
+          "id": "A2",
+          "who": "user",
+          "what": "Go for deploying ResearchArchive-web-test",
+          "how": "This deploys the archive stack `ResearchArchive-web-test` into account 316091283514 (profile `personal`, us-east-1) from main, once two PRs are in: research-in-a-box#55 (the steady layout from your look) and #54 (the logo Cognito refused on Plan 9's deploy). Both have auto-merge on; if you press Go first, I deploy as soon as both have merged. It costs cents while it runs and is destroyed at the end, on your second Go.",
+          "state": "done",
+          "answered_at": "2026-11-14T14:16:55.870478-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "The agent deploys once #54 and #55 are merged"
+            },
+            {
+              "id": "NOGO",
+              "label": "No go",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A3",
+          "who": "agent",
+          "what": "Deploy, publish the sample package open and restricted, run just reindex, and walk it headless at 1280 and 390: the look and a second brand, search, the dataset page, the restricted banner, themed sign-in, a passkey with a virtual authenticator, Download all and a shapefile zip against their checksums, a cited /v1 page with the API cut off, no movement between views, and axe",
+          "state": "done",
+          "result": "deployed from 4bbba59 in 326 s, Cognito accepted the branding and passkeys; reindex SUCCEEDED (pages 4); every app check passes at 1280 and 390: search and facets, no movement between views, no sideways scroll, Download all and the shapefile zip match checksums.sha256, themed sign-in, Signed in as, restricted file and Download all, passkey added and signed in with, /v1 readable with the API blocked, axe clean on every app screen, second brand rebuilt; axe flags Cognito's own page (no h1); throwaway user deleted; court@subaud.io invited"
+        },
+        {
+          "id": "A4",
+          "who": "user",
+          "what": "Look at it, and sign in with a passkey on your own device",
+          "how": "The archive:\n```\nhttps://d2e9a4u1n01lhq.cloudfront.net\n```\n\n1. Browse: search, a filter, switch to About and back.\n2. Open the restricted copy and press **Sign in**. Use `court@subaud.io` and the temporary password from the newest invitation email (resent at 14:51), then set your own.\n3. In the header, press **Add a passkey** and add one on your device; you come back to \"Passkey added\".\n4. Sign out, then sign in again with the passkey.\n5. Download all on either dataset.",
+          "state": "done",
+          "answered_at": "2026-11-14T15:11:55.269323-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "OK",
+              "label": "Looks good"
+            },
+            {
+              "id": "CHANGES",
+              "label": "Needs changes",
+              "hands_back": true
+            }
+          ],
+          "choice": "OK"
+        },
+        {
+          "id": "A4F",
+          "who": "agent",
+          "what": "An Account dropdown in the header, the usage question as a modal, and Cognito's page on the archive's paper (your note)",
+          "state": "done",
+          "result": "0eef1af on plan8/menu-and-modal, web 96/96, just check 0; redeployed web-test; headless: sign-in page plain paper background (rgb 251,249,245, no image) with Back in the brand colour, Account menu names the reader with Add a passkey and Sign out, nav didn't move signing in, download opens a modal and the Files heading moved 0 px, no page errors; throwaway user deleted"
+        },
+        {
+          "id": "A4B",
+          "who": "user",
+          "what": "Look again: the Account menu, the usage modal and the plain sign-in page",
+          "how": "Reload the archive (a fresh tab is simplest), then:\n```\nhttps://d2e9a4u1n01lhq.cloudfront.net/datasets/stream-temperature-at-three-invented-sites-restricted-copy-ohttie\n```\n1. **Sign in** from the header. The sign-in page now sits on the archive's own paper colour, no gradient shapes. Use `court@subaud.io` and the temporary password from the newest invitation email (14:51), then set your own.\n2. Open **Account** in the header: your email, Add a passkey, Sign out.\n3. **Add a passkey** on your device, then Sign out and sign in again with it.\n4. Download a file: the question opens as a modal over the page; Escape or No thanks closes it.",
+          "state": "done",
+          "answered_at": "2026-11-14T15:12:12.243151-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "OK",
+              "label": "Looks good"
+            },
+            {
+              "id": "CHANGES",
+              "label": "Needs changes",
+              "hands_back": true
+            }
+          ],
+          "choice": "OK"
+        },
+        {
+          "id": "A5",
+          "who": "user",
+          "what": "Go for the teardown",
+          "how": "This destroys `ResearchArchive-web-test`: its stack, buckets, tables and user pool, including any account and passkey on it.",
+          "state": "done",
+          "answered_at": "2026-11-14T15:21:11.575025-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "The agent destroys the stage now"
+            },
+            {
+              "id": "NOGO",
+              "label": "Not yet",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A6",
+          "who": "agent",
+          "what": "Destroy ResearchArchive-web-test and confirm nothing is left",
+          "state": "done",
+          "result": "just destroy web-test exit 0; no web-test buckets, tables, functions, user pool or /research-archive/web-test parameters left; the BucketDeployment helper's log group deleted by hand (PARK9)"
+        }
+      ]
     }
   ],
   "decisions": [
@@ -468,6 +621,62 @@
       ],
       "state": "decided",
       "choice": "A"
+    },
+    {
+      "id": "DCSN5",
+      "name": "How contributors submit",
+      "question": "How should a contributor submit a dataset in the web app?",
+      "example": "Ada has a folder of logger data. Plan 7's API takes a finished package (datapackage.json, checksums.sha256 and the data files), runs the quality checks server-side and returns the findings. Today the only way to make that package is cruise on her own machine; the handoff asks for 'guided submission that shows the same findings as the local tool'.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Upload a package made with cruise",
+          "includes": "A Submit page: drop or choose the package folder, the browser checks it holds datapackage.json and checksums.sha256, hashes each file, uploads it through Plan 7's presigned links with progress, and submits. Then it shows the checks' findings (the same Finding model as cruise) and the status as it moves through review; on needs-changes, a resubmit of the corrected folder as the next round. A My submissions list.",
+          "pulls_in": "Contributors install cruise to prepare the package, as the agent layer (Plan 9) already guides them to. No new backend work beyond the small gaps below.",
+          "visuals": [
+            {
+              "kind": "mockup",
+              "caption": "Tab A: choose the folder, upload with progress, then the checks' findings",
+              "path": "mockups/submit-options.html"
+            }
+          ]
+        },
+        {
+          "id": "B",
+          "title": "Build the package in the browser",
+          "includes": "Everything in A, plus a step-by-step form (about, people and rights, files, columns) that writes datapackage.json and checksums.sha256 in the browser from the raw files, inferring column types, so no local tool is needed.",
+          "pulls_in": "Re-implementing a large part of cruise's packaging in TypeScript, kept in step with the contract and the rules; much the biggest plan in this folder.",
+          "visuals": [
+            {
+              "kind": "mockup",
+              "caption": "Tab B: the in-browser form",
+              "path": "mockups/submit-options.html"
+            }
+          ]
+        },
+        {
+          "id": "C",
+          "title": "A first, B later as its own plan",
+          "includes": "A now; the in-browser builder recorded as a follow-up to plan once A has been used by real contributors.",
+          "pulls_in": "The same as A now."
+        }
+      ],
+      "recommendation": {
+        "option": "C",
+        "why": "The checks already run server-side and return the same findings cruise shows, so A gives a contributor the whole loop (upload, findings, review, resubmit) with no second copy of the packaging logic. Building packages in the browser is a large separate tool; whether contributors need it should come from watching them use A.",
+        "evidence": [
+          {
+            "text": "Plan 7's create call takes a file list with sizes and SHA-256s and returns presigned PUTs; there is no manifest-building endpoint",
+            "source": "documents/plan7-api.md, section 1 and 3 (submissions.py:366-398)"
+          },
+          {
+            "text": "The findings report uses the contract's Finding model, the same one cruise prints",
+            "source": "documents/plan7-api.md, section 3 (ingest.py:339-365, archive_contract/findings.py:32-40)"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "C"
     }
   ],
   "calls": [
@@ -686,9 +895,39 @@
         }
       ],
       "state": "standing"
+    },
+    {
+      "id": "AGNT13",
+      "name": "PLAN2 screens and their gaps",
+      "question": "What does PLAN2 build, and how does it close the gaps the research found in Plan 7's API?",
+      "took": "Three areas in the Reading room look, one frame on every view (PRIN1): contributor (Submit, My submissions, a submission's status, findings and history, resubmit on needs-changes), curator (the review queue by status with stale and new-version marked, a submission's findings, held files with links and the in-browser table preview of a CSV's first rows read through its short-lived link, its history, and Approve, Reject or Request changes with a note, waiting correctly for a second curator), and admin (the review policy form generated from the ReviewPolicy JSON Schema). Nav entries appear only for the groups a reader is in. The gaps: a CORS rule on the staging bucket for the site's origin (PUT and GET), typed submission routes in the committed OpenAPI spec so the screens use generated types, a way to show people as emails rather than Cognito ids and to pick curators for named reviewers, and new upload links for an expired round-1 draft. I'm asking the coordinating session who builds the backend parts (Plan 7's code); PLAN2 is written once that's settled.",
+      "instead": "Build the screens against hand-written types and leave the gaps: uploads fail in the browser until CORS lands, people show as ids, and named reviewers are typed by id.",
+      "why": "The handoff gives Plan 8 these screens; the research shows the API is complete for the flow but missing what a browser needs (CORS) and what a person needs to read (names).",
+      "evidence": [
+        {
+          "text": "No CORS rule on the staging bucket",
+          "source": "packages/infra/src/storage.ts:32-36 at origin/main (documents/plan7-api.md, section 1)"
+        },
+        {
+          "text": "openapi.json has no submissions routes",
+          "source": "documents/plan7-api.md, section 1"
+        },
+        {
+          "text": "No endpoint turns a sub into an email or lists curators",
+          "source": "documents/plan7-api.md, section 7"
+        }
+      ],
+      "state": "standing"
     }
   ],
-  "principles": [],
+  "principles": [
+    {
+      "id": "PRIN1",
+      "text": "Nothing moves when changing views: the header, navigation, page heading and content column sit in the same place on every page and in every state (loading, loaded, error), so switching tabs or pages never shifts text.",
+      "from": "note:STEP2",
+      "struck": false
+    }
+  ],
   "follow_ups": [
     {
       "id": "PARK1",
@@ -755,6 +994,54 @@
       "name": "Custom domain moves passkeys",
       "text": "When the custom-domain follow-up gives sign-in its own domain, the passkey relying party moves from the prefix domain to it, and readers must register their passkeys again. Say so in that change and in the deploy notes.",
       "kind": "improvement"
+    },
+    {
+      "id": "PARK12",
+      "name": "Integrity check covers the zips",
+      "text": "The weekly integrity check verifies only the files in checksums.sha256, so a zip under _zips/ damaged in S3 goes unnoticed. Add _zips/ to the check against each zip's full-object SHA-256.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK13",
+      "name": "Site address in the invitation email",
+      "text": "The invitation email names the archive but not its address: putting the CloudFront domain on the user pool makes a CloudFormation dependency loop. A custom-message trigger, or the custom domain, would add it.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK14",
+      "name": "Large zips and the reindex checkpoint",
+      "text": "From PLAN3's review: a zip over 5 GB can't be one PUT and a version near 10 GiB overflows the reindex's /tmp, failing publish or the reindex with no alert (M2); the reindex's versions step checkpoints every manifest's text, which may exceed the durable checkpoint size on a big archive (M3). Add a size guard with a note and an alert, and checkpoint ids only.",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK15",
+      "name": "Zip sizes and brand file checks",
+      "text": "From PLAN3's review: zip file items carry no size or hash and Download all shows no size (M4, M9); the font pattern differs between Python and Vite (M5); brand SVGs aren't checked for script or Cognito's allow-list, and Vite doesn't re-check the logo extension (M6, M8).",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK16",
+      "name": "Cognito's SVG allow-list",
+      "text": "Cognito's managed login refused the example logo's role and aria-label attributes (Plan 9's deploy, research-in-a-box#54 fixes it and refuses role, aria-*, script, handlers and foreignObject at config load). Cognito's full SVG allow-list isn't documented where we looked; if a deploy refuses another element or attribute (text is a suspect), add it to the Brand check.",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK17",
+      "name": "Facet counts read twice",
+      "text": "A facet label reads \"Open access 1 (1)\" to a screen reader: the visible count plus a visually hidden copy. Keep one.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK18",
+      "name": "Reindex result counts zips",
+      "text": "The reindex result reports pages but not zips written; add a zips count so a run shows what it rewrote.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK19",
+      "name": "Build packages in the browser",
+      "text": "DCSN5 chose C: an in-browser package builder (a step-by-step form that writes datapackage.json and checksums.sha256 from raw files, inferring column types) is planned once contributors have used the cruise-package upload. Mockup: mockups/submit-options.html tab B.",
+      "kind": "idea"
     }
   ],
   "spec": {
@@ -977,7 +1264,86 @@
       "covers": "Contributor submission, the curator's queue and decision, and the admin's review policy, once Plan 7's /api/submissions is built",
       "waits_on": [
         "PLAN1"
-      ]
+      ],
+      "woke_at": "2026-11-14T15:03:00.716321-06:00",
+      "hash": "f72d3ea874decafcc316b4300b3cc27222e87e7e506c1776d3ce3c0af29841f3",
+      "tasks": [
+        {
+          "id": "TASK16",
+          "heading": "Task 16: Close Plan 7's API gaps",
+          "does": "CORS on the staging bucket for the site's origin, new upload links for a round-1 draft, and two read-only lookups: people's emails by Cognito id (curators, admins) and the curator list (admins).",
+          "pulls_in": "Two Cognito read actions for the submissions Lambda; Decision log rows",
+          "serves": [
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK17",
+          "heading": "Task 17: The submissions API in the OpenAPI spec",
+          "does": "Pydantic models for every submissions request and response, used by the handler, written into the committed OpenAPI spec so the app's types are generated and drift-checked; callbackId replaced by a waiting flag.",
+          "pulls_in": "A submissions_api.py models module; ingest_e2e reads waiting",
+          "serves": [
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK18",
+          "heading": "Task 18: Signed-in areas in the frame",
+          "does": "Submit, Review and Settings in the nav by group without moving the frame, sign-in and wrong-role states, API helpers, a people-email hook and status labels.",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK19",
+          "heading": "Task 19: The contributor's screens",
+          "does": "Submit a cruise-made package folder (checked against its checksums, uploaded with progress), My submissions, and a submission's status, findings, history and resubmit.",
+          "pulls_in": "Browser SHA-256 hashing per file",
+          "serves": [
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK20",
+          "heading": "Task 20: The curator's screens",
+          "does": "The review queue and a submission's review page: findings, held files with a table preview, history with emails, and decisions with notes in a modal, handling two-curator reviews and 409s.",
+          "pulls_in": "A range read of a held CSV for the preview",
+          "serves": [
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK21",
+          "heading": "Task 21: The admin's review policy",
+          "does": "The review policy as a form from its JSON Schema: required, ordered rules, named reviewers picked from the curators, reminders and the stale mark, saved with the API's validation.",
+          "pulls_in": "Nothing new",
+          "serves": [
+            "DCSN5"
+          ],
+          "state": "keep"
+        },
+        {
+          "id": "TASK22",
+          "heading": "Task 22: The walk on web-test",
+          "does": "Merge, deploy on your Go, walk the whole submit, request changes, resubmit, approve, reject and two-curator paths headless at both widths, your look as all three roles, teardown on your Go.",
+          "pulls_in": "A test stage for the length of the walk; two Go presses and one look",
+          "serves": [
+            "DCSN5"
+          ],
+          "state": "keep"
+        }
+      ],
+      "approved": {
+        "hash": "f72d3ea874decafcc316b4300b3cc27222e87e7e506c1776d3ce3c0af29841f3",
+        "at": "2026-11-14T15:29:41.467318-06:00",
+        "body": "# PLAN2: The contributor, curator and admin screens\n\n## Spec\n\n`spec.md` in this folder (\"The plans\": PLAN2 is the submission, review and policy screens, written once Plan 7's `/api/submissions` is built), with DCSN5 (C: contributors upload a package made with cruise; building one in the browser is PARK19), call AGNT13 (the screens and the API gaps), PRIN1 (one frame on every view) and the Reading room look PLAN3 built. The research behind it is `documents/plan7-api.md`: every route, its group, request and response, the lifecycle, the findings report and the review policy, read at main.\n\n## The change\n\n**Backend gaps in Plan 7's API**, built here because the coordinating session didn't object (muster thread 1008): a CORS rule on the staging bucket for the site's origin, so a browser can PUT the presigned uploads and read the findings report and held files; the submissions routes in the committed OpenAPI spec, from Pydantic models the handler validates with, so the screens use generated types; two lookups that turn Cognito ids into email addresses (`GET /api/people`) and list the curators (`GET /api/curators`); and new upload links for a round-1 draft whose links expired.\n\n**Signed-in areas.** The masthead gains the areas a reader's groups allow (Submit for contributors, Review for curators, Settings for admins), in the same place on every view. Each area asks a reader who isn't signed in to sign in, and says plainly when their account can't use it.\n\n**Contributor.** Submit: choose or drop the package folder, the app checks it holds `datapackage.json` and `checksums.sha256` and that each file matches its checksum, takes the dataset id from the manifest, creates the submission, uploads every file with progress, and submits. My submissions lists them with their status. A submission's page shows where it stands, the checks' findings grouped by severity (the same Finding model cruise prints), and its history; on needs-changes the contributor chooses the corrected folder and resubmits as the next round.\n\n**Curator.** The review queue (in review by default, other statuses a filter away), each row saying new dataset or new version, stale, one or two curators needed, and who it's assigned to. A submission's review page: the findings, the held files with download links and a preview of a table's first rows, the history with people as emails, and Approve, Reject or Request changes with a note, confirmed in a modal; with two curators, the page waits for the pipeline before taking the second approval.\n\n**Admin.** Settings: the review policy as a form (required, the ordered rules, named reviewers by theme picked from the curators, reminders and the stale mark), saved with the API's own validation messages.\n\n**Risk.** Moderate. The screens only call Plan 7's API, which already checks every caller's group; the new routes are read-only and limited to curators and admins; CORS is limited to the site's own origin. What a mistake could do: show one person's email to someone who shouldn't see it (the lookups check the group, pinned by tests), or let a contributor renew links on someone else's submission (the existing ownership check, pinned by a test). Gates are backend tests for each new route and change, synth tests for CORS and grants, web tests with the API mocked, `just check`, and one walk on a test stage with your look.\n\n**Cost.** No new AWS service. Two read-only Cognito calls per lookup. For you: two Go presses (deploy, teardown) and one look.\n\n## Left out\n\n- Building the package in the browser (PARK19).\n- Withdrawing a submission, contributor email and multipart uploads over 5 GB (Plan 7's PARK11, PARK8, PARK9).\n- Paging the queue and My submissions: the list call returns everything today; paging waits for a real archive with more than a screenful.\n- Hashing very large files without holding each in memory: files are hashed one at a time with the browser's SHA-256 (fine for the 155 MB the corpus has); a streaming hasher waits for a larger file.\n- Editing the archive config from the browser; only the review policy is a run-time setting.\n\n## Where\n\n| Path | What changes |\n| --- | --- |\n| `packages/infra/src/storage.ts`, `ingest.ts`, their tests | CORS on the staging bucket; the lookup routes and their Cognito grants |\n| `packages/backend/src/archive_backend/submissions.py`, a new `submissions_api.py` (the models), `people.py`, `api.py` (the OpenAPI writer), their tests | Models, validation, renewing links, the lookups, the spec |\n| `packages/web/src/schema/openapi.json`, `src/generated/` | Regenerated |\n| `packages/web/src/` (`App.tsx`, `auth.ts`, `api.ts`, `routes/Submit*.tsx`, `routes/Review*.tsx`, `routes/Settings.tsx`, `Findings.tsx`, `People.tsx`, `styles.css`) and tests | The screens |\n| `docs/planning-handoff.md` | Decision log rows for the new routes and the CORS rule |\n\n### Task 16: Close Plan 7's API gaps\n\n**Does:** Adds a CORS rule to the staging bucket allowing the site's origin (the distribution's domain; plus `http://localhost:5199` on non-prod stages for local work) to `PUT` and `GET`, with the `x-amz-checksum-sha256`, `content-type` and `range` headers, exposing `ETag`. Lets `/api/submissions/{id}/uploads` give a round-1 draft new links for its own files (today it refuses `draft` in round 1), still only for the submitter. Adds `GET /api/people?sub=\u003cid\u003e\u0026sub=\u003cid\u003e` (curator or admin; at most 50 ids; answers `{people:{\u003csub\u003e:{email}}}`, unknown ids left out) and `GET /api/curators` (admin; answers `[{sub,email}]` for the `curator` group), backed by Cognito `ListUsers` with a `sub` filter and `ListUsersInGroup`, with the Lambda granted exactly those two actions on the pool. Records the routes and the CORS rule in the handoff's Decision log.\n**Files:** `packages/infra/src/storage.ts`, `packages/infra/src/ingest.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/test/storage.test.ts`, `packages/infra/test/ingest.test.ts`, `packages/backend/src/archive_backend/submissions.py`, `packages/backend/src/archive_backend/people.py`, `packages/backend/tests/test_submissions.py`, `packages/backend/tests/test_people.py`, `docs/planning-handoff.md`\n**Checks:** `uv run pytest packages/backend`, `uv run mypy packages`, `npm test -w packages/infra`\n**Serves:** DCSN5 (rests on call AGNT13)\n\n- Tests: the synth shows the CORS rule with the site's origin and those methods and headers; a round-1 draft gets new links for its submitter and 403 for anyone else; `/people` answers emails to a curator and an admin, 403 to a contributor, and leaves out an unknown id; `/curators` answers only to an admin; more than 50 ids is a 400.\n\n### Task 17: The submissions API in the OpenAPI spec\n\n**Does:** Moves every request and response shape of `/api/submissions`, `/api/people` and `/api/curators` into Pydantic models (`submissions_api.py`): the file list, create, uploads, submit, decision, the Submission item (without `callbackId`, which only the pipeline needs), an event with its typed details, the read answer with `reportUrl`, the held files, the findings report (reusing the contract's `Finding` and verdicts), and the policy (the contract's `ReviewPolicy`). The handler validates bodies and builds answers through them, with the same 400 and 409 messages as now. The OpenAPI writer adds these paths beside the read API's, so `just openapi` and the drift check cover them, and `just web-types` regenerates the app's types.\n**Files:** `packages/backend/src/archive_backend/submissions_api.py`, `packages/backend/src/archive_backend/submissions.py`, `packages/backend/src/archive_backend/api.py`, `packages/backend/tests/test_submissions.py`, `packages/web/src/schema/openapi.json`, `packages/web/src/generated/api.ts`\n**Checks:** `uv run pytest packages/backend`, `uv run mypy packages`, `just check-schema`\n**Serves:** DCSN5 (rests on call AGNT13)\n\n- Tests: every existing submissions test still passes unchanged in what it asserts; the read answer no longer carries `callbackId`; `just check-schema` fails when a model changes and the spec doesn't.\n- `scripts/ingest_e2e.py` reads `callbackId` to know when to resubmit: it keeps working by reading the stored item through the test's own DynamoDB access, or the read answer gains a boolean `waiting` (the pipeline holds an open callback) that the script and the screens both use. Pick the second and record a Ruling.\n\n### Task 18: Signed-in areas in the frame\n\n**Does:** The app reads the reader's groups from the ID token's `cognito:groups`. The masthead's nav shows Submit (contributors), Review (curators) and Settings (admins) beside Browse and About, in the same place on every view and for every group (an area a reader lacks simply isn't listed; the nav's left edge and the Account button never move). Each area is a route that, signed out, shows its heading with Sign in; signed in without the group, says which role it needs and whom to ask. API helpers for every submissions route from the generated types, a people hook that looks up and caches emails (showing \"you\" for the reader), and plain labels for every status and event. Every new view keeps PRIN1's frame: its h1 where every h1 sits, no layout shift between loading, loaded and error.\n**Files:** `packages/web/src/App.tsx`, `packages/web/src/auth.ts`, `packages/web/src/api.ts`, `packages/web/src/People.tsx`, `packages/web/src/labels.ts`, their tests, `packages/web/src/styles.css`\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`\n**Serves:** DCSN5 (rests on call AGNT13)\n\n- Tests: each group sees exactly its entries; the nav and Account button keep their position whatever the groups; a signed-out area offers Sign in back to itself; a signed-in reader without the group is told which role; the people hook batches ids and shows \"you\".\n\n### Task 19: The contributor's screens\n\n**Does:** `/submit`: a drop area and Choose folder (a directory input), listing what was found; it refuses a folder without `datapackage.json` or `checksums.sha256`, hashes each file with the browser's SHA-256 and compares it with `checksums.sha256` (a mismatch names the file and stops), reads the dataset id and title from the manifest and says whether it is a new dataset or a new version, then creates the submission, uploads each file to its presigned link with the checksum header and a progress bar per file and overall, and submits. `/submissions`: My submissions with title, round, status and last change. `/submissions/\u003cid\u003e`: the status as one line (\"Waiting for a curator\", \"Changes requested\"), the checks' summary and findings grouped error, warning, note with each finding's target and suggested fix, a curator's note when changes were requested, and the history; on needs-changes, Resubmit opens the same folder flow for the next round and waits until the pipeline is ready for it; an expired round-1 upload gets new links. It reloads the submission every 10 s while something is in progress and stops when nothing can change.\n**Files:** `packages/web/src/routes/Submit.tsx`, `packages/web/src/routes/MySubmissions.tsx`, `packages/web/src/routes/Submission.tsx`, `packages/web/src/Findings.tsx`, `packages/web/src/package.ts` (folder reading and hashing), their tests, `packages/web/src/App.tsx`, `packages/web/src/styles.css`\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`\n**Serves:** DCSN5 (rests on call AGNT13)\n\n- Tests with the API mocked and files from the sample package: a folder without `checksums.sha256` is refused; a changed file is named as not matching; the upload sends each file's checksum header; progress reaches 100 %; findings group by severity; needs-changes offers Resubmit and the second round's files go to the new links; polling stops on a final status; axe on each screen.\n\n### Task 20: The curator's screens\n\n**Does:** `/review`: the queue for a status (in review by default; a filter for the others), each row with the title (from the held manifest), submitter's email, round, new dataset or new version, how many curators it needs and how many have approved, stale, and who it's assigned to. `/review/\u003cid\u003e`: the summary, the findings (the shared component), the held files with download links and, for a CSV, a preview of its first rows fetched by range through the file's link, the history with emails, and Approve, Reject and Request changes; each opens a modal with an optional note (required for Request changes and Reject) and a confirm. After a first approval of a two-curator review, the page says it waits for a second curator and disables Approve for the curator who approved. A decision answered 409 is shown in the API's words with Reload.\n**Files:** `packages/web/src/routes/ReviewQueue.tsx`, `packages/web/src/routes/Review.tsx`, `packages/web/src/Preview.tsx`, their tests, `packages/web/src/App.tsx`, `packages/web/src/styles.css`\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`\n**Serves:** DCSN5 (rests on call AGNT13)\n\n- Tests: the queue marks stale and new version and reads the needed count from the `entered-review` event; a decision posts its note; Request changes without a note can't be confirmed; the second approval is disabled for the first approver; a 409 shows its message; the preview shows the first rows of a CSV; axe on each screen.\n\n### Task 21: The admin's review policy\n\n**Does:** `/settings`: the review policy as a form. Review required (a switch); the rules as an ordered list, each with its conditions (submitters as curators or people picked from a list, new dataset or new version, access levels, themes) and its outcome (skip, one curator, two curators), with move up, move down, add and remove; named reviewers per theme, picked from `/api/curators`; reminders as a list of days and the stale mark in days. The field names, allowed values and defaults come from the `ReviewPolicy` JSON Schema. Save sends it whole; the API's validation message shows beside the form; a saved policy says it applies to submissions entering review from now on.\n**Files:** `packages/web/src/routes/Settings.tsx`, `packages/web/src/routes/Settings.test.tsx`, `packages/web/src/App.tsx`, `packages/web/src/styles.css`\n**Checks:** `npm run typecheck -w packages/web`, `npm test -w packages/web`\n**Serves:** DCSN5 (rests on call AGNT13)\n\n- Tests: the form loads the stored policy and saves it unchanged; reordering rules changes the saved order; a reminder past the stale mark shows the API's message; the reviewer picker lists curators by email; axe.\n\n### Task 22: The walk on web-test\n\n**Does:** Opens the PR with Tasks 16 to 21 and enables auto-merge. After it merges and you Go, deploys `ResearchArchive-web-test`, creates throwaway users (a contributor, a curator who is also an admin, a second curator) and walks headless at 1280 and 390: the contributor submits the sample package folder and sees the findings; the curator requests changes with a note; the contributor resubmits round 2; the curator approves and it publishes; a second submission is rejected; the admin sets a two-curator rule, and a third submission needs both curators, the second approval from the other one; the frame doesn't move between any of these views; axe on every screen. Then invites you as contributor, curator and admin for your look (submit the sample package yourself and review it). On your second Go, destroys the stage and confirms nothing is left.\n**Files:** none changed; the walk's notes and screenshots go in the task's result and the folder\n**Checks:** `just check` on main; `cdk deploy` and `just destroy web-test` exit 0\n**Serves:** DCSN5\n\n- The walk is a step on this folder's page, with a Go before the deploy and a Go before the teardown. Throwaway users are deleted at the end.\n- On any AWS auth error, stop and report; never copy or export credentials.\n"
+      }
     },
     {
       "id": "PLAN3",
@@ -996,7 +1362,10 @@
           "serves": [
             "DCSN2"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "c4990d5: Brand model and ArchiveConfig.brand, schema and config type regenerated, brand block in archive.yaml; contract 317 passed, mypy 0, check-schema 0",
+          "build_at": "2026-11-14T13:01:39.153244-06:00"
         },
         {
           "id": "TASK9",
@@ -1007,7 +1376,10 @@
             "DCSN2",
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "e2fb9bc: Reading room CSS on brand properties, build-time brand plugin, masthead, About, footer, page titles, focus, skip link; web 62 passed, build 0",
+          "build_at": "2026-11-14T13:01:39.153244-06:00"
         },
         {
           "id": "TASK10",
@@ -1017,7 +1389,10 @@
           "serves": [
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "18d0592: decision-ready entries, word labels, phone filters, facets on no results, submit, year range, pager; web 75 passed",
+          "build_at": "2026-11-14T13:01:39.153244-06:00"
         },
         {
           "id": "TASK11",
@@ -1028,7 +1403,10 @@
             "DCSN3",
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "ee07faf: reordered page fitting 390, restricted banner with one Sign in, signed-in header with Sign out and Add a passkey, coverage box, Methods, versions, usage beside Download, dictionary fixes, error states; web 88 passed; just check exit 0; headless screenshots at 1280 and 390, no sideways scroll, axe clean",
+          "build_at": "2026-11-14T13:01:39.153244-06:00"
         },
         {
           "id": "TASK12",
@@ -1038,7 +1416,10 @@
           "serves": [
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "eb1ea40: package.zip and per-resource zips under _zips/ from checksums.sha256, written by publish and reindex, listed as file items; Download all and set downloads on the page; backend 186 passed",
+          "build_at": "2026-11-14T13:22:01.700669-06:00"
         },
         {
           "id": "TASK13",
@@ -1048,7 +1429,10 @@
           "serves": [
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "c5f21f3: site/datasets/\u003cid\u003e/v\u003cn\u003e/index.html per version at publish and reindex, branded rule and logo, site function rewrite; backend 191 passed, just check 0",
+          "build_at": "2026-11-14T13:22:01.700669-06:00"
         },
         {
           "id": "TASK14",
@@ -1058,7 +1442,10 @@
           "serves": [
             "DCSN3"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "d63c515: managed login branding from the brand block on both clients via the shared shade function, choice-based sign-in with password and passkey, ALLOW_USER_AUTH, branded invitation email (name only); infra 101 passed; just check 0 (692 Python, 101 infra, 90 web)",
+          "build_at": "2026-11-14T13:22:01.700669-06:00"
         },
         {
           "id": "TASK15",
@@ -1070,7 +1457,10 @@
             "DCSN3",
             "DCSN4"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "#51, #54 (Cognito-safe logo), #55 (steady layout) and #56 (Account menu, usage modal, plain sign-in background) merged; web-test deployed from main, walked headless (every app check passing at 1280 and 390, passkey added and used, zips match checksums), two looks by Court approved; destroyed, nothing left",
+          "build_at": "2026-11-14T15:26:51.114134-06:00"
         }
       ],
       "approved": {
@@ -1427,6 +1817,175 @@
       "at": "2026-11-14T12:38:40.507429-06:00",
       "state": "answered",
       "claim": "d7439c68628376ba"
+    },
+    {
+      "id": 32,
+      "card": "STEP2",
+      "from": "user",
+      "action": "note",
+      "text": "can we look at this locally first?",
+      "at": "2026-11-14T14:03:45.489262-06:00",
+      "state": "answered",
+      "claim": "2f47bce333fef623"
+    },
+    {
+      "id": 33,
+      "card": "STEP2",
+      "from": "agent",
+      "action": "reply",
+      "text": "Yes, it's running locally now: http://localhost:5199/ (the merged app from main, served by Vite against a stand-in API with the sample dataset; tmux window p8-local). Both pages render with no errors.\n\nTry:\n- http://localhost:5199/ : search, facets, a result entry; narrow your window to phone width to see the filters collapse.\n- http://localhost:5199/datasets/stream-temperature-sample : the open dataset page, citation and Copy, files, columns, coverage, versions, the usage panel after a Download.\n- http://localhost:5199/datasets/stream-temperature-sample-restricted : the by-request banner and \"Sign in above\".\n- http://localhost:5199/about : the About page from the brand block.\n\nWhat locally can't show: Sign in goes to a placeholder address, so the themed Cognito page and passkeys only work on the deployed stage; downloads return a two-line stand-in CSV, so Download all and the zips are deploy-only too; and the static per-version pages come from the backend. If you want to see a rebrand, change primaryColor in archive.yaml in that worktree (.worktrees/research-archive-in-a-box/plan8/ux-review) and reload.\n\nTell me what you'd change; small things I can edit live there before the deploy.",
+      "at": "2026-11-14T14:04:32.922114-06:00",
+      "answers": [
+        32
+      ]
+    },
+    {
+      "id": 34,
+      "card": "STEP2",
+      "from": "user",
+      "action": "note",
+      "text": "this looks much better.  one note, we should use positions so that changing tabs (for example from browse to about the archive) the location of text doesn't move.  we don't want unnecessary movement when changing views anywhere",
+      "at": "2026-11-14T14:07:18.052521-06:00",
+      "state": "answered",
+      "claim": "950fdfa13ebe3363"
+    },
+    {
+      "id": 35,
+      "card": "STEP2",
+      "from": "agent",
+      "action": "reply",
+      "text": "Fixed, and it's live at http://localhost:5199/ now (reload). I measured where the header, both nav links, the page heading, the content column and the footer sit on all eight views (search, a search with results, About, open, restricted, a versioned page, a missing dataset, a missing page) at desktop and phone width. Three things moved, now fixed:\n\n1. The scrollbar: a long page (Browse) shows one and a short page (About) doesn't, which shifts centred content sideways when the scrollbar takes up space. The page now always keeps its gutter.\n2. The dataset heading sat 26 px lower than every other page's, under a small \"Dataset · version 2\" line. I removed that line, since the meta line under the title already says the version, so every page's heading starts at the same place.\n3. On short pages the footer floated up into the middle of the window; it now stays at the bottom.\n\nAfter the fix the header, nav, heading and content column are identical on every view at both widths. I recorded your note as a principle (PRIN1) so PLAN2's screens follow it too, and the deployed walk measures it again. The change is one commit on a new branch (plan8/steady-layout) that goes in a PR once you're happy with the look.",
+      "at": "2026-11-14T14:12:11.15781-06:00",
+      "answers": [
+        34
+      ]
+    },
+    {
+      "id": 36,
+      "card": "STEP2",
+      "from": "user",
+      "action": "answer",
+      "option": "A1L2",
+      "answer": "OK",
+      "at": "2026-11-14T14:16:53.082992-06:00",
+      "state": "answered",
+      "claim": "f61fa0477d66da0b"
+    },
+    {
+      "id": 37,
+      "card": "STEP2",
+      "from": "user",
+      "action": "answer",
+      "option": "A2",
+      "answer": "GO",
+      "at": "2026-11-14T14:16:55.870478-06:00",
+      "state": "answered",
+      "claim": "e99f7c8bfd30fd60"
+    },
+    {
+      "id": 38,
+      "card": "STEP2",
+      "from": "user",
+      "action": "note",
+      "text": "can you reset my password.  i lost it",
+      "at": "2026-11-14T14:51:12.935749-06:00",
+      "state": "answered",
+      "claim": "32b9fb483108a15d"
+    },
+    {
+      "id": 39,
+      "card": "STEP2",
+      "from": "agent",
+      "action": "reply",
+      "text": "Done: a new invitation with a new temporary password just went to court@subaud.io (sent 14:51). Your account on this stage had never had its password set, so there was nothing to reset; resending the invitation replaces the old temporary password, and the earlier email's no longer works. Sign in on the restricted copy with court@subaud.io and the new temporary password, and the sign-in page asks you to set your own.",
+      "at": "2026-11-14T14:51:28.896711-06:00",
+      "answers": [
+        38
+      ]
+    },
+    {
+      "id": 40,
+      "card": "STEP2",
+      "from": "user",
+      "action": "note",
+      "text": "that's very clunky and not professional looking.  it should have a real dropdown or modal.\n\nThis request for info causes motion. that could be a modal too.",
+      "at": "2026-11-14T14:53:59.06042-06:00",
+      "state": "answered",
+      "claim": "c54269cb75623d8c",
+      "attachments": [
+        {
+          "path": "screenshots/shot-2701a56c866b.png"
+        },
+        {
+          "path": "screenshots/shot-db84cd68f5d7.png"
+        },
+        {
+          "path": "screenshots/shot-cb7dd2632068.png"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "card": "STEP2",
+      "from": "agent",
+      "action": "reply",
+      "text": "Agreed on all three, and they're changed:\n\n1. The header: one Account button, with a dropdown that names you and offers Add a passkey and Sign out. Signed out, the same spot holds a Sign in button, so the nav beside it doesn't move when you sign in or out. Escape or a click outside closes the menu.\n2. The usage question is now a modal dialog over the page, saying \"Your download has started\" above the question. Nothing under it moves (measured: the Files heading stays exactly where it was); Escape or No thanks dismisses it, and it's still asked once per visit.\n3. Cognito's pages: the pastel gradient image is gone, replaced by the archive's own paper colour, and the outlined button (Not now, Use password instead) takes the brand colour instead of Cognito's blue.\n\nWeb tests 96/96, just check 0; on branch plan8/menu-and-modal. I'm redeploying web-test with it now (about 5 minutes), so you can see the menu signed in and the plain sign-in page; I'll check it headless first and post here when it's ready.",
+      "at": "2026-11-14T15:00:11.419517-06:00",
+      "answers": [
+        40
+      ]
+    },
+    {
+      "id": 42,
+      "card": "DCSN5",
+      "from": "user",
+      "action": "choose",
+      "option": "C",
+      "at": "2026-11-14T15:10:46.012554-06:00",
+      "state": "answered",
+      "claim": "8d0b05cb04d2b58c"
+    },
+    {
+      "id": 43,
+      "card": "STEP2",
+      "from": "user",
+      "action": "answer",
+      "option": "A4",
+      "answer": "OK",
+      "at": "2026-11-14T15:11:55.269323-06:00",
+      "state": "answered",
+      "claim": "e034890faa531c05"
+    },
+    {
+      "id": 44,
+      "card": "STEP2",
+      "from": "user",
+      "action": "answer",
+      "option": "A4B",
+      "answer": "OK",
+      "at": "2026-11-14T15:12:12.243151-06:00",
+      "state": "answered",
+      "claim": "508e774376e12b2b"
+    },
+    {
+      "id": 45,
+      "card": "STEP2",
+      "from": "user",
+      "action": "answer",
+      "option": "A5",
+      "answer": "GO",
+      "at": "2026-11-14T15:21:11.575025-06:00",
+      "state": "answered",
+      "claim": "6a624e0d1b7ffd79"
+    },
+    {
+      "id": 46,
+      "card": "PLAN2",
+      "from": "user",
+      "action": "approve-plan",
+      "at": "2026-11-14T15:29:41.467318-06:00",
+      "state": "answered",
+      "claim": "f8daaa663c5c9832"
     }
   ],
   "planned_history": [
