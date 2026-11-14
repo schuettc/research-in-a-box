@@ -2,10 +2,13 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { App, Stack } from "aws-cdk-lib";
+import { Template } from "aws-cdk-lib/assertions";
+import type { CfnParameter } from "aws-cdk-lib/aws-ssm";
 import { expect, test } from "vitest";
 import { createApp, stackName } from "../bin/app";
 import type { ArchiveConfig } from "../src/generated/archive-config";
 import { ResearchArchive } from "../src/research-archive";
+import { testApp } from "./test-app";
 
 function configFile(yaml: string): string {
   const path = join(mkdtempSync(join(tmpdir(), "archive-config-")), "archive.yaml");
@@ -92,5 +95,35 @@ test("ResearchArchive refuses a stage not in the config", () => {
 
   expect(() => new ResearchArchive(stack, "Archive", { config, stage: "dev" })).toThrow(
     'stage "dev" is not in infrastructure.stages',
+  );
+});
+
+test("the construct writes the config as JSON to the stage's standard archive-config parameter", () => {
+  const config: ArchiveConfig = {
+    publisher: "P",
+    profiles: ["core"],
+    infrastructure: { alertEmail: "a@example.org", stages: [{ name: "prod" }, { name: "dev" }] },
+  };
+  const stack = new Stack(testApp(), "S");
+  const archive = new ResearchArchive(stack, "Archive", { config, stage: "dev" });
+  const id = stack.getLogicalId(archive.archiveConfigParameter.node.defaultChild as CfnParameter);
+
+  expect(Template.fromStack(stack).toJSON().Resources[id].Properties).toEqual({
+    Name: "/research-archive/dev/archive-config",
+    Type: "String",
+    Tier: "Standard",
+    Value: JSON.stringify(config),
+  });
+});
+
+test("a config whose JSON is over 4096 bytes is refused at synth", () => {
+  const config: ArchiveConfig = {
+    publisher: "P".repeat(4096),
+    infrastructure: { alertEmail: "a@example.org", stages: [{ name: "prod" }] },
+  };
+  const stack = new Stack(testApp(), "S");
+
+  expect(() => new ResearchArchive(stack, "Archive", { config, stage: "prod" })).toThrow(
+    /archive config is \d+ bytes as JSON; the SSM parameter holds at most 4096/,
   );
 });

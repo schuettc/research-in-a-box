@@ -5,7 +5,7 @@ import type * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import type * as lambda from "aws-cdk-lib/aws-lambda";
 import type * as s3 from "aws-cdk-lib/aws-s3";
 import type * as sns from "aws-cdk-lib/aws-sns";
-import type * as ssm from "aws-cdk-lib/aws-ssm";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import { Api } from "./api";
 import { Auth } from "./auth";
@@ -20,6 +20,9 @@ import { Storage } from "./storage";
 import { Tables } from "./tables";
 import { Web } from "./web";
 
+// The standard tier's limit on a parameter's value.
+const MAX_CONFIG_BYTES = 4096;
+
 export interface ResearchArchiveProps {
   readonly config: ArchiveConfig;
   readonly stage: string;
@@ -32,6 +35,8 @@ export class ResearchArchive extends Construct {
   readonly derivedBucket: s3.Bucket;
   readonly catalogTables: { readonly a: dynamodb.Table; readonly b: dynamodb.Table };
   readonly activeCatalogParameter: ssm.StringParameter;
+  /** The validated config as JSON: the one way a Lambda reads the archive config. */
+  readonly archiveConfigParameter: ssm.StringParameter;
   readonly submissions: dynamodb.Table;
   readonly reviews: dynamodb.Table;
   readonly settings: dynamodb.Table;
@@ -62,6 +67,19 @@ export class ResearchArchive extends Construct {
     if (!infrastructure) {
       throw new Error("ResearchArchive needs config.infrastructure");
     }
+
+    const configJson = JSON.stringify(props.config);
+    const configBytes = Buffer.byteLength(configJson, "utf-8");
+    if (configBytes > MAX_CONFIG_BYTES) {
+      throw new Error(
+        `archive config is ${configBytes} bytes as JSON; the SSM parameter holds at most ${MAX_CONFIG_BYTES}`,
+      );
+    }
+    this.archiveConfigParameter = new ssm.StringParameter(this, "ArchiveConfig", {
+      parameterName: `/research-archive/${props.stage}/archive-config`,
+      stringValue: configJson,
+      tier: ssm.ParameterTier.STANDARD,
+    });
 
     this.operations = new Operations(this, "Operations", {
       stage: props.stage,
