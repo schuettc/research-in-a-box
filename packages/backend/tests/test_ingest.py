@@ -9,7 +9,11 @@ from typing import Any, cast
 import pytest
 from aws_durable_execution_sdk_python import DurableContext
 from aws_durable_execution_sdk_python.config import WaitForCallbackConfig
-from aws_durable_execution_sdk_python.exceptions import CallbackTimeoutError, StepError
+from aws_durable_execution_sdk_python.exceptions import (
+    CallbackTimeoutError,
+    StepError,
+    WaitForConditionError,
+)
 from aws_durable_execution_sdk_python.waits import WaitForConditionConfig
 
 from archive_backend import ingest, submissions
@@ -250,8 +254,14 @@ class FakeContext:
         attempt = 0
         while True:
             attempt += 1
-            state = check(state, None)
-            decision = config.wait_strategy(state, attempt)
+            assert attempt < 10000, "the wait never ends"
+            try:
+                state = check(state, None)
+                decision = config.wait_strategy(state, attempt)
+            except Exception as error:
+                # The SDK fails the operation on an error in the check or the strategy.
+                self.log.append(("condition", name, WaitForConditionError(str(error))))
+                raise WaitForConditionError(str(error)) from error
             if not decision.should_continue:
                 self.log.append(("condition", name, state))
                 return state
@@ -521,6 +531,36 @@ def test_a_threat_tag_blocks_the_round_with_a_scan_finding(world: World) -> None
         ("scan.THREATS_FOUND", "error", {"path": "data/logger.csv"})
     ]
     assert world.s3.copies == []
+
+
+def test_a_scan_that_never_finishes_ends_failed_after_a_day(world: World) -> None:
+    world.s3.tags.clear()
+
+    result, context = world.run([])
+
+    assert result["status"] == "failed"
+    assert world.item["status"] == "failed"
+    assert world.types() == ["failed"]
+    assert sum(context.polls) == DAY
+    [alert] = world.sns.to(ALERTS)
+    assert "never scanned" in alert["Message"]
+    assert "never scanned" in world.reviews.events[-1]["error"]
+
+
+def test_a_scan_ends_by_the_360th_day(world: World) -> None:
+    def late_resubmit() -> dict[str, Any]:
+        world.now += timedelta(days=359, hours=18)
+        send = world.resubmit(2, _package())()
+        world.s3.tags = {k: v for k, v in world.s3.tags.items() if "/2/" not in k}
+        return send
+
+    result, context = world.run([_decision("request-changes"), late_resubmit])
+
+    assert result["status"] == "failed"
+    assert world.types() == [*REVIEWED, "failed"]
+    # The cap counts from the start: six hours left, less an hour for each callback.
+    assert sum(context.polls) == 4 * 3600
+    assert "never scanned" in world.sns.to(ALERTS)[0]["Message"]
 
 
 def test_a_skip_rule_publishes_without_review(world: World) -> None:

@@ -71,6 +71,7 @@ THEMES = "archive:themes"
 PIPELINE = "pipeline"
 ALL = "all"
 MAX_SCAN_DELAY = 3600
+SCAN_LIMIT = DAY
 DELETE_BATCH = 1000
 README = "README.md"
 CHECKSUMS = "checksums.sha256"
@@ -177,6 +178,10 @@ class BadCallback(Exception):
 
 class Expired(Exception):
     """The submission reached its 360 days still open."""
+
+
+class NeverScanned(Exception):
+    """GuardDuty never tagged every file of a round within the scan's time limit."""
 
 
 class PublishConflict(Exception):
@@ -777,10 +782,25 @@ def _wait(
         raise
 
 
+def _scan_delay(attempt: int) -> int:
+    return min(30 << (attempt - 1), MAX_SCAN_DELAY)
+
+
 def _scan(
-    context: DurableContext, c: Clients, env: Env, sid: str, round: int, paths: list[str]
+    context: DurableContext,
+    c: Clients,
+    env: Env,
+    sid: str,
+    round: int,
+    paths: list[str],
+    started: str,
 ) -> dict[str, str]:
-    """Wait until GuardDuty has tagged every file of the round, backing off up to an hour."""
+    """Wait until GuardDuty has tagged every file of the round, backing off up to an hour.
+
+    The wait gives up after a day, or by the 360th day if that comes first, raising
+    `NeverScanned`, so the submission ends `failed` with an alert instead of polling unseen.
+    """
+    limit = min(SCAN_LIMIT, context.step(_left(started), name=f"scan-{round}-deadline"))
 
     def check(state: dict[str, Any], _: object) -> dict[str, Any]:
         tags: dict[str, str] = {}
@@ -796,7 +816,15 @@ def _scan(
     def strategy(state: dict[str, Any], attempt: int) -> WaitForConditionDecision:
         if len(state["tags"]) == len(paths):
             return WaitForConditionDecision.stop_polling()
-        delay = min(30 * 2 ** (attempt - 1), MAX_SCAN_DELAY)
+        # The delays so far, worked out from the attempt, since a strategy can't read the clock.
+        waited = sum(_scan_delay(n) for n in range(1, attempt))
+        if waited >= limit:
+            missing = sorted(set(paths) - set(state["tags"]))
+            raise NeverScanned(
+                f"{len(missing)} file(s) of round {round} were never scanned after"
+                f" {waited // 3600} hours: {', '.join(missing[:10])}"
+            )
+        delay = min(_scan_delay(attempt), limit - waited)
         return WaitForConditionDecision.continue_waiting(Duration.from_seconds(delay))
 
     done: dict[str, Any] = context.wait_for_condition(
@@ -903,7 +931,7 @@ def _rounds(
 ) -> dict[str, Any]:
     while True:
         paths = context.step(_files(c, sid, round), name=f"files-{round}")
-        tags = _scan(context, c, env, sid, round, paths)
+        tags = _scan(context, c, env, sid, round, paths, started)
         context.step(_scanned(c, sid, round, tags), name=f"scanned-{round}")
         checked = context.step(_check(c, env, sid, round, paths, tags), name=f"check-{round}")
         if not checked["blocked"]:
