@@ -793,6 +793,98 @@ def test_a_wait_the_pipeline_opened_since_is_kept(world: World) -> None:
 
     assert status == 202
     assert world.submissions.items[(sid,)]["callbackId"] == "cb-second"
+    _, body = world.call("GET", "/api/submissions/{id}", "dave", "curator", sid=sid)
+    assert body["submission"]["waiting"] is True
+
+
+def _throttle_closing(world: World) -> None:
+    """DynamoDB throttles every attempt to remove a submission's callbackId."""
+    update = world.submissions.update_item
+
+    def throttled(**kwargs: Any) -> Any:
+        if (
+            kwargs["UpdateExpression"].startswith("REMOVE ")
+            and "callbackId" in kwargs["ExpressionAttributeNames"].values()
+        ):
+            raise ClientError(
+                {"Error": {"Code": "ThrottlingException", "Message": "slow down"}}, "UpdateItem"
+            )
+        return update(**kwargs)
+
+    world.submissions.update_item = throttled  # type: ignore[method-assign]
+
+
+def test_a_throttled_close_answers_202_logs_it_and_the_spent_wait_reads_closed(
+    world: World, caplog: pytest.LogCaptureFixture
+) -> None:
+    sid = _in_review(world)
+    _throttle_closing(world)
+
+    status, _ = world.call(
+        "POST",
+        "/api/submissions/{id}/decision",
+        "carol",
+        "curator",
+        {"decision": "approve"},
+        sid=sid,
+    )
+
+    assert status == 202
+    assert world.submissions.items[(sid,)]["callbackId"] == "cb-review"
+    assert any(sid in record.getMessage() for record in caplog.records)
+    _, body = world.call("GET", "/api/submissions/{id}", "dave", "curator", sid=sid)
+    assert body["submission"]["waiting"] is False
+    again, _ = world.call(
+        "POST",
+        "/api/submissions/{id}/decision",
+        "dave",
+        "curator",
+        {"decision": "approve"},
+        sid=sid,
+    )
+    assert again == 409
+    assert len(world.lambda_.callbacks) == 1
+
+
+def test_a_throttled_close_after_a_resubmit_reads_closed(world: World) -> None:
+    sid = world.create("alice")
+    world.submissions.items[(sid,)].update(status="needs-changes", callbackId="cb-resubmit")
+    world.call(
+        "POST", "/api/submissions/{id}/uploads", "alice", "contributor", {"files": FILES}, sid=sid
+    )
+    world.s3.upload_all()
+    _throttle_closing(world)
+
+    status, _ = world.call("POST", "/api/submissions/{id}/submit", "alice", "contributor", sid=sid)
+
+    assert status == 202
+    _, body = world.call("GET", "/api/submissions/{id}", "alice", "contributor", sid=sid)
+    assert body["submission"]["waiting"] is False
+
+
+def test_a_callback_that_fails_to_complete_leaves_the_wait_open(world: World) -> None:
+    sid = _in_review(world)
+
+    def refuse(**kwargs: Any) -> Any:
+        raise ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "slow down"}},
+            "SendDurableExecutionCallbackSuccess",
+        )
+
+    world.lambda_.send_durable_execution_callback_success = refuse  # type: ignore[method-assign]
+
+    status, _ = world.call(
+        "POST",
+        "/api/submissions/{id}/decision",
+        "carol",
+        "curator",
+        {"decision": "approve"},
+        sid=sid,
+    )
+
+    assert status == 409
+    _, body = world.call("GET", "/api/submissions/{id}", "dave", "curator", sid=sid)
+    assert body["submission"]["waiting"] is True
 
 
 def test_a_resubmit_closes_the_callback_it_completed(world: World) -> None:

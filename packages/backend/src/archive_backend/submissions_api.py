@@ -215,8 +215,17 @@ class Submission(Model):
 
     @classmethod
     def of(cls, item: dict[str, Any]) -> Submission:
-        """From the Submissions item, whose `callbackId` becomes `waiting`."""
-        return cls.model_validate({**item, "waiting": bool(item.get("callbackId"))})
+        """From the Submissions item, whose open `callbackId` becomes `waiting`."""
+        return cls.model_validate({**item, "waiting": open_callback(item) is not None})
+
+
+def open_callback(item: dict[str, Any]) -> str | None:
+    """The pipeline's open callback on a Submissions item: its `callbackId`, unless the API has
+    marked that id spent as `closedCallbackId` (it completed it but couldn't yet remove it)."""
+    callback = item.get("callbackId")
+    if not callback or callback == item.get("closedCallbackId"):
+        return None
+    return str(callback)
 
 
 class Event(Model):

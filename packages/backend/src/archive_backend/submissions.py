@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import os
 import uuid
 from collections.abc import Callable
@@ -43,6 +44,7 @@ from archive_backend.submissions_api import (
     SubmissionRead,
     SubmitAnswer,
     UploadsAnswer,
+    open_callback,
 )
 from archive_backend.submissions_api import Submission as SubmissionAnswer
 from archive_backend.whoami import _groups
@@ -55,6 +57,8 @@ POLICY_SETTING = "review-policy"
 URL_SECONDS = 3600
 HELD_URL_SECONDS = 300
 HELD: tuple[Status, ...] = ("in-review", "publishing")
+logger = logging.getLogger(__name__)
+
 S3_CONFIG = Config(signature_version="s3v4", s3={"addressing_style": "virtual"})
 
 
@@ -218,9 +222,45 @@ def _parse[M: BaseModel](model: type[M], body: dict[str, Any]) -> M:
         raise Refused(400, str(cause) if cause is not None else first["msg"]) from error
 
 
+def _conditional(error: ClientError) -> bool:
+    return error.response["Error"]["Code"] == "ConditionalCheckFailedException"
+
+
+def _spend_callback(c: Clients, sid: str, callback: str) -> None:
+    """Mark the open callback spent as `closedCallbackId` before completing it, so `waiting`
+    reads false for it even if removing it afterwards fails; refused if it changed since read."""
+    try:
+        c.submissions.update_item(
+            Key={"submissionId": sid},
+            UpdateExpression="SET #d = :c",
+            ConditionExpression="#c = :c",
+            ExpressionAttributeNames={"#c": "callbackId", "#d": "closedCallbackId"},
+            ExpressionAttributeValues={":c": callback},
+        )
+    except ClientError as error:
+        if _conditional(error):
+            raise Refused(409, "the pipeline's wait changed; read the submission again") from error
+        raise
+
+
+def _unspend_callback(c: Clients, sid: str, callback: str) -> None:
+    """Undo `_spend_callback` when the callback could not be completed, so the wait reads open."""
+    try:
+        c.submissions.update_item(
+            Key={"submissionId": sid},
+            UpdateExpression="REMOVE #d",
+            ConditionExpression="#d = :c",
+            ExpressionAttributeNames={"#d": "closedCallbackId"},
+            ExpressionAttributeValues={":c": callback},
+        )
+    except ClientError:
+        logger.exception("could not reopen the spent callback of submission %s", sid)
+
+
 def _close_callback(c: Clients, sid: str, callback: str) -> None:
-    """Forget a callback this call completed, so `waiting` turns false until the pipeline
-    opens its next wait; a wait it opened since is a different id and is kept."""
+    """Forget a callback this call completed; a wait the pipeline opened since is a different id
+    and is kept. Any other failure is logged and left: `closedCallbackId` already reads it spent,
+    and the pipeline already has the answer, so failing the request would mislead the caller."""
     try:
         c.submissions.update_item(
             Key={"submissionId": sid},
@@ -229,9 +269,9 @@ def _close_callback(c: Clients, sid: str, callback: str) -> None:
             ExpressionAttributeNames={"#c": "callbackId"},
             ExpressionAttributeValues={":c": callback},
         )
-    except ClientError:
-        # The callback went through; a stale id only leaves `waiting` true a little longer.
-        pass
+    except ClientError as error:
+        if not _conditional(error):
+            logger.exception("could not remove the completed callback of submission %s", sid)
 
 
 def presigned_put(s3: S3, bucket: str, key: str, digest: str) -> dict[str, Any]:
@@ -419,13 +459,20 @@ def submit(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, A
     round = int(submission["round"])
     if submission.get("status") != "draft":
         raise Refused(409, f"cannot submit while {submission.get('status')}")
-    callback = submission.get("callbackId")
+    callback = open_callback(submission)
     if round > 1 and not callback:
         raise Refused(409, "the pipeline is not waiting for a resubmit")
     missing = _missing(c, env, sid, round, (submission.get("files") or {}).get(str(round)) or [])
     if missing:
         raise Refused(409, f"not uploaded yet: {', '.join(missing)}")
-    _update(c, sid, {"status": "checking"}, "draft")
+    if callback and round > 1:
+        _spend_callback(c, sid, callback)
+    try:
+        _update(c, sid, {"status": "checking"}, "draft")
+    except Refused:
+        if callback and round > 1:
+            _unspend_callback(c, sid, callback)
+        raise
     try:
         if round == 1:
             c.lambda_.invoke(
@@ -441,9 +488,11 @@ def submit(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, A
             )
     except ClientError:
         _update(c, sid, {"status": "draft"}, "checking")
+        if callback and round > 1:
+            _unspend_callback(c, sid, callback)
         raise
     if callback and round > 1:
-        _close_callback(c, sid, str(callback))
+        _close_callback(c, sid, callback)
     put_event(c.reviews, sid, "submitted" if round == 1 else "resubmitted", caller.user, round)
     return _answer(202, SubmitAnswer(submission_id=sid, round=round, status="checking"))
 
@@ -454,7 +503,7 @@ def decide(c: Clients, caller: Caller, sid: str | None, body: dict[str, Any]) ->
     sid = cast(str, sid)
     request = _parse(DecisionRequest, body)
     decision, note = request.decision, request.note
-    callback = submission.get("callbackId")
+    callback = open_callback(submission)
     if submission.get("status") != "in-review" or not callback:
         raise Refused(409, f"not in review ({submission.get('status')})")
     if decision == "approve" and caller.user in (submission.get("approvals") or []):
@@ -464,6 +513,7 @@ def decide(c: Clients, caller: Caller, sid: str | None, body: dict[str, Any]) ->
         details["note"] = note
     if submission.get("submitter") == caller.user:
         details["selfReview"] = True
+    _spend_callback(c, sid, callback)
     put_event(c.reviews, sid, "decided", caller.user, int(submission["round"]), **details)
     result = {"kind": "decision", "decision": decision, "by": caller.user, "note": note}
     try:
@@ -471,8 +521,9 @@ def decide(c: Clients, caller: Caller, sid: str | None, body: dict[str, Any]) ->
             CallbackId=callback, Result=json.dumps(result).encode()
         )
     except ClientError as error:
+        _unspend_callback(c, sid, callback)
         raise Refused(409, "the review wait has already closed") from error
-    _close_callback(c, sid, str(callback))
+    _close_callback(c, sid, callback)
     return _answer(202, DecisionAnswer(submission_id=sid, decision=decision))
 
 
