@@ -66,6 +66,17 @@
           "title": "Access",
           "type": "array"
         },
+        "brand": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Brand"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "infrastructure": {
           "anyOf": [
             {
@@ -121,6 +132,107 @@
         "publisher"
       ],
       "title": "ArchiveConfig",
+      "type": "object"
+    },
+    "Brand": {
+      "additionalProperties": false,
+      "description": "How the archive presents itself: the app, the sign-in page and the invitation email.\n\n`logo` and `favicon` are paths relative to the config file; they are checked only when\nthe config is loaded from its file, since a deployed copy travels without them.",
+      "properties": {
+        "contact": {
+          "anyOf": [
+            {
+              "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contact"
+        },
+        "favicon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Favicon"
+        },
+        "font": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "pattern": "^[\\w ,'\"-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font"
+        },
+        "intro": {
+          "anyOf": [
+            {
+              "maxLength": 600,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intro"
+        },
+        "logo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Logo"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "primaryColor": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Primarycolor"
+        }
+      },
+      "title": "Brand",
       "type": "object"
     },
     "Change": {

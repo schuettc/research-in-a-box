@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal, Self, get_args
 
 import yaml
-from pydantic import ConfigDict, PositiveInt, model_validator
+from pydantic import ConfigDict, PositiveInt, ValidationInfo, field_validator, model_validator
 from pydantic import Field as PydanticField
 
 from archive_contract._base import ArchiveModel
@@ -66,6 +66,48 @@ class Infrastructure(_Strict):
         return self
 
 
+BRAND_FILE_MAX_BYTES = 200 * 1024
+_BRAND_FILE_SUFFIXES = {"logo": (".svg", ".png"), "favicon": (".svg", ".ico")}
+
+
+class Brand(_Strict):
+    """How the archive presents itself: the app, the sign-in page and the invitation email.
+
+    `logo` and `favicon` are paths relative to the config file; they are checked only when
+    the config is loaded from its file, since a deployed copy travels without them.
+    """
+
+    name: str | None = PydanticField(default=None, min_length=1, max_length=120)
+    intro: str | None = PydanticField(default=None, min_length=1, max_length=600)
+    contact: str | None = PydanticField(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    logo: str | None = None
+    favicon: str | None = None
+    primary_color: str | None = PydanticField(
+        default=None, alias="primaryColor", pattern=r"^#[0-9a-fA-F]{6}$"
+    )
+    font: str | None = PydanticField(
+        default=None, min_length=1, max_length=300, pattern=r"""^[\w ,'"-]+$"""
+    )
+
+    @field_validator("logo", "favicon")
+    @classmethod
+    def _brand_file(cls, value: str | None, info: ValidationInfo) -> str | None:
+        if value is None:
+            return None
+        field = info.field_name or ""
+        suffixes = _BRAND_FILE_SUFFIXES[field]
+        if not value.lower().endswith(suffixes):
+            raise ValueError(f"the {field} must be one of {', '.join(suffixes)}")
+        base = info.context.get("config_dir") if isinstance(info.context, dict) else None
+        if base is not None:
+            path = Path(base) / value
+            if not path.is_file():
+                raise ValueError(f"no {field} file at {path}")
+            if path.stat().st_size > BRAND_FILE_MAX_BYTES:
+                raise ValueError(f"the {field} is over 200 KB")
+        return value
+
+
 class ArchiveConfig(ArchiveModel):
     """Which profiles apply, extra required fields, vocabularies, themes, the licenses and
     access levels offered, and the publisher the archive fills in at publish."""
@@ -78,10 +120,17 @@ class ArchiveConfig(ArchiveModel):
     licenses: list[str] = PydanticField(default_factory=list)
     access: list[AccessLevel] = PydanticField(default_factory=_every_access_level)
     infrastructure: Infrastructure | None = None
+    brand: Brand | None = None
 
     @model_validator(mode="after")
     def _known_fields(self) -> Self:
         check_known_fields(self.required)
+        return self
+
+    @model_validator(mode="after")
+    def _brand_name_defaults_to_publisher(self) -> Self:
+        if self.brand is not None and self.brand.name is None:
+            self.brand.name = self.publisher
         return self
 
     def load_profiles(self) -> list[Profile]:
@@ -89,4 +138,8 @@ class ArchiveConfig(ArchiveModel):
 
 
 def load_config(path: Path) -> ArchiveConfig:
-    return ArchiveConfig.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    """The config at `path`, with its brand files checked beside it."""
+    return ArchiveConfig.model_validate(
+        yaml.safe_load(path.read_text(encoding="utf-8")),
+        context={"config_dir": path.parent},
+    )

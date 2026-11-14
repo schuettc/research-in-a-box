@@ -1,6 +1,15 @@
 # The archive config: the one file a fork edits.
 publisher: Invented Research Cooperative
 profiles: [core, ecology]
+brand:
+  intro: >-
+    The Invented Research Cooperative shares the data behind its field studies: streams, lakes,
+    snow and the land around them. Every dataset comes with its files, a description of each
+    column, and a citation you can copy.
+  contact: archive-admin@example.org
+  logo: examples/brand/logo.svg
+  favicon: examples/brand/favicon.svg
+  primaryColor: "#24395f"
 infrastructure:
   alertEmail: archive-admin@example.org
   monthlyBudgetUsd: 50
