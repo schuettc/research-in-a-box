@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reader flow: search, dataset page, download</title>
+<style>
+  :root { --ink:#1d2430; --muted:#5b6575; --line:#d9dee6; --bg:#f6f7f9; --card:#fff; --accent:#1f5f8b; --open:#2e7d4f; --restricted:#9a6a00; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:var(--bg); }
+  header.site { display:flex; align-items:center; justify-content:space-between; padding:12px 24px; background:#fff; border-bottom:1px solid var(--line); }
+  header.site b { font-size:16px; }
+  header.site nav a { color:var(--accent); text-decoration:none; margin-left:16px; font-size:14px; }
+  .tabs { display:flex; gap:8px; padding:12px 24px 0; }
+  .tabs button { border:1px solid var(--line); background:#fff; padding:6px 12px; border-radius:6px 6px 0 0; cursor:pointer; font:inherit; font-size:13px; }
+  .tabs button[aria-selected=true] { background:var(--accent); color:#fff; border-color:var(--accent); }
+  main { padding:16px 24px 40px; }
+  .screen { display:none; } .screen.on { display:block; }
+  .search { display:flex; gap:8px; margin-bottom:16px; }
+  .search input { flex:1; padding:10px 12px; border:1px solid var(--line); border-radius:6px; font:inherit; }
+  .layout { display:grid; grid-template-columns:220px 1fr; gap:20px; }
+  aside h4 { margin:14px 0 6px; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  aside label { display:flex; justify-content:space-between; font-size:14px; padding:2px 0; }
+  aside label span { color:var(--muted); }
+  aside .dates { display:flex; gap:6px; } aside .dates input { width:100%; padding:4px 6px; border:1px solid var(--line); border-radius:4px; font:inherit; font-size:13px; }
+  .count { color:var(--muted); font-size:13px; margin-bottom:8px; }
+  .result { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin-bottom:10px; }
+  .result h3 { margin:0 0 4px; font-size:16px; } .result h3 a { color:var(--accent); text-decoration:none; }
+  .result p { margin:0 0 8px; color:var(--muted); font-size:14px; }
+  .meta { display:flex; flex-wrap:wrap; gap:6px; font-size:12px; }
+  .pill { border:1px solid var(--line); border-radius:999px; padding:1px 8px; background:#fafbfc; }
+  .pill.open { border-color:var(--open); color:var(--open); } .pill.restricted { border-color:var(--restricted); color:var(--restricted); }
+  .page { max-width:900px; }
+  .page h1 { margin:4px 0 6px; font-size:24px; }
+  .crumb { font-size:13px; color:var(--muted); } .crumb a { color:var(--accent); }
+  .lead { color:var(--muted); margin:0 0 12px; }
+  .box { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:12px 0; }
+  .box h2 { margin:0 0 8px; font-size:15px; }
+  .cite { display:flex; gap:10px; align-items:flex-start; } .cite code { flex:1; background:#f2f4f7; padding:8px; border-radius:4px; font-size:13px; white-space:normal; }
+  button.small { border:1px solid var(--accent); color:var(--accent); background:#fff; border-radius:4px; padding:4px 10px; font:inherit; font-size:13px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border:0; border-radius:4px; padding:5px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  dl { display:grid; grid-template-columns:150px 1fr; gap:4px 12px; margin:0; font-size:14px; } dt { color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:13px; } th, td { text-align:left; padding:6px 8px; border-top:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-weight:600; border-top:0; }
+  .kind { font-size:11px; text-transform:uppercase; color:var(--muted); }
+  .note { font-size:12px; color:var(--muted); margin-top:6px; }
+  @media (max-width:700px) { .layout { grid-template-columns:1fr; } dl { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header class="site"><b>Invented Research Cooperative · Data archive</b><nav><a href="#">Search</a><a href="#">Sign in</a></nav></header>
+<div class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-s="s1">1 · Search</button>
+  <button role="tab" aria-selected="false" data-s="s2">2 · Dataset page</button>
+</div>
+<main>
+<section class="screen on" id="s1">
+  <div class="search"><input value="stream temperature" aria-label="Search the archive"><button class="primary">Search</button></div>
+  <div class="layout">
+    <aside>
+      <h4>Access</h4>
+      <label><span><input type="checkbox" checked> open</span><span>3</span></label>
+      <label><span><input type="checkbox"> restricted</span><span>1</span></label>
+      <h4>Licence</h4>
+      <label><span><input type="checkbox"> CC-BY-4.0</span><span>2</span></label>
+      <label><span><input type="checkbox"> CC0-1.0</span><span>1</span></label>
+      <h4>Format</h4>
+      <label><span><input type="checkbox"> csv</span><span>4</span></label>
+      <label><span><input type="checkbox"> shp</span><span>1</span></label>
+      <label><span><input type="checkbox"> xlsx</span><span>1</span></label>
+      <h4>Project</h4>
+      <label><span><input type="checkbox"> stream-monitoring</span><span>2</span></label>
+      <h4>Date range</h4>
+      <div class="dates"><input value="2020"><input placeholder="to"></div>
+      <p class="note">Counts come from the search endpoint's facets for the current filter.</p>
+    </aside>
+    <div>
+      <div class="count">3 datasets · page 1 of 1</div>
+      <div class="result">
+        <h3><a href="#" data-go="s2">Stream temperature at three invented sites</a></h3>
+        <p>Hourly water temperature from loggers at three invented stream sites, with each logger's condition, the site locations, a depth grid and the methods.</p>
+        <div class="meta"><span class="pill open">open</span><span class="pill">CC-BY-4.0</span><span class="pill">csv · shp · asc · xlsx</span><span class="pill">2024 – ongoing</span><span class="pill">Ada Invented</span></div>
+      </div>
+      <div class="result">
+        <h3><a href="#">Winter stream chemistry, 2021–2023</a></h3>
+        <p>Grab samples for dissolved oxygen, pH and conductivity at eleven sites, sampled monthly under ice.</p>
+        <div class="meta"><span class="pill open">open</span><span class="pill">CC0-1.0</span><span class="pill">csv</span><span class="pill">2021 – 2023</span><span class="pill">stream-monitoring</span></div>
+      </div>
+      <div class="result">
+        <h3><a href="#">Logger calibration records</a></h3>
+        <p>Bench calibration of the temperature loggers before and after each season.</p>
+        <div class="meta"><span class="pill restricted">restricted</span><span class="pill">CC-BY-4.0</span><span class="pill">csv</span><span class="pill">2022 – 2024</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="s2">
+  <div class="page">
+    <div class="crumb"><a href="#" data-go="s1">← Back to results</a> · Version 1 of 1</div>
+    <h1>Stream temperature at three invented sites</h1>
+    <p class="lead">Hourly water temperature from loggers at three invented stream sites, with each logger's condition, the site locations, a depth grid and the methods.</p>
+    <div class="meta"><span class="pill open">open</span><span class="pill">CC-BY-4.0</span><span class="pill">Published 2026-11-12</span></div>
+
+    <div class="box"><h2>Cite this dataset</h2>
+      <div class="cite"><code>Invented, A. (2024). Stream temperature at three invented sites. Version 1. Example Lab. https://archive.example.org/datasets/stream-temperature/v1</code><button class="small">Copy</button></div>
+    </div>
+
+    <div class="box"><h2>About</h2>
+      <dl>
+        <dt>Creators</dt><dd>Ada Invented</dd>
+        <dt>Purpose</dt><dd>To show how a research archive package holds tables, code lists, spatial data and documents.</dd>
+        <dt>Rights</dt><dd>CC-BY-4.0, Creative Commons Attribution 4.0 International</dd>
+        <dt>Keywords</dt><dd>stream temperature, water quality, loggers</dd>
+        <dt>Time</dt><dd>2024-06-01 to ongoing</dd>
+        <dt>Place</dt><dd>west -72.74, south 44.23, east -72.66, north 44.32. Three invented sites along two streams.</dd>
+      </dl>
+    </div>
+
+    <div class="box"><h2>Files</h2>
+      <table>
+        <tr><th>Resource</th><th>Kind</th><th>File</th><th>Size</th><th></th></tr>
+        <tr><td>Logger readings</td><td class="kind">table</td><td>data/logger.csv</td><td>2 KB</td><td><button class="small">Download</button></td></tr>
+        <tr><td>Sites</td><td class="kind">vector</td><td>data/sites/sites.shp + 3</td><td>1 KB</td><td><button class="small">Download</button></td></tr>
+        <tr><td>Stream depth</td><td class="kind">raster</td><td>data/depth.asc + 1</td><td>1 KB</td><td><button class="small">Download</button></td></tr>
+        <tr><td>Methods</td><td class="kind">document</td><td>docs/methods.md</td><td>1 KB</td><td><button class="small">Download</button></td></tr>
+        <tr><td>Discharge</td><td class="kind">linked</td><td>example.org/…/discharge.csv</td><td>–</td><td><button class="small">Open link</button></td></tr>
+      </table>
+      <p class="note">Open files download straight from /data/&lt;id&gt;/&lt;version&gt;/&lt;path&gt;. On a restricted dataset the button reads "Sign in to download", and once signed in it asks the API for a five-minute link.</p>
+    </div>
+
+    <div class="box"><h2>Logger readings: columns</h2>
+      <table>
+        <tr><th>Column</th><th>Title</th><th>Type</th><th>Unit</th><th>Description</th></tr>
+        <tr><td><code>timestamp</code></td><td>Reading time</td><td>datetime</td><td></td><td>Local standard time of the reading, on the hour.</td></tr>
+        <tr><td><code>site</code></td><td>Site</td><td>string</td><td></td><td>Site code; the sites resource holds each site's location.</td></tr>
+        <tr><td><code>water_temp_c</code></td><td>Water temperature (C)</td><td>number</td><td>degC</td><td>Water temperature in degrees Celsius.</td></tr>
+        <tr><td><code>condition</code></td><td>Logger condition</td><td>string</td><td></td><td>From the code list <i>condition-codes</i>.</td></tr>
+        <tr><td><code>battery_v</code></td><td></td><td>number</td><td>V</td><td><i>No description given.</i></td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+</main>
+<script>
+  const show = id => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+    document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.s === id));
+  };
+  document.querySelectorAll('[data-s]').forEach(b => b.onclick = () => show(b.dataset.s));
+  document.querySelectorAll('[data-go]').forEach(a => a.onclick = e => { e.preventDefault(); show(a.dataset.go); });
+</script>
+</body>
+</html>

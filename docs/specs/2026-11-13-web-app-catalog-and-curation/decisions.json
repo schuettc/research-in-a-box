@@ -2,22 +2,517 @@
   "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
   "schema": 4,
   "title": "Web app (Plan 8)",
-  "agent_at": "2026-11-13T21:11:15.352714Z",
+  "expect": 1,
+  "agent_at": "2026-11-14T06:45:46.120485Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 6, the API and search, and Plan 7, the ingest pipeline, for the submission screens.)\n\nBrief: Plan 8 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the web app (Plan 8): a static React with Vite app on S3 and CloudFront, backed by the API. Start with the reader's flow from search to dataset page to download, since findability is the main problem we set out to fix. The generated `README.md` in `practice-data/packages/ozone-bioindicators/` shows what a dataset page has to present."
+    },
+    "findings": [
+      {
+        "text": "The web app is a stub: packages/web renders one heading. React 19, Vite 8 and Vitest are installed, with no router, no data fetching and no styling yet. The contract's JSON Schema and Plan 6's OpenAPI spec are already committed beside it and drift-checked by just check-schema.",
+        "source": "origin/main packages/web/src/App.tsx, packages/web/package.json, justfile",
+        "output": "export function App() {\n  return \u003ch1\u003eresearch-in-a-box\u003c/h1\u003e;\n}",
+        "cases": "1 of 1 web package"
+      },
+      {
+        "text": "Nothing deploys the built app yet. CloudFront serves the derived bucket's site/ (Plan 4), but no stack or recipe uploads the web bundle there. The same site/ prefix also holds catalog.json (Plan 6), site/datasets/\u003cid\u003e/index.html (Plan 7's per-dataset pages) and, once Plan 9 adds it, auth-config.json, so whatever uploads the bundle must not delete what it didn't write.",
+        "source": "origin/main packages/infra/src/web.ts; git grep BucketDeployment over packages/infra and justfile finds nothing; coordinating session's note of 2026-11-14",
+        "cases": "1 of 1 distribution"
+      },
+      {
+        "text": "Every API route the reader's flow needs is built and was walked on a test deploy: GET /api/search (q, access, license, format, project, from, to, bbox, page, size; rows, total and facet counts), GET /api/datasets/{id} (manifest plus file list), versions, the restricted download link (signed in, five minutes) and the usage form. The test stage was destroyed afterwards, so nothing is deployed right now.",
+        "source": "origin/main packages/web/src/schema/openapi.json (8 routes); Plan 6 TASK5 result",
+        "output": "TASK5 done ResearchArchive-test deployed from main and walked: reindex wrote catalog.json, search filters and facets right, reads, restricted link (checksum match, traversal 404, signed-out 401), invited sign-in, usage form and admin read, rollup counted once; search warm median 0.14 s, after idle 2.81 s (PARK3); destroyed with nothing left",
+        "cases": "8 of 8 routes"
+      },
+      {
+        "text": "Search rows carry id, version, title, description, keywords, access, licences, rights status, project, creators, formats, start, end, ongoing, bbox, bytes and published: enough for a result card with no request per result. Theme and species are not in the contract yet (Plan 2's PARK5 and PARK6), so the handoff's theme and species facets have nothing to filter on today.",
+        "source": "origin/main packages/backend/src/archive_backend/api.py CatalogRow; handoff Decision log 2026-11-13",
+        "cases": "17 of 17 row fields"
+      },
+      {
+        "text": "What a dataset page presents, from the two generated READMEs: title and description, citation, purpose, creators, rights (licence or rights status), project, access, keywords, temporal and spatial coverage, then each resource by kind (table with a column dictionary of title, type, description, codes, unit and scale; code list; vector with its member files; raster; linked; document; media; original). The API's dataset answer returns the whole manifest, so the page can show all of it.",
+        "source": "examples/sample-package/README.md (origin/main) and practice-data/packages/ozone-bioindicators/README.md",
+        "cases": "2 of 2 generated READMEs"
+      },
+      {
+        "text": "Sign-in is settled: the web app uses Cognito's managed login through the web app client (code with PKCE, callback /auth/callback). Accounts are by invitation only, so there is no sign-up screen. Open data needs no account. Anyone signed in may download restricted data. The app reads its sign-in settings (region, Cognito domain, client ids) from /auth-config.json, which Plan 9 adds to the site at deploy; the exact fields go in the handoff Decision log.",
+        "source": "handoff Decision log 2026-11-13 (API under /api, app clients; invitation-only accounts); Plan 6 DCSN2; coordinating session's note of 2026-11-14",
+        "cases": "5 settled decisions"
+      },
+      {
+        "text": "Plan 7 owns every /api/submissions endpoint (create, upload links, submit, the queue, a submission's status and events, the curator's decision, the review policy). Its first plan is building, 0 of 7 tasks done, so the contributor, curator and admin screens have no endpoints to call yet.",
+        "source": "Plan 7 README on origin/main (Build 0 of 7); handoff Decision log 2026-11-13 Plan 6, 7 ownership row",
+        "cases": "1 of 1 Plan 7 build"
+      },
+      {
+        "text": "Plan 7 writes the static page at site/datasets/\u003cid\u003e/index.html (title, description, citation, version, file links, schema.org JSON-LD) and CloudFront already routes /datasets/\u003cid\u003e to it. How the web app takes over from that page is left to Plan 8, by rebuilding the page from its template.",
+        "source": "Plan 7 AGNT9; handoff Decision log 2026-11-13 CloudFront Function row",
+        "cases": "1 decision"
+      },
+      {
+        "text": "Previews: open files are served from /data/\u003cid\u003e/\u003cversion\u003e/\u003cpath\u003e, and Plan 6 counts only full GETs, so a browser preview reading by range would not inflate download counts. Plan 7 left derived previews at publish as its PARK4. The handoff puts a DuckDB-in-the-browser preview in Plan 8.",
+        "source": "handoff Decision log (open files row; DownloadCounts row); Plan 7 PARK4",
+        "cases": "3 sources"
+      }
+    ],
+    "rounds": [
+      {
+        "take": "**Plan 8 is really four groups of screens, and only one of them can work end to end today.**\n\n| Screens | What they call | Ready now? |\n| --- | --- | --- |\n| Reader: search, dataset page, download | Plan 6's read API | Yes: built and walked on a test deploy |\n| Contributor: guided submission | Plan 7's /api/submissions | No: Plan 7's build is 0 of 7 |\n| Curator: review queue and decision | Plan 7's /api/submissions | No |\n| Admin: review policy | Plan 7's policy endpoint | No |\n\nYour brief says to start with the reader's flow, because findability is the problem the project set out to fix. The coordinating session also asks each plan to build only what works end to end now. Both point the same way.\n\nSo I'd split Plan 8 into several plans in this folder, each approved and built in turn. **The first plan is the reader's flow, end to end, on a deployed stage:**\n\n1. **Search.** A search box, facets for access, licence, format and project with the counts the endpoint returns, and a date range. Result cards show what the search rows already carry, so there's no extra request per result.\n2. **Dataset page.** What the generated README shows: citation with a Copy button, licence badge, about, a file list, and a column dictionary for each table. It takes over from Plan 7's static page at /datasets/\u003cid\u003e.\n3. **Download.** Open files straight from /data. A restricted file asks the reader to sign in (Cognito's managed login, no sign-up), then fetches a five-minute link.\n4. **Getting it live.** Nothing uploads the app to CloudFront yet. The first plan adds that, without deleting catalog.json or Plan 7's dataset pages, which share the same folder.\n\nThe mockup shows the two screens with the invented sample package; click between them.\n\n**Probably not in the first plan** (each comes back as its own decision or later plan):\n- **Theme and species facets.** The contract has no such fields yet.\n- **The map view.** The rows carry a bounding box, so it can come next.\n- **The in-browser data preview.**\n- **The contributor, curator and admin screens.** They wait for Plan 7's endpoints and become later plans here once those are built.",
+        "visuals": [
+          {
+            "kind": "mockup",
+            "caption": "The reader's flow: search with facets, then the dataset page with citation, files and the column dictionary",
+            "path": "mockups/reader-flow.html"
+          }
+        ],
+        "recommendation": "Split Plan 8 into plans. Build the reader's flow first (search, dataset page, download with sign-in for restricted files) and deploy it to a stage. The contributor, curator and admin screens become later plans here once Plan 7's endpoints are built."
+      }
+    ],
+    "direction": {
+      "round": 1,
+      "at": "2026-11-14T00:37:26.740495-06:00",
+      "by": "agent"
     }
   },
   "understanding": {
-    "points": null,
-    "confirmed": false
+    "points": [
+      {
+        "kind": "outcome",
+        "text": "A reader can find a dataset by searching, open its page, and download its files, in the deployed web app. This is the first plan in this folder.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "Search: a search box, facets for access, licence, format and project with the counts GET /api/search returns, a date range, and result cards built from the search rows alone. The search is kept in the URL, so a link to it can be shared.",
+        "source": "assumed"
+      },
+      {
+        "kind": "outcome",
+        "text": "Dataset page: what the generated README presents (citation with a Copy button, licence badge, about, a file list, a column dictionary per table). It takes over from the static page at /datasets/\u003cid\u003e, whose template Plan 8 now owns.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "Download: open files straight from /data. A restricted file asks the reader to sign in through Cognito's managed login (there's no sign-up), then fetches a five-minute link.",
+        "source": "said"
+      },
+      {
+        "kind": "outcome",
+        "text": "The app goes live with the stage's deploy, without deleting catalog.json, auth-config.json or the dataset pages, which share the site/ folder. A reindex rewrites every dataset page, so pages stay rebuildable.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Build on what exists: Plan 6's read API and OpenAPI spec, the contract's JSON Schema, Plan 4's distribution, Plan 7's page writer and Plan 9's /auth-config.json for sign-in settings. Rebuild none of them.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "The contributor, curator and admin screens wait for Plan 7's /api/submissions endpoints, and become later plans in this folder once those are built.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Left out of the first plan: theme and species facets (the contract has no such fields yet), the map view and the in-browser data preview.",
+        "source": "said"
+      },
+      {
+        "kind": "constraint",
+        "text": "Generic: nothing in the app is specific to FEMC or to ecology. It is tested on the invented sample package, and FEMC's corpus is a later check.",
+        "source": "said"
+      },
+      {
+        "kind": "success",
+        "text": "On a deployed test stage with the sample package published: a search finds it, the facets narrow it, its page shows the citation, files and columns, an open file downloads, and a restricted file downloads after sign-in by an invited user. After a reindex, /datasets/\u003cid\u003e still opens.",
+        "source": "assumed"
+      },
+      {
+        "kind": "success",
+        "text": "just check passes, including the web app's tests and the drift checks on the generated types.",
+        "source": "assumed"
+      }
+    ],
+    "confirmed": true,
+    "revisions": [
+      {
+        "at": "0001-01-01T00:00:00Z",
+        "text": "Plan 8 owns the dataset page template, and the reindex rewrites every dataset page, as the coordinating session ruled.",
+        "because": "AGNT10"
+      }
+    ]
   },
-  "decisions": [],
-  "calls": [],
+  "decisions": [
+    {
+      "id": "DCSN1",
+      "name": "Usage form on the page",
+      "question": "Should the dataset page ask readers, optionally, how they will use the data?",
+      "example": "A reader downloads the sample package's logger.csv. FEMC asks downloaders who they are and what the data is for, and uses the answers to justify its funding. Plan 6 already built the endpoint for this (three optional answers, no name or email), but no screen asks the question yet.",
+      "options": [
+        {
+          "id": "A",
+          "title": "After a download, a small optional panel",
+          "includes": "When a reader starts a download, a panel appears under the file list: 'Help this archive: how will you use this data?' with the three optional answers and Send / No thanks. It never blocks or delays the download, and it isn't shown again in that visit once answered or dismissed.",
+          "pulls_in": "One small component and a call to POST /api/datasets/{id}/usage; part of the walk."
+        },
+        {
+          "id": "B",
+          "title": "A link on the page",
+          "includes": "A quiet 'Tell us how you use this data' link beside the files, opening the same three questions.",
+          "pulls_in": "The same component; fewer answers, since readers rarely seek it out."
+        },
+        {
+          "id": "C",
+          "title": "Not yet",
+          "includes": "No form in the first plan; it becomes a follow-up.",
+          "pulls_in": "Nothing now. Admins' usage list stays empty until a later plan adds it."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "You chose to build the usage form now on Plan 6 (its DCSN3), so the endpoint exists and is waiting for a screen. Asking right after a download is when the reader knows what the data is for, and it never stands between them and the file.",
+        "evidence": [
+          {
+            "text": "Plan 6 built the usage endpoint at the user's choice",
+            "source": "Plan 6 README on origin/main, DCSN3",
+            "output": "DCSN3 Optional usage form. Should the optional 'who are you and how will you use this' form be built now, or later? The user chose B: Now."
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "A"
+    }
+  ],
+  "calls": [
+    {
+      "id": "AGNT1",
+      "name": "Shipped by the stage's deploy",
+      "question": "How do the built app and its sign-in settings reach the site?",
+      "took": "The construct uploads the Vite build to the derived bucket's site/ with one CDK BucketDeployment, with pruning off, so files other plans write there (catalog.json, datasets/) are never deleted. The same deployment writes /auth-config.json with Source.jsonData from the construct's own values: region, cognitoDomain, webClientId, cliClientId (the fields Plan 9 agreed), sent no-cache. Plan 9 only reads it. index.html and the loader are no-cache; hashed assets cache for a year. One cdk deploy ships the app and its settings.",
+      "instead": "A separate just deploy-web recipe running aws s3 sync after the stack deploys, with auth-config.json written by Plan 9's own deployment: the app ships without a CDK deploy, but a fork has two deploy steps and two deployments write one prefix.",
+      "why": "Adopters deploy with one command and the included CI. The coordinating session moved auth-config.json into this deployment so one deployment writes site/ and Plan 8's walk doesn't wait on Plan 9's build.",
+      "evidence": [
+        {
+          "text": "No stack or recipe uploads the web bundle",
+          "source": "git grep BucketDeployment over packages/infra and justfile on origin/main: no match"
+        },
+        {
+          "text": "The coordinating session's ruling on auth-config.json",
+          "source": "muster thread 968, entry 7044",
+          "output": "Since you already add the site BucketDeployment, write auth-config.json in it: Source.jsonData('auth-config.json', {region, cognitoDomain, webClientId, cliClientId}) from the construct's own values, the exact fields Plan 9 agreed, no-cache. Then Plan 9 only reads it (AuthConfig.from_archive)."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT2",
+      "name": "Takeover by a stable loader",
+      "question": "How does the web app take over from the static dataset page?",
+      "took": "Plan 8 owns the dataset page template from here (the coordinating session settled it with Plans 7 and 10a); Plan 7's publish writes the pages. The build emits a small loader at /app.js, served no-cache, that loads the current hashed bundle. The template gains a root element around its readable content and one script tag for /app.js. When the app has the dataset from the API it renders over that content; with no JavaScript or no API, the static page stays readable (title, citation, file links and schema.org stay in the HTML). A new app release never needs the dataset pages rewritten. Plan 8 edits archive_backend.pages after Plan 7's PLAN1 merges, and records the root element and /app.js in the Decision log.",
+      "instead": "Rebuild every dataset page from the app's index.html at each release: pages then point at hashed files directly, but each app release needs a pass over every published page.",
+      "why": "The handoff says the static file loads the web app, which fetches live details from the API; the coordinating session gave Plan 8 the template.",
+      "evidence": [
+        {
+          "text": "The coordinating session gives Plan 8 the template",
+          "source": "muster thread 965, reply from personal-personal/generic-package-format-and-contract",
+          "output": "Yes. Plan 8 owns the dataset page template from here (settled with Plan 10a too). Plan 7 writes the pages and Plan 8 owns what's in them. Edit it after Plan 7's PLAN1 merges, keep the page readable with no JavaScript"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT3",
+      "name": "Types generated, drift-checked",
+      "question": "Where do the app's TypeScript types come from?",
+      "took": "openapi-typescript generates the API's types from the committed openapi.json, and json-schema-to-typescript the manifest's types from the contract's JSON Schema (the dataset answer's manifest is an untyped object in the API). Both are committed under packages/web/src/generated and checked by just check-schema like the others.",
+      "instead": "Hand-written types: no generator, but they drift from the API silently.",
+      "why": "Every boundary is typed and machine-checked (the user's rules); Plan 6 committed the spec so Plan 8 could generate from it.",
+      "evidence": [
+        {
+          "text": "Plan 6 commits the OpenAPI spec for Plan 8",
+          "source": "Plan 6 AGNT6",
+          "output": "Plan 8 generates its TypeScript types from it."
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT4",
+      "name": "React Router, four routes",
+      "question": "Which routes does the app have, and how are they handled?",
+      "took": "React Router with four routes: / (search, its state in the query string), /datasets/\u003cid\u003e (the current version), /datasets/\u003cid\u003e/v\u003cn\u003e (that version, which is the dataset's cited identifier, with a note when a newer one exists) and /auth/callback. Anything else shows a plain not-found page.",
+      "instead": "A hand-written router of about 40 lines: one dependency fewer, more code of our own.",
+      "why": "The citation URL is /datasets/\u003cid\u003e/v\u003cversion\u003e (Plan 7's AGNT11), so it must open a page; the rest is the reader's flow.",
+      "evidence": [
+        {
+          "text": "The identifier is the versioned URL",
+          "source": "Plan 7 AGNT11",
+          "output": "https://\u003cdomain\u003e/datasets/\u003cid\u003e/v\u003cversion\u003e"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT5",
+      "name": "Sign-in tokens in memory",
+      "question": "How does the web app sign in and hold tokens?",
+      "took": "oidc-client-ts with code and PKCE against the web app client, settings from /auth-config.json. Tokens are kept in memory only and the refresh token is discarded, as the CLI does; only the PKCE state and the page to return to sit in sessionStorage across the redirect. A reload means signing in again, which managed login's own session makes a click.",
+      "instead": "Keep tokens in sessionStorage: they survive a reload, but any script on the page can read them.",
+      "why": "Clients hold short-lived tokens only (handoff, Infrastructure); sign-in is needed only to fetch a restricted file's link.",
+      "evidence": [
+        {
+          "text": "The CLI keeps one-hour tokens and discards the refresh token",
+          "source": "handoff Decision log 2026-11-13, CLI and MCP sign-in row"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT6",
+      "name": "One page, no tabs",
+      "question": "Should the dataset page split into tabs (as FEMC's Overview, Metadata, Data and Documents do) or be one page?",
+      "took": "One page in the README's order: title, description, badges, citation, about, files, then a column dictionary per table. A reader's browser search finds any column.",
+      "instead": "Tabs: a shorter first screen, but columns hide behind a click and the page differs from the README and the static page.",
+      "why": "The brief names the generated README as what the page must present, and the static page is one page too.",
+      "evidence": [
+        {
+          "text": "The README's section order",
+          "source": "examples/sample-package/README.md on origin/main",
+          "output": "Citation, Purpose, Creators, Rights, About, Resources"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT7",
+      "name": "When the API is down",
+      "question": "What does the app show while the API can't be reached?",
+      "took": "Search shows one line saying search is unavailable, with a Try again button. A dataset page keeps Plan 7's static content (title, description, citation, file links), so open data stays reachable.",
+      "instead": "Retry automatically in the background: no button, but a reader can't tell whether anything is happening.",
+      "why": "This is one of the handoff's open questions for Plan 8; the static page already answers it for dataset pages.",
+      "evidence": [
+        {
+          "text": "The static page reads on its own",
+          "source": "docs/specs/2026-11-13-ingest-review-and-access-workflows/spec.md:109"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT8",
+      "name": "Plain CSS, checked by keyboard",
+      "question": "How are styling and accessibility handled in the first plan?",
+      "took": "Plain CSS with a few variables, no component library. Semantic HTML (one h1, labelled controls, real buttons and links), with an axe check of each screen in the Vitest suite and a keyboard pass in the walk. The header says the archive's publisher from the config; theming from the config is a follow-up.",
+      "instead": "A component library such as Radix or MUI: ready-made accessible widgets, a larger bundle and its look.",
+      "why": "The screens are a search form, a list and a page; accessibility is in the brief, and the axe check costs one dev dependency.",
+      "evidence": [
+        {
+          "text": "The archive config holds only the publisher today",
+          "source": "archive.yaml on origin/main",
+          "output": "publisher: Invented Research Cooperative"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT9",
+      "name": "Walk waits on Plan 7's publish",
+      "question": "How is the first plan proven end to end, given that dataset pages come from Plan 7's publish?",
+      "took": "Screens are built and tested against the generated types right away. The takeover task and the walk wait on Plan 7's TASK5 (publish and the dataset page): the walk publishes the sample package through Plan 7's pipeline on a test stage, invites a user, and walks search, page and both downloads.",
+      "instead": "Walk on a stage loaded by reindex alone: no wait on Plan 7, but /datasets/\u003cid\u003e answers 404 there because reindex writes no dataset pages, so the page can only be walked at its versioned URL.",
+      "why": "The settled design serves /datasets/\u003cid\u003e from the page Plan 7 writes; walking without it would test a path readers never take.",
+      "evidence": [
+        {
+          "text": "Plan 7's TASK5 writes the page and isn't built yet",
+          "source": "Plan 7 decisions.json on origin/main",
+          "output": "TASK5 None Task 5: Publish and the dataset page"
+        }
+      ],
+      "state": "standing"
+    },
+    {
+      "id": "AGNT10",
+      "name": "Reindex rewrites dataset pages",
+      "question": "How are dataset pages rebuilt after a reindex or a template change?",
+      "took": "In PLAN1: after the reindex flips the active table and writes catalog.json, it calls Plan 7's archive_backend.pages.render_page(manifest, dataset_id=, version=, domain=, files=) and then write_page(s3, bucket, html, dataset_id) for every dataset, fed from the catalog items, the same way it calls Plan 6's catalog-file writer. Ingest is untouched. One path, no second command: a stage rebuilt by reindex serves /datasets/\u003cid\u003e, and a template change rolls out with just reindex (Plan 10a's rebuild step after a deploy). The reindex Lambda gains put on site/datasets/* and the site's domain. Template edits keep escaping manifest text, which Plan 7's test_pages pins. Recorded in the Decision log.",
+      "instead": "Leave it as the first task of PLAN2: PLAN1 is smaller, but until then a reindexed stage answers 404 at /datasets/\u003cid\u003e and template changes reach only newly published datasets.",
+      "why": "The handoff says web pages are derived and rebuildable by reindex, and today reindex writes none; the coordinating session gave this to Plan 8 and asked for one path.",
+      "evidence": [
+        {
+          "text": "The coordinating session's ruling",
+          "source": "muster thread 965, entry 7028",
+          "output": "Make it one path, not a second command: the reindex calls Plan 7's page writer for every dataset after it flips, the same way it calls Plan 6's catalog-file writer."
+        },
+        {
+          "text": "Plan 7's page writer interface",
+          "source": "muster thread 965, entry 7035 (from Plan 7 via the coordinating session)",
+          "output": "Plan 7 will extract pages.write_page(s3, bucket, html, dataset_id), which writes site/datasets/\u003cid\u003e/index.html with ContentType and max-age=300, beside a stable render_page(manifest, *, dataset_id, version, domain, files). Both are fed from the catalog items. Your reindex calls render_page and then write_page per dataset; you don't touch ingest."
+        }
+      ],
+      "state": "standing"
+    }
+  ],
   "principles": [],
-  "follow_ups": [],
-  "spec": {},
-  "plans": [],
+  "follow_ups": [
+    {
+      "id": "PARK1",
+      "name": "Theme and species facets",
+      "text": "Add theme and species facets to search once the contract holds them (Plan 2's PARK5 and PARK6) and the search endpoint returns them.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK2",
+      "name": "Map view",
+      "text": "A map of results from each row's bounding box, and drawing a box to filter search by bbox. Picks the map library then.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK3",
+      "name": "In-browser data preview",
+      "text": "Preview a table's first rows on the dataset page with DuckDB-Wasm, reading the open file by range from /data, loaded on the dataset page only. Plan 7's PARK4 (previews derived at publish) is the other route.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK4",
+      "name": "Branding from the config",
+      "text": "Themes, logo and colours from the archive config, once an adopter asks for them.",
+      "kind": "improvement"
+    }
+  ],
+  "spec": {
+    "hash": "1676bf49bfd833e1bfce8cfccc6b34065e79daa4a77d3c73000745d06ea12a70",
+    "sections": [
+      {
+        "id": "SPEC1",
+        "heading": "Goal",
+        "decisions": []
+      },
+      {
+        "id": "SPEC2",
+        "heading": "The plans",
+        "decisions": [
+          "AGNT9"
+        ]
+      },
+      {
+        "id": "SPEC3",
+        "heading": "Routes",
+        "decisions": [
+          "AGNT4"
+        ]
+      },
+      {
+        "id": "SPEC4",
+        "heading": "Search",
+        "decisions": [
+          "AGNT4",
+          "AGNT7"
+        ]
+      },
+      {
+        "id": "SPEC5",
+        "heading": "The dataset page",
+        "decisions": [
+          "AGNT3",
+          "AGNT6"
+        ]
+      },
+      {
+        "id": "SPEC6",
+        "heading": "Downloads and sign-in",
+        "decisions": [
+          "AGNT5"
+        ]
+      },
+      {
+        "id": "SPEC7",
+        "heading": "The usage form",
+        "decisions": [
+          "DCSN1"
+        ]
+      },
+      {
+        "id": "SPEC8",
+        "heading": "Taking over the static dataset page",
+        "decisions": [
+          "AGNT2",
+          "AGNT7"
+        ]
+      },
+      {
+        "id": "SPEC9",
+        "heading": "The reindex rewrites dataset pages",
+        "decisions": [
+          "AGNT10"
+        ]
+      },
+      {
+        "id": "SPEC10",
+        "heading": "Shipping the app",
+        "decisions": [
+          "AGNT1"
+        ]
+      },
+      {
+        "id": "SPEC11",
+        "heading": "How it is built",
+        "decisions": [
+          "AGNT3",
+          "AGNT8"
+        ]
+      },
+      {
+        "id": "SPEC12",
+        "heading": "Risk and cost",
+        "decisions": [
+          "AGNT1",
+          "AGNT5",
+          "DCSN1"
+        ]
+      },
+      {
+        "id": "SPEC13",
+        "heading": "Left out",
+        "decisions": [
+          "AGNT5",
+          "AGNT8",
+          "AGNT9"
+        ]
+      },
+      {
+        "id": "SPEC14",
+        "heading": "How we'll know it works",
+        "decisions": [
+          "DCSN1",
+          "AGNT1",
+          "AGNT2",
+          "AGNT9",
+          "AGNT10"
+        ]
+      }
+    ],
+    "approved": {
+      "hash": "1676bf49bfd833e1bfce8cfccc6b34065e79daa4a77d3c73000745d06ea12a70",
+      "at": "2026-11-14T00:47:32.686304-06:00",
+      "body": "# Web app: the reader's flow first\n\n## Goal\n\nA reader can find a dataset by searching, open its page, and download its files, in the web app on a deployed stage. The app is the static React and Vite bundle in `packages/web`, today a stub that renders one heading. It is backed by Plan 6's read API, which is built and was walked on a test deploy. Findability is the problem the project set out to fix, so the reader's flow comes first. The contributor, curator and admin screens follow in a later plan, once Plan 7's submission endpoints exist.\n\n## The plans\n\nTwo plans in this folder, built in turn.\n\n- **PLAN1, the reader's flow.** Search, the dataset page, open and restricted downloads with sign-in, the optional usage form, the takeover of the static dataset page, the reindex rewriting every dataset page, and shipping the app with the stage's deploy. It is proven by a walk on a test stage.\n- **PLAN2, the submission, review and policy screens.** Guided submission showing the same findings as the local tool, the curator's queue, a submission's findings and files, and approve, reject or request changes, and the admin's review policy. It is written once PLAN1 is built and Plan 7's `/api/submissions` endpoints are built, so it reads their real shapes. The curator's file list reads Plan 7's `GET /api/submissions/{id}/files`.\n\nRests on: AGNT9\n\n## Routes\n\nThe app has four routes, handled by React Router.\n\n| Route | What it shows |\n| --- | --- |\n| `/` | Search. The search's state is in the query string, so a search can be shared as a link. |\n| `/datasets/\u003cid\u003e` | The dataset's current version. |\n| `/datasets/\u003cid\u003e/v\u003cn\u003e` | That version, which is the URL the citation gives. A note links to the newer version when one exists. |\n| `/auth/callback` | Finishes sign-in, then returns to the page the reader started from. |\n\nAny other path shows a plain not-found page. CloudFront already sends `/datasets/\u003cid\u003e` to the dataset's static page and every other extensionless path to `index.html`, so no CloudFront change is needed.\n\nRests on: AGNT4\n\n## Search\n\nThe search page calls `GET /api/search` and shows what it answers. It never downloads `catalog.json`.\n\n- **The query.** A search box (`q`), with typing debounced by 300 ms. Facets for access, licence, format and project as checkboxes, each with the count the endpoint returns for the current filter. A from and to year for the date range. Twenty results a page, with Previous and Next.\n- **A result card** shows the title (a link to `/datasets/\u003cid\u003e`), the description cut to three lines, and badges for access, licences, formats, the date range and the project or creators. It uses only the search row's own fields, so there is no request per result.\n- **No results** says so and offers to clear the filters.\n- **When the API can't be reached**, the page shows one line saying search is unavailable, with a Try again button.\n\nRests on: AGNT4, AGNT7\n\n## The dataset page\n\nThe page calls `GET /api/datasets/{id}`, or `GET /api/datasets/{id}/versions/{version}` for a versioned URL, and lays the manifest out in the order of the generated `README.md`, as one page with no tabs.\n\n1. **Title and description**, with badges for access, licence or rights status, and the published date.\n2. **Cite this dataset**: the citation built the way the README builds it, ending with the versioned URL, and a Copy button.\n3. **About**: creators, purpose, rights, project, keywords, temporal coverage and spatial coverage.\n4. **Files**: each resource with its title, kind, file (and the count of its member files for a shapefile set or a raster), size, and a Download button. A linked resource shows Open link to its own URL.\n5. **Columns**: for each table resource, its column dictionary (column, title, type, unit, description, codes). A column with no description says so.\n\nThe manifest's types come from the contract's JSON Schema, since the API returns the manifest as an untyped object.\n\nRests on: AGNT3, AGNT6\n\n## Downloads and sign-in\n\n- **An open file** downloads straight from `/data/\u003cid\u003e/\u003cversion\u003e/\u003cpath\u003e` on the CloudFront domain, with no request to the API.\n- **A restricted file** shows Sign in to download to a reader who isn't signed in. Signing in goes through Cognito's managed login, with code and PKCE through the `web` app client and the callback `/auth/callback`. The region, sign-in domain and client id come from `/auth-config.json`, which this plan's site deployment writes (see Shipping the app). There is no sign-up screen, since accounts are by invitation. Once signed in, the button calls `GET /api/datasets/{id}/versions/{version}/download?path=` with the access token and follows the five-minute link it returns.\n- **Tokens** are held in memory only, using oidc-client-ts, and the refresh token is discarded. Only the PKCE state and the page to return to sit in sessionStorage across the redirect. A reload means signing in again, which managed login's own session makes a single click.\n\nRests on: AGNT5\n\n## The usage form\n\nWhen a reader starts a download, a small panel appears under the file list: \"Help this archive: how will you use this data?\" It has the three optional answers from the contract's `UsageAnswers` (kind of organisation, purpose, and a note of up to 500 characters), with Send and No thanks buttons. Send posts them to `POST /api/datasets/{id}/usage`. The panel never blocks or delays the download, asks for no name or email, and isn't shown again in that visit once it has been answered or dismissed.\n\nRests on: DCSN1\n\n## Taking over the static dataset page\n\nPlan 7's publish writes a static page at `site/datasets/\u003cid\u003e/index.html` that reads on its own: the title, description, citation, version, file links, and schema.org JSON-LD in the head. Plan 8 owns that page's template from here, and Plan 7 still writes the pages.\n\n- **The template** (`archive_backend.pages.render_page`) gains a root element around its readable content and one script tag for `/app.js`. It keeps escaping manifest text, which Plan 7's `test_pages` pins. The page stays readable with no JavaScript.\n- **`/app.js`** is a small loader that the build emits and that is served with no-cache. It loads the current hashed bundle and stylesheet, so an app release never needs the dataset pages rewritten. `index.html` loads the app the same way.\n- **On a dataset page**, the app leaves the static content in place until it has the dataset from the API, then renders over it. If the API can't be reached, the static content stays, so open data is still reachable.\n\nThis edit waits on Plan 7's PLAN1 merging. The root element and `/app.js` go in the handoff's Decision log.\n\nRests on: AGNT2, AGNT7\n\n## The reindex rewrites dataset pages\n\nAfter the reindex flips the active catalog table and writes `catalog.json`, it calls Plan 7's `render_page(manifest, dataset_id=, version=, domain=, files=)` and then `write_page(s3, bucket, html, dataset_id)` for every dataset, fed from the catalog items it has just loaded. This is its own checkpointed step, like the catalog file. Ingest is untouched. The reindex function gains permission to put under `site/datasets/*`, and an environment variable with the site's domain.\n\nSo a stage rebuilt by the reindex serves `/datasets/\u003cid\u003e`, and a template change reaches every published page with `just reindex`, which is Plan 10a's rebuild step after a deploy. This goes in the handoff's Decision log.\n\nRests on: AGNT10\n\n## Shipping the app\n\nThe construct uploads the Vite build to the derived bucket's `site/` with a CDK BucketDeployment, so one `cdk deploy` ships the app with everything else.\n\n- **Pruning is off.** The deployment never deletes what it didn't write: `catalog.json` and `datasets/` share the folder.\n- **`/auth-config.json`** is written by the same deployment, with `Source.jsonData` from the construct's own values: `region`, `cognitoDomain`, `webClientId` and `cliClientId`, the fields Plan 9 agreed, sent with no-cache. The web app and Plan 9's clients only read it, so any client needs only the archive's URL. One deployment writes `site/`. This goes in the handoff's Decision log.\n- **Caching:** `index.html` and `/app.js` are sent with no-cache. The hashed files under `assets/` cache for a year. Old hashed files stay, so a reader mid-session isn't broken by a release.\n- **The build** runs before synth: `just check-ts` already builds the web app, and the default app's deploy builds it first. A synth fails if the build is missing.\n\nRests on: AGNT1\n\n## How it is built\n\n- **Dependencies added to `packages/web`:** React Router, oidc-client-ts, and as dev dependencies openapi-typescript, json-schema-to-typescript and axe-core for tests. No component library: plain CSS with a few variables.\n- **Generated types:** the API's types from the committed `openapi.json` and the manifest's types from the contract's JSON Schema, both committed under `packages/web/src/generated` and checked for drift by `just check-schema`, like the other generated files.\n- **The header** shows the archive's publisher. Themes and colours from the config are a follow-up.\n- **Accessibility:** semantic HTML (one `h1` per page, labelled controls, real buttons and links), an axe check of each screen in the Vitest suite, and a keyboard pass in the walk.\n\nRests on: AGNT3, AGNT8\n\n## Risk and cost\n\n**Risk.** Low. The app only reads: it changes no data, and its one write is the anonymous usage form, which the contract already limits to three optional answers. What a mistake could do:\n\n- **A deployment that prunes** would delete `catalog.json` and every dataset page. Pruning is off, and a synth test pins it. If it happened, `just reindex` rewrites both.\n- **A template edit that stops escaping** manifest text would let a dataset's title inject script into its page. Plan 7's `test_pages` pins the escaping and runs in `just check`.\n- **A token leak** would expose one reader's one-hour access to restricted data. Tokens stay in memory only.\n\nThe gates are sized to that: unit tests per screen with the API mocked, the synth test, the reindex step's test, and one walk on a test stage.\n\n**Cost.** No new AWS service. The BucketDeployment adds one helper Lambda at deploy time. For you, there's one walk on a test stage at the end of PLAN1 (search, page, both downloads, a keyboard pass), and the test stage is destroyed after.\n\nRests on: AGNT1, AGNT5, DCSN1\n\n## Left out\n\n- **Theme and species facets** (PARK1): the contract has no such fields yet. They follow Plan 2's PARK5 and PARK6.\n- **The map view** (PARK2), including drawing a box to filter by bbox, which also picks the map library.\n- **The in-browser data preview** with DuckDB-Wasm (PARK3).\n- **Branding and themes from the config** (PARK4).\n- **The contributor, curator and admin screens:** PLAN2.\n- **Tokens that survive a reload:** a reader signs in again after one.\n\nRests on: AGNT5, AGNT8, AGNT9\n\n## How we'll know it works\n\n- **`just check` passes:** the web app's tests (search, the dataset page, downloads, the usage panel, and an axe check of each screen), the synth test showing the BucketDeployment with pruning off, the cache headers and `auth-config.json`, the reindex test showing a page written per dataset, Plan 7's page tests, and the drift check on the generated types.\n- **On a deployed test stage**, after the sample package is published as an open dataset and again as a restricted one through Plan 7's pipeline, and a user is invited:\n  - a search for words in its title finds it, and checking a facet narrows the results with the counts shown;\n  - its page at `/datasets/\u003cid\u003e` shows the citation, files and columns, and Copy puts the citation on the clipboard;\n  - the citation's versioned URL opens that version;\n  - `/auth-config.json` answers the four fields;\n  - an open file downloads, and the usage panel appears and sends;\n  - the restricted dataset's file asks for sign-in, and after the invited user signs in it downloads;\n  - with JavaScript off, `/datasets/\u003cid\u003e` still shows the title, citation and file links;\n  - after `just reindex`, `/datasets/\u003cid\u003e` still opens.\n\nRests on: DCSN1, AGNT1, AGNT2, AGNT9, AGNT10\n"
+    }
+  },
+  "plans": [
+    {
+      "id": "PLAN1",
+      "topic": "reader-search-page-download",
+      "covers": "The reader's flow: search, the dataset page and downloads, shipped with the stage's deploy"
+    },
+    {
+      "id": "PLAN2",
+      "topic": "submission-review-and-policy-screens",
+      "covers": "Contributor submission, the curator's queue and decision, and the admin's review policy, once Plan 7's /api/submissions is built",
+      "waits_on": [
+        "PLAN1"
+      ]
+    }
+  ],
   "messages": [
     {
       "id": 1,
@@ -31,16 +526,144 @@
       "sender": {
         "project": "personal"
       }
+    },
+    {
+      "id": 2,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 6 (API and search, a40cd8cd2d67), a heads-up for Plan 8. Court is choosing the catalog file format on Plan 6's DCSN1. I now recommend a JSON catalog (catalog.json in the derived bucket's site/, served at /catalog.json with Cache-Control max-age=60) filtered in plain JavaScript on the search page, instead of DuckDB-Wasm. Measured: plain JavaScript filters as fast (8 ms per filter at 10,000 datasets) and skipping the 5.3 MB engine cuts the first search from about 4.7 s to 0.6 s at 1,000 datasets on 10 Mbit/s. Past about 20,000 datasets the upgrade path is a server search endpoint. Plan 8 can still use DuckDB-Wasm to preview a dataset's files. Rows carry: id, current version, title, description, keywords, access, license ids and rights status, project, creators, resource formats, temporal start/end/ongoing, bbox, total bytes, published date; theme and species join when Plan 2's PARK5 and PARK6 land. If Plan 8 has a reason to want DuckDB on the search page, tell me before Court decides.",
+      "at": "2026-11-13T22:08:10.809612-06:00",
+      "state": "answered",
+      "claim": "732e30705d05b386",
+      "sender": {
+        "project": "personal",
+        "folder": "a40cd8cd2d67"
+      }
+    },
+    {
+      "id": 3,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From Plan 6 (a40cd8cd2d67), a follow-up to my DCSN1 heads-up. Court asked whether search could run on the backend, and I now recommend that: GET /api/search with keyword, licence, access, format, project, date range and bbox as query parameters, returning a page of results (20 by default) with facet counts for the current filter. The search Lambda filters catalog.json in memory (9 ms at 10,000 datasets), and the browser downloads about 16 KB per search instead of the whole catalog. The trade for Plan 8 is a request per filter change (estimated 0.1 to 0.2 s warm), so the search page would debounce typing. The catalog file is still written and stays at /catalog.json. Court hasn't chosen yet; tell me if Plan 8 sees a problem.",
+      "at": "2026-11-13T22:12:52.867023-06:00",
+      "state": "answered",
+      "claim": "ee34bba987cedd67",
+      "sender": {
+        "project": "personal",
+        "folder": "a40cd8cd2d67"
+      }
+    },
+    {
+      "id": 4,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "Correction from the coordinating session: reach me only over muster, at personal-personal/generic-package-format-and-contract. A diazo note to Plan 2's folder now goes to a different session.",
+      "at": "2026-11-13T22:13:43.39352-06:00",
+      "state": "answered",
+      "claim": "b12dfb2323c29adf",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 5,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session: accounts are invitation-only. Self sign-up is off (Plan 6, research-in-a-box#26), and an admin adds people with just invite-user \u003cstage\u003e \u003cemail\u003e [group]. The web app has no sign-up screen, only sign-in through Cognito's managed login. Search is a server endpoint, GET /api/search, and the browser doesn't run DuckDB for it. Both are in the handoff Decision log.",
+      "at": "2026-11-13T23:20:47.564806-06:00",
+      "state": "answered",
+      "claim": "2c78643fa3748597",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 6,
+      "card": "plan",
+      "from": "user",
+      "action": "start-planning",
+      "at": "2026-11-14T00:21:51.625524-06:00",
+      "state": "answered",
+      "claim": "40960e799c14ce69"
+    },
+    {
+      "id": 7,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session: Plan 9 is adding /auth-config.json to the site at deploy (region, Cognito domain, web and cli client ids), so any client needs only the archive URL. The web app reads its sign-in settings from that file rather than designing its own way. The exact fields will be in the handoff Decision log.",
+      "at": "2026-11-14T00:25:00.879878-06:00",
+      "state": "answered",
+      "claim": "d1c059a088ff0bcc",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 8,
+      "card": "DIRN",
+      "from": "user",
+      "action": "direction",
+      "at": "2026-11-14T00:35:33.2747-06:00",
+      "state": "answered",
+      "claim": "6682bccfd1b2bc96"
+    },
+    {
+      "id": 9,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session: Plan 7 will add GET /api/submissions/{id}/files, curator only, returning the current round's files with five-minute download links under staging held/. The curator screen's file list and data preview read from it. It's in the Decision log once built.",
+      "at": "2026-11-14T00:37:18.101601-06:00",
+      "state": "answered",
+      "claim": "459bd342935ae302",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 10,
+      "card": "UNDR",
+      "from": "user",
+      "action": "confirm",
+      "at": "2026-11-14T00:43:29.921108-06:00",
+      "state": "answered",
+      "claim": "e0e068bca2eca778"
+    },
+    {
+      "id": 11,
+      "card": "DCSN1",
+      "from": "user",
+      "action": "choose",
+      "option": "A",
+      "at": "2026-11-14T00:43:57.264718-06:00",
+      "state": "answered",
+      "claim": "4fc6f4dc7cdb89e8"
+    },
+    {
+      "id": 12,
+      "card": "spec",
+      "from": "user",
+      "action": "approve-spec",
+      "at": "2026-11-14T00:47:32.686304-06:00",
+      "state": "answered",
+      "claim": "2ad4662a9cf269c3"
     }
   ],
-  "planned": {
-    "at": "2026-11-13T08:48:30.06685-06:00"
-  },
   "planned_history": [
     {
       "action": "planned",
       "by": "agent",
       "at": "2026-11-13T08:48:30.06685-06:00"
+    },
+    {
+      "action": "started",
+      "by": "user",
+      "at": "2026-11-14T00:21:51.625524-06:00"
     }
   ]
 }
