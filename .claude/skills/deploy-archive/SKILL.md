@@ -200,9 +200,11 @@ them the site's URL:
 1. Ask which stage. **They type the stage name** exactly; anything else stops here.
 2. Say plainly what happens: the stage's stack is deleted. A `prod` stage **keeps its buckets and
    tables**: they still hold the data and still bill for storage, and deleting them is by hand.
-   Any other stage deletes everything, data included.
-3. ✋ **Wait for:** "destroy <stage>". Then: `just destroy <stage>`. It deletes the stack and the
-   log group CDK's S3 auto-delete helper leaves behind, and fails if the stack still exists.
+   Any other stage deletes everything, data included. Submissions still waiting for review or
+   for changes end, and their contributors would have to submit again on another stage.
+3. ✋ **Wait for:** "destroy <stage>". Then: `just destroy <stage>`. It stops the stage's
+   running ingest executions (they would block the delete), deletes the stack and the log group
+   CDK's S3 auto-delete helper leaves behind, and fails if the stack still exists.
 4. ✋ Only when no stage is left in that account (every stage `archive.yaml` puts there is
    destroyed): offer removing the GitHub connection. What it does: deletes the
    `ResearchArchiveDeploy` stack (the OIDC provider and the deploy role) and the GitHub
