@@ -405,6 +405,37 @@ test("a version that isn't there links to the current one", async () => {
   );
 });
 
+// 5xx is ApiUnreachable already; any other refusal (429 here) isn't a missing version either.
+test("a refusal other than 404 on a versioned link offers Try again, not Version not found", async () => {
+  const answers = apiAnswers();
+  fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+    new URL(url, "https://site").pathname === `/api/datasets/${ID}/versions/1`
+      ? Response.json({ message: "slow down" }, { status: 429 })
+      : answers(url, init),
+  );
+  renderDataset(1);
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Dataset unavailable" }),
+  ).toBeDefined();
+  expect(screen.queryByText("Version not found")).toBeNull();
+  fetchMock.mockImplementation(answers);
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: MANIFEST.title ?? "" }),
+  ).toBeDefined();
+});
+
+test("a refusal other than 404 on a dataset reads as unavailable, not as no such dataset", async () => {
+  fetchMock.mockResolvedValueOnce(Response.json({ message: "slow down" }, { status: 429 }));
+  renderDataset();
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Dataset unavailable" }),
+  ).toBeDefined();
+});
+
 test("on a static dataset page, the static content stays when the API can't be reached", async () => {
   fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
   document.body.innerHTML = '<div id="app"><h1>Static title</h1></div>';

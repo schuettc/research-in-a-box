@@ -61,8 +61,10 @@ async function load(id: string, version: number | undefined): Promise<View> {
   try {
     [answer, versions] = await Promise.all([getVersion(id, version), getVersions(id)]);
   } catch (error) {
+    // Only a 404 says the version isn't there; any other refusal is a failure to try again.
     if (
       error instanceof ApiRefused &&
+      error.status === 404 &&
       (await getDataset(id).then(
         () => true,
         () => false,
@@ -719,7 +721,7 @@ export function Dataset({ id, version }: { id: string; version?: number }) {
         const failed =
           error instanceof NoSuchVersion
             ? "no-version"
-            : error instanceof ApiRefused
+            : error instanceof ApiRefused && error.status === 404
               ? "missing"
               : "unreachable";
         if (current) setLoaded({ key, failed });
