@@ -727,22 +727,23 @@ def _page(
     root = _root(filled, target)
     text = _read(c, env.archive_bucket, root + MANIFEST).decode("utf-8")
     zips.write_zips(c.s3, env.archive_bucket, root, json.loads(text))
-    html = pages.render_page(
-        Manifest.model_validate_json(text),
-        dataset_id=dataset_id,
-        version=version,
-        domain=env.site_domain,
-        files=filled["files"],
-    )
-    key = f"site/datasets/{dataset_id}/index.html"
-    c.s3.put_object(
-        Bucket=env.derived_bucket,
-        Key=key,
-        Body=html.encode("utf-8"),
-        ContentType="text/html; charset=utf-8",
-        # Short, so a later version's page shows within five minutes.
-        CacheControl="max-age=300",
-    )
+    manifest = Manifest.model_validate_json(text)
+    brand = pages.page_brand(read_archive_config(c.ssm, env.archive_config_parameter))
+    key = ""
+    for versioned in (False, True):
+        html = pages.render_page(
+            manifest,
+            dataset_id=dataset_id,
+            version=version,
+            domain=env.site_domain,
+            files=filled["files"],
+            versioned=versioned,
+            brand=brand,
+        )
+        written = pages.write_page(
+            cast(Any, c.s3), env.derived_bucket, html, dataset_id, version if versioned else None
+        )
+        key = key or written
     return key
 
 

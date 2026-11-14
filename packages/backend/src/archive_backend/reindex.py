@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
@@ -38,6 +38,7 @@ from archive_backend.config import read_archive_config
 from archive_backend.embeddings import Bedrock, with_embedding
 from archive_backend.zips import FOLDER as ZIPS
 from archive_backend.zips import zip_paths
+from archive_contract.config import ArchiveConfig
 from archive_contract.manifest import Manifest
 
 if TYPE_CHECKING:
@@ -85,9 +86,8 @@ def clients() -> Clients:
     )
 
 
-def embeddings_enabled(c: Clients) -> bool:
+def embeddings_enabled(cfg: ArchiveConfig) -> bool:
     """Whether the archive config switches the embeddings module on."""
-    cfg = read_archive_config(c.ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"])
     return cfg.infrastructure is not None and cfg.infrastructure.modules.embeddings is not None
 
 
@@ -242,20 +242,53 @@ def current_versions(items: list[dict[str, Any]]) -> list[tuple[str, int, str, l
     return sorted(found)
 
 
+def version_files(items: list[dict[str, Any]]) -> dict[tuple[str, int], list[str]]:
+    """Each `(dataset id, version)`'s file paths that sit in the archive, zips left out."""
+    found: dict[tuple[str, int], list[str]] = {}
+    for item in items:
+        pk, sk = item["PK"]["S"], item["SK"]["S"]
+        head, marker, path = sk.partition("#FILE#")
+        if marker and "://" not in path and not path.startswith(ZIPS):
+            key = (pk.removeprefix("DATASET#"), int(head.removeprefix("V#")))
+            found.setdefault(key, []).append(path)
+    return {key: sorted(paths) for key, paths in found.items()}
+
+
 @durable_step
-def _pages(_: StepContext, c: Clients, table: str, derived: str, domain: str) -> int:
-    """Render and write every dataset's page from its current version in `table`."""
-    found = current_versions(_scan(c.dynamodb, table))
-    for dataset_id, version, text, files in found:
+def _pages(
+    _: StepContext, c: Clients, table: str, derived: str, domain: str, brand: dict[str, Any]
+) -> int:
+    """Render and write every dataset's page from its current version in `table`, and every
+    version's own page; return how many pages were written."""
+    items = _scan(c.dynamodb, table)
+    look = pages.PageBrand(**brand)
+    files = version_files(items)
+    written = 0
+    for dataset_id, version, text, current in current_versions(items):
         html = pages.render_page(
             Manifest.model_validate_json(text),
             dataset_id=dataset_id,
             version=version,
             domain=domain,
-            files=files,
+            files=current,
+            brand=look,
         )
         pages.write_page(c.s3, derived, html, dataset_id)
-    return len(found)
+        written += 1
+    for dataset_id, found in stored_versions(items):
+        for _prefix, version, text in found:
+            html = pages.render_page(
+                Manifest.model_validate_json(text),
+                dataset_id=dataset_id,
+                version=version,
+                domain=domain,
+                files=files.get((dataset_id, version), []),
+                versioned=True,
+                brand=look,
+            )
+            pages.write_page(c.s3, derived, html, dataset_id, version)
+            written += 1
+    return written
 
 
 def stored_versions(items: list[dict[str, Any]]) -> list[tuple[str, list[tuple[str, int, str]]]]:
@@ -414,12 +447,14 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
     topic = os.environ["ALERT_TOPIC_ARN"]
     domain = os.environ["SITE_DOMAIN"]
 
-    def start(_: object) -> dict[str, str]:
+    def start(_: object) -> dict[str, Any]:
         active = c.ssm.get_parameter(Name=parameter)["Parameter"]["Value"]
+        cfg = read_archive_config(c.ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"])
         return {
             "run": datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
             "active": active,
-            "embeddings": embeddings_enabled(c),
+            "embeddings": embeddings_enabled(cfg),
+            "brand": asdict(pages.page_brand(cfg)),
         }
 
     begun = context.step(start, name="start")
@@ -520,7 +555,8 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
 
             context.step(catalog_alert, name="alert")
 
-        written_pages = context.step(_pages(c, table, derived, domain), name="pages")
+        brand = begun["brand"]
+        written_pages = context.step(_pages(c, table, derived, domain, brand), name="pages")
 
         def datasets(_: object) -> list[Any]:
             return [

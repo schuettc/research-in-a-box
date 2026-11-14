@@ -85,6 +85,18 @@ test("the site function sends /datasets/<id> to its page and other extensionless
   expect(rewrite(code, "/app.js")).toBe("/app.js");
 });
 
+test("the site function sends /datasets/<id>/v<n> to that version's page", () => {
+  const { archive: a, stack, template } = archive();
+  const behaviour = distributionConfig(a, stack, template).DefaultCacheBehavior as Json;
+  const code = functionCode(template, (behaviour.FunctionAssociations as Json[])[0]?.FunctionARN);
+
+  expect(rewrite(code, "/datasets/x/v2")).toBe("/datasets/x/v2/index.html");
+  expect(rewrite(code, "/datasets/x/v2/")).toBe("/datasets/x/v2/index.html");
+  expect(rewrite(code, "/datasets/x")).toBe("/datasets/x/index.html");
+  expect(rewrite(code, "/datasets/x/other")).toBe("/index.html");
+  expect(rewrite(code, "/datasets/x/v2/extra")).toBe("/index.html");
+});
+
 test("/data/* serves open/ from the archive bucket and strips /data", () => {
   const { archive: a, stack, template } = archive();
   const config = distributionConfig(a, stack, template);

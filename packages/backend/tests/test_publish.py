@@ -429,8 +429,9 @@ def test_the_page_is_written_with_its_json_ld(world: World) -> None:
 
     world.publish()
 
-    [put] = [p for p in world.s3.puts if p["Bucket"] == DERIVED]
+    put, versioned = [p for p in world.s3.puts if p["Bucket"] == DERIVED]
     assert put["Key"] == "site/datasets/stream/index.html"
+    assert versioned["Key"] == "site/datasets/stream/v1/index.html"
     assert put["ContentType"].startswith("text/html")
     # A later version's page must show within five minutes, not CloudFront's default TTL.
     assert put["CacheControl"] == "max-age=300"

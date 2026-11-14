@@ -447,7 +447,7 @@ def test_reindex_loads_the_inactive_table_and_flips_on_completed(
         "items": 11,
         "flipped": True,
         "catalog": 2,
-        "pages": 2,
+        "pages": 5,
     }
     assert len(run) == 16 and run[8] == "T" and run.endswith("Z")
     assert world.ssm.value == "B"
@@ -651,9 +651,19 @@ def test_reindex_writes_each_datasets_page_from_its_current_version(
 
     result = world.run()
 
-    assert result["pages"] == 2
+    assert result["pages"] == 5
     pages = sorted(k for k in world.s3.puts if k.startswith("site/datasets/"))
-    assert pages == ["site/datasets/ds-1/index.html", "site/datasets/ds-2/index.html"]
+    assert pages == [
+        "site/datasets/ds-1/index.html",
+        "site/datasets/ds-1/v1/index.html",
+        "site/datasets/ds-1/v2/index.html",
+        "site/datasets/ds-2/index.html",
+        "site/datasets/ds-2/v1/index.html",
+    ]
+    old = world.s3.objects[(DERIVED, "site/datasets/ds-1/v1/index.html")].decode()
+    assert f"https://{DOMAIN}/datasets/ds-1/v1" in old
+    assert f"https://{DOMAIN}/data/ds-1/1/data/a.csv" in old
+    assert "/data/ds-1/2/" not in old
     first = world.s3.objects[(DERIVED, "site/datasets/ds-1/index.html")].decode()
     assert f"https://{DOMAIN}/datasets/ds-1/v2" in first
     assert f"https://{DOMAIN}/data/ds-1/2/data/a.csv" in first
@@ -676,7 +686,7 @@ def test_a_replayed_reindex_does_not_write_the_pages_again(
 
     assert again == first
     pages = [k for k in world.s3.puts if k.startswith("site/datasets/")]
-    assert len(pages) == 2
+    assert len(pages) == 5
 
 
 def _publish_sample(world: World, root: str) -> None:

@@ -24,14 +24,17 @@ export interface WebProps {
   readonly restApi: apigateway.RestApi;
 }
 
-// /datasets/<id> and /datasets/<id>/ read the dataset's own page; any other extensionless path
-// is the app's.
+// /datasets/<id> and /datasets/<id>/ read the dataset's own page, /datasets/<id>/v<n> and
+// /datasets/<id>/v<n>/ that version's page; any other extensionless path is the app's.
 const SITE_REWRITE = `function handler(event) {
   var request = event.request;
   var uri = request.uri;
   var dataset = uri.match(/^\\/datasets\\/([^\\/.]+)\\/?$/);
+  var version = uri.match(/^\\/datasets\\/([^\\/.]+)\\/(v[0-9]+)\\/?$/);
   if (dataset) {
     request.uri = "/datasets/" + dataset[1] + "/index.html";
+  } else if (version) {
+    request.uri = "/datasets/" + version[1] + "/" + version[2] + "/index.html";
   } else if (uri.endsWith("/")) {
     request.uri = uri + "index.html";
   } else if (uri.substring(uri.lastIndexOf("/") + 1).indexOf(".") === -1) {

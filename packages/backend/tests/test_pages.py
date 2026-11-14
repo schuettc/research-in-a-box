@@ -4,7 +4,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
-from archive_backend.pages import render_page, write_page
+from archive_backend.pages import PageBrand, page_brand, render_page, write_page
+from archive_contract.config import ArchiveConfig
 from archive_contract.manifest import Manifest
 
 SAMPLE = Path(__file__).parents[3] / "examples" / "sample-package" / "datapackage.json"
@@ -187,3 +188,74 @@ def test_the_static_style_applies_only_to_the_static_content() -> None:
     rules = [rule.split("{", 1)[0] for rule in style.split("}") if "{" in rule]
     assert rules
     assert all(selector.startswith("#app>") for rule in rules for selector in rule.split(","))
+
+
+def test_a_versioned_page_names_its_version_and_links_the_current_one() -> None:
+    html = render_page(
+        _manifest(id="stream", version="2"),
+        dataset_id="stream",
+        version=2,
+        domain=DOMAIN,
+        files=FILES,
+        versioned=True,
+    )
+    page = _parse(html)
+
+    assert f'<link rel="canonical" href="https://{DOMAIN}/datasets/stream/v2">' in html
+    assert "/datasets/stream" in page.links
+    assert f"https://{DOMAIN}/data/stream/2/data/logger.csv" in page.links
+    assert "Version 2" in "".join(page.app_text)
+    assert "latest version" in "".join(page.app_text)
+
+
+def test_a_versioned_page_escapes_manifest_text_as_the_current_one_does() -> None:
+    title = "<script>alert(1)</script> & co"
+    for versioned in (False, True):
+        html = render_page(
+            _manifest(id="stream", version="1", title=title, description="<b>bold</b>"),
+            dataset_id="stream",
+            version=1,
+            domain=DOMAIN,
+            files=FILES,
+            versioned=versioned,
+        )
+        assert "<script>alert" not in html
+        assert "<b>bold</b>" not in html
+        assert title in "".join(_parse(html).app_text)
+
+
+def test_the_page_takes_the_brands_name_logo_and_colour() -> None:
+    brand = PageBrand(name="Lake <Works>", logo="/brand/logo.svg", color="#0b6e4f")
+    html = render_page(
+        _manifest(id="stream", version="1"),
+        dataset_id="stream",
+        version=1,
+        domain=DOMAIN,
+        files=FILES,
+        brand=brand,
+    )
+
+    assert "Lake &lt;Works&gt;" in html
+    assert '<img src="/brand/logo.svg" alt=""' in html
+    assert "#0b6e4f" in html
+    assert "/" in _parse(html).links
+
+
+def test_the_page_brand_comes_from_the_config_with_defaults() -> None:
+    plain = page_brand(ArchiveConfig.model_validate({"publisher": "Coop"}))
+    assert plain == PageBrand(name="Coop", logo=None, color="#24395f")
+    branded = page_brand(
+        ArchiveConfig.model_validate(
+            {"publisher": "Coop", "brand": {"logo": "brand/Logo.PNG", "primaryColor": "#112233"}}
+        )
+    )
+    assert branded == PageBrand(name="Coop", logo="/brand/logo.png", color="#112233")
+
+
+def test_write_page_puts_a_versioned_page_under_its_version() -> None:
+    s3 = _S3()
+
+    key = write_page(s3, "derived", "<p>hi</p>", "stream", version=3)  # type: ignore[arg-type]
+
+    assert key == "site/datasets/stream/v3/index.html"
+    assert s3.puts[0]["Key"] == key
