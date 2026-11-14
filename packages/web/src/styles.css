@@ -610,81 +610,448 @@ section.block > h2 {
 
 /* The dataset page */
 
-.citation {
-  padding: 0.75rem;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  background: var(--soft);
-}
-
-.facts div {
+.ds-grid {
   display: grid;
-  grid-template-columns: 11rem 1fr;
-  gap: var(--gap);
-  margin-bottom: 0.5rem;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 3.5rem;
+  align-items: start;
 }
 
-.facts dt {
+.ds-main > .label {
+  margin: 0;
+}
+
+.ds-meta {
+  margin: 0 0 1rem;
+  color: var(--muted);
+}
+
+.dataset .lede {
+  margin: 1.25rem 0 1rem;
+}
+
+.banner {
+  max-width: var(--measure);
+  margin: 1.25rem 0;
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--restricted);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.banner p {
+  margin: 0 0 0.6rem;
+}
+
+.banner .access {
+  margin-right: 0.25rem;
+}
+
+.summary {
+  margin: 0;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--ink);
+}
+
+.file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.2rem 1.5rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--rule);
+  align-items: start;
+}
+
+.file > * {
+  grid-column: 1;
+}
+
+.file-head {
+  margin: 0;
+}
+
+.file-title {
   font-weight: 600;
 }
 
-.facts dd,
-.facts ul {
+.file-head .label {
+  margin-left: 0.3rem;
+}
+
+.file .file-action {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  justify-self: end;
+  text-align: right;
+}
+
+.file-about {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
-.dataset table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: var(--gap);
+.file-path {
+  font-size: 0.85rem;
+  margin: 0;
 }
 
-.dataset th,
-.dataset td {
-  text-align: left;
-  vertical-align: top;
-  padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid var(--rule);
+.file-note {
+  display: inline-block;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.locked {
+  white-space: nowrap;
+}
+
+.button.download {
+  min-height: 2rem;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .members {
+  font-size: 0.88rem;
+  margin-top: 0.3rem;
+}
+
+.members summary {
+  cursor: pointer;
+  color: var(--brand);
+}
+
+.members ul {
   list-style: none;
+  margin: 0.4rem 0 0;
   padding: 0;
-  margin: 0.25rem 0 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.members li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.file > .usage {
+  grid-column: 1 / -1;
 }
 
 .usage {
-  margin: var(--gap) 0;
-  padding: var(--gap);
+  margin-top: 0.75rem;
+  padding: 1.25rem 1.4rem;
+  background: var(--soft);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
 }
 
 .usage h2 {
-  font-size: 1.05rem;
-  margin-top: 0;
+  font-size: 1.2rem;
+  margin: 0 0 0.3rem;
 }
 
-.usage label {
-  display: block;
-  margin-bottom: 0.5rem;
+.usage .hint {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
 }
 
-.usage select,
-.usage textarea {
-  display: block;
-  font: inherit;
-  margin-top: 0.25rem;
+.usage-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
 }
 
-.usage textarea {
-  width: 100%;
-  min-height: 4rem;
-}
-
-.usage-actions {
+.field {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.field.wide {
+  grid-column: 1 / -1;
+}
+
+.field .muted {
+  font-weight: 400;
+}
+
+.field select,
+.field textarea {
+  width: 100%;
+  font-weight: 400;
+  font-size: 1rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.dataset details > summary {
+  cursor: pointer;
+}
+
+.dataset details[id^="columns-"] {
+  margin-bottom: 1.5rem;
+}
+
+.dataset details[id^="columns-"] > summary h3 {
+  display: inline;
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  margin-top: 0.6rem;
+}
+
+table.cols {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+table.cols th,
+table.cols td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.55rem 0.75rem 0.55rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+table.cols thead th {
+  font-variant: small-caps;
+  text-transform: lowercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  border-bottom: 1px solid var(--ink);
+  font-size: 1rem;
+}
+
+table.cols tbody th {
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.facts {
+  margin: 0;
+}
+
+.facts > div {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+
+.facts dt {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.facts dd {
+  margin: 0;
+  max-width: var(--measure);
+}
+
+.facts dd ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.facts a {
+  overflow-wrap: anywhere;
+}
+
+.coverage p {
+  margin: 0 0 0.5rem;
+}
+
+.coverage svg {
+  display: block;
+  width: 100%;
+  max-width: 22rem;
+  height: auto;
+  margin-bottom: 0.25rem;
+}
+
+.coverage .frame {
+  fill: #fff;
+  stroke: var(--field);
+  stroke-width: 1;
+}
+
+.coverage .graticule line {
+  stroke: var(--rule);
+  stroke-width: 0.6;
+}
+
+.coverage .area {
+  fill: var(--brand);
+  stroke: var(--brand);
+  stroke-width: 1;
+}
+
+.coverage .ring {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 1.5;
+}
+
+.ds-side {
+  position: sticky;
+  top: 1.5rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.2rem;
+}
+
+.panel h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.6rem;
+}
+
+.citation {
+  border-left: 4px solid var(--accent);
+  padding: 0.25rem 0 0.25rem 0.9rem;
+}
+
+.citation > p:first-child {
+  font: 0.98rem/1.55 var(--font-heading);
+  margin: 0 0 0.6rem;
+  overflow-wrap: anywhere;
+}
+
+.copy-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.copied {
+  color: var(--open);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.versions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.92rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0 1.5rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.account .link-button {
+  font-size: 0.88rem;
+}
+
+@media (max-width: 51rem) {
+  .ds-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+  }
+
+  .ds-side {
+    position: static;
+  }
+}
+
+@media (max-width: 40rem) {
+  .account {
+    margin: 0;
+    width: 100%;
+  }
+
+  .file {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1rem;
+    margin-top: 0.75rem;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+  }
+
+  .files {
+    border-top: 0;
+  }
+
+  .file .file-action {
+    grid-column: 1;
+    grid-row: auto;
+    order: 10;
+    justify-self: stretch;
+    text-align: left;
+    margin-top: 0.5rem;
+  }
+
+  .file .file-action .button.download {
+    width: 100%;
+    min-height: 2.5rem;
+  }
+
+  .file > .usage {
+    order: 11;
+  }
+
+  .usage-fields {
+    grid-template-columns: 1fr;
+  }
+
+  table.cols {
+    min-width: 40rem;
+  }
+
+  .table-scroll {
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: #fff;
+    padding: 0 0.5rem;
+  }
+
+  .facts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.1rem;
+  }
 }

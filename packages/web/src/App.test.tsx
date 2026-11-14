@@ -3,6 +3,16 @@ import axe from "axe-core";
 import { MemoryRouter, useNavigate } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { AppRoutes } from "./App";
+import { addPasskey, completeSignIn, signIn, signOut, signedInEmail } from "./auth";
+
+vi.mock("./auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./auth")>()),
+  signedInEmail: vi.fn(() => null),
+  signOut: vi.fn(async () => {}),
+  addPasskey: vi.fn(async () => {}),
+  signIn: vi.fn(async () => {}),
+  completeSignIn: vi.fn(() => new Promise(() => {})),
+}));
 
 const MANIFEST = { id: "ds-1", title: "Lake levels", "archive:access": "open" };
 const NAME = "Invented Research Cooperative";
@@ -34,6 +44,8 @@ async function answer(url: string): Promise<Response> {
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(answer));
+  vi.mocked(signedInEmail).mockReturnValue(null);
+  sessionStorage.clear();
 });
 
 afterEach(() => {
@@ -147,3 +159,32 @@ test.each(["/", "/datasets/ds-1", "/about", "/nowhere", "/datasets/missing"])(
     expect(results.violations).toEqual([]);
   },
 );
+
+test("signed in, the header names the reader with Sign out and Add a passkey", () => {
+  vi.mocked(signedInEmail).mockReturnValue("reader@example.org");
+  renderAt("/");
+
+  const banner = within(screen.getByRole("banner"));
+  expect(banner.getByText("Signed in as reader@example.org")).toBeDefined();
+  fireEvent.click(banner.getByRole("button", { name: "Add a passkey" }));
+  expect(addPasskey).toHaveBeenCalled();
+  fireEvent.click(banner.getByRole("button", { name: "Sign out" }));
+  expect(signOut).toHaveBeenCalled();
+});
+
+test("signed out, the header says nothing of an account", () => {
+  renderAt("/");
+
+  expect(within(screen.getByRole("banner")).queryByRole("button", { name: "Sign out" })).toBeNull();
+});
+
+test("a failed sign-in offers Back to the dataset and Try again", async () => {
+  vi.mocked(completeSignIn).mockRejectedValueOnce(new Error("no state"));
+  sessionStorage.setItem("sign-in-return-to", "/datasets/ds-1");
+  renderAt("/auth/callback");
+
+  const back = await screen.findByRole("link", { name: "Back to the dataset" });
+  expect(back.getAttribute("href")).toBe("/datasets/ds-1");
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  expect(signIn).toHaveBeenCalledWith("/datasets/ds-1");
+});

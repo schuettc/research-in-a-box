@@ -69,7 +69,10 @@ export function formatLabel(format: string): string {
 
 const KINDS: [string, string[]][] = [
   ["tables", ["csv", "tsv", "xlsx", "xls", "parquet", "json"]],
-  ["GIS", ["shp", "geojson", "gpkg", "kml", "asc", "tif", "tiff", "nc"]],
+  [
+    "GIS",
+    ["shp", "shx", "dbf", "prj", "cpg", "geojson", "gpkg", "kml", "asc", "tif", "tiff", "nc"],
+  ],
   ["documents", ["md", "pdf", "txt", "docx", "html"]],
   ["images", ["png", "jpg", "jpeg", "gif", "svg"]],
 ];

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Link, NavLink, Route, Routes, useLocation, useParams } from "react-router";
+import { addPasskey, signedInEmail, signOut, subscribe } from "./auth";
 import { NavigatedContext, PageHeading, useTitle } from "./page";
 import { About } from "./routes/About";
 import { Callback } from "./routes/Callback";
@@ -32,6 +33,23 @@ function CurrentDataset() {
   return <Dataset id={id} />;
 }
 
+/** Who is signed in, with Sign out and Add a passkey; nothing when no one is. */
+function Account() {
+  const email = useSyncExternalStore(subscribe, signedInEmail);
+  if (!email) return null;
+  return (
+    <p className="account">
+      <span>Signed in as {email}</span>
+      <button type="button" className="link-button" onClick={() => void addPasskey()}>
+        Add a passkey
+      </button>
+      <button type="button" className="link-button" onClick={() => void signOut()}>
+        Sign out
+      </button>
+    </p>
+  );
+}
+
 function Masthead() {
   return (
     <header className="masthead">
@@ -46,6 +64,7 @@ function Masthead() {
           </NavLink>
           <NavLink to="/about">About the archive</NavLink>
         </nav>
+        <Account />
       </div>
     </header>
   );
