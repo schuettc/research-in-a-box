@@ -4,9 +4,7 @@
 
 `research-archive-in-a-box/femc-findings-report` · repo `research-archive-in-a-box`
 
-**Planned** since 2026-11-13: waits for the user's Start planning.
-
-**Start** → Understanding → Decisions → Spec → Plans → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans** → Build → Sign off
 
 ## What was asked
 
@@ -20,11 +18,22 @@
 
 ## Decisions
 
-None yet.
+- **DCSN1 Where the draft lives.** Where should the report's drafts and the finished report live, given the repo is public? The user chose A: On your machine, beside the data.
+- **DCSN2 The before-and-after dataset.** For section 4, how should we show a dataset 'after', when the local tool can't clean data yet and we may not invent what only FEMC knows? The user chose A: After = filled only from FEMC's own public sources.
+- **AGNT1 Addressed to the contact.** Written to your FEMC contact by name, in a form they can forward to archive staff and partners unchanged. The user kept it.
+- **AGNT2 Markdown source, PDF to send.** A Markdown source that renders to a plain PDF, which you attach to an email. The user kept it.
+- **AGNT3 People on the project, said precisely.** 'None of the ten dataset records names a creator; people are recorded on the parent project, under FEMC's own role tags, so EML readers don't see them as the dataset's authors.'. The user kept it.
+- **AGNT4 Recheck borrowed numbers.** Quote them only after rereading Plan 6's own record of the 22 searches, cited by file. The user kept it.
+- **AGNT5 Cite records by their page.** Each finding links the dataset's FEMC page (from SOURCES.md), with the field named and the EML record's page id in brackets where a field-level check needs it. The user kept it.
 
 ## Spec
 
-Not printed yet.
+- [Goal](spec.md#goal): rests on the understanding
+- [The report, section by section](spec.md#the-report-section-by-section): rests on AGNT3, AGNT4, AGNT5
+- [The Ozone before-and-after](spec.md#the-ozone-before-and-after): rests on DCSN2, DCSN1
+- [Where it lives and how it reaches FEMC](spec.md#where-it-lives-and-how-it-reaches-femc): rests on DCSN1, AGNT1, AGNT2, AGNT4, AGNT5
+- [Left out](spec.md#left-out): rests on DCSN1, AGNT2
+- [How we'll know it works](spec.md#how-well-know-it-works): rests on DCSN1, DCSN2, AGNT4, AGNT5
 
 ## Plans
 
@@ -37,6 +46,7 @@ None yet.
 | `README.md` | diazo | This summary: where it stands, what each file is, every decision and its answer. |
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
+| `spec.md` | the agent, header by diazo | The spec. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 
 ## Ids
