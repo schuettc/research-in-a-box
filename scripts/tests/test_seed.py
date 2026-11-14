@@ -33,6 +33,7 @@ class FakeArchive:
         self.statuses = statuses
         self.events = events
         self.reads = 0
+        self.unreachable_report = False
         self.calls: list[tuple[str, str, dict[str, str], Any]] = []
 
     def __call__(
@@ -43,6 +44,8 @@ class FakeArchive:
         if url.startswith("https://uploads.example/"):
             return 200, b""
         if url == REPORT:
+            if self.unreachable_report:
+                raise TimeoutError("timed out")
             report = {
                 "findings": [
                     {"ruleId": "core.description", "severity": "error", "message": "no description"}
@@ -218,3 +221,21 @@ def test_the_sample_package_list_leaves_out_its_build_folder() -> None:
     listed = (seed.SAMPLE / "checksums.sha256").read_text(encoding="utf-8").split()
     sums = dict(zip(listed[1::2], listed[0::2], strict=True))
     assert {f["path"]: f["sha256"] for f in files if f["path"] != "checksums.sha256"} == sums
+
+
+def test_a_report_that_cannot_be_reached_still_shows_the_status_and_events(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    archive = FakeArchive(
+        [{"status": "needs-changes", "reportKey": "reports/x.json"}],
+        [{"type": "created"}, {"type": "checked"}],
+    )
+
+    archive.unreachable_report = True
+    code = _run(archive, _package(tmp_path))
+
+    assert code == 1
+    out = capsys.readouterr().out
+    assert "stopped: needs-changes" in out
+    assert "the report could not be read" in out
+    assert "events: created, checked" in out

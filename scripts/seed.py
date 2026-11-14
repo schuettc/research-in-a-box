@@ -157,14 +157,18 @@ class Seed:
         lines = []
         report_url = answer.get("reportUrl")
         if report_url:
-            status, raw = self.send("GET", str(report_url), {}, None)
+            try:
+                status, raw = self.send("GET", str(report_url), {}, None)
+            except OSError as error:
+                status, raw = 0, b""
+                lines.append(f"  the report could not be read ({error}): {report_url}")
             if status == 200:
                 for finding in json.loads(raw).get("findings", []):
                     lines.append(
                         f"  {finding.get('severity')} {finding.get('ruleId')}: "
                         f"{finding.get('message')}"
                     )
-            else:
+            elif status:
                 lines.append(f"  the report answered {status}: {report_url}")
         events = ", ".join(str(e.get("type")) for e in answer.get("events", []))
         lines.append(f"events: {events or 'none'}")
