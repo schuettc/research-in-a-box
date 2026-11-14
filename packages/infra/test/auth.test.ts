@@ -24,14 +24,14 @@ function authWithClients(): Template {
   return Template.fromStack(stack);
 }
 
-test("the user pool signs in with email and has contributor, curator and admin groups", () => {
+test("the user pool signs in with email, takes invited users only, and has contributor, curator and admin groups", () => {
   const template = archive();
 
   template.resourceCountIs("AWS::Cognito::UserPool", 1);
   template.hasResourceProperties("AWS::Cognito::UserPool", {
     UsernameAttributes: ["email"],
     AutoVerifiedAttributes: ["email"],
-    AdminCreateUserConfig: { AllowAdminCreateUserOnly: false },
+    AdminCreateUserConfig: { AllowAdminCreateUserOnly: true },
     AccountRecoverySetting: {
       RecoveryMechanisms: [{ Name: "verified_email", Priority: 1 }],
     },

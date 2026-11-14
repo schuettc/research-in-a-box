@@ -7,7 +7,7 @@ export interface AuthProps {
   readonly isProd: boolean;
 }
 
-/** The user pool with email sign-in, its role groups, and Cognito's managed login. */
+/** The user pool with email sign-in by invitation only, its role groups, and Cognito's managed login. */
 export class Auth extends Construct {
   readonly userPool: cognito.UserPool;
   private readonly domain: cognito.UserPoolDomain;
@@ -15,7 +15,7 @@ export class Auth extends Construct {
   constructor(scope: Construct, id: string, props: AuthProps) {
     super(scope, id);
     this.userPool = new cognito.UserPool(this, "UserPool", {
-      selfSignUpEnabled: true,
+      selfSignUpEnabled: false,
       signInAliases: { email: true },
       autoVerify: { email: true },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
