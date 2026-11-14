@@ -128,28 +128,39 @@ test("every environment variable either handler reads is set", () => {
 
 test("each submissions route has its method behind the Cognito authorizer", () => {
   const [authorizer] = Object.keys(template.findResources("AWS::ApiGateway::Authorizer"));
-  const resource = (pathPart: string): string => {
-    const ids = Object.keys(
+  // Other plans hang their own {id} resources off /api, so each part is found under its parent.
+  const resource = (pathPart: string, parent?: string): string => {
+    const ids = Object.entries(
       template.findResources("AWS::ApiGateway::Resource", { Properties: { PathPart: pathPart } }),
-    );
+    )
+      .filter(
+        ([, r]) =>
+          parent === undefined ||
+          JSON.stringify((r as { Properties: { ParentId: unknown } }).Properties.ParentId) ===
+            JSON.stringify({ Ref: parent }),
+      )
+      .map(([id]) => id);
     expect(ids).toHaveLength(1);
     return ids[0]!;
   };
+  const submissions = resource("submissions");
+  const policy = resource("policy", submissions);
+  const id = resource("{id}", submissions);
   const routes: [string, string][] = [
-    ["POST", "submissions"],
-    ["GET", "submissions"],
-    ["GET", "policy"],
-    ["PUT", "policy"],
-    ["GET", "{id}"],
-    ["POST", "uploads"],
-    ["POST", "submit"],
-    ["POST", "decision"],
+    ["POST", submissions],
+    ["GET", submissions],
+    ["GET", policy],
+    ["PUT", policy],
+    ["GET", id],
+    ["POST", resource("uploads", id)],
+    ["POST", resource("submit", id)],
+    ["POST", resource("decision", id)],
   ];
 
-  for (const [method, pathPart] of routes) {
+  for (const [method, resourceId] of routes) {
     template.hasResourceProperties("AWS::ApiGateway::Method", {
       HttpMethod: method,
-      ResourceId: { Ref: resource(pathPart) },
+      ResourceId: { Ref: resourceId },
       AuthorizationType: "COGNITO_USER_POOLS",
       AuthorizerId: { Ref: authorizer },
       Integration: {
@@ -157,19 +168,6 @@ test("each submissions route has its method behind the Cognito authorizer", () =
           "Fn::Join": ["", Match.arrayWith([{ "Fn::GetAtt": [fn(SUBMISSIONS).id, "Arn"] }])],
         },
       },
-    });
-  }
-  // The routes hang off /api/submissions, and policy and {id} off submissions itself.
-  for (const child of ["policy", "{id}"]) {
-    template.hasResourceProperties("AWS::ApiGateway::Resource", {
-      PathPart: child,
-      ParentId: { Ref: resource("submissions") },
-    });
-  }
-  for (const child of ["uploads", "submit", "decision"]) {
-    template.hasResourceProperties("AWS::ApiGateway::Resource", {
-      PathPart: child,
-      ParentId: { Ref: resource("{id}") },
     });
   }
 });

@@ -117,7 +117,8 @@ test("the signed-in routes use the archive's authorizer", () => {
   const signedIn = prod.template.findResources("AWS::ApiGateway::Method", {
     Properties: { AuthorizationType: "COGNITO_USER_POOLS" },
   });
-  expect(Object.keys(signedIn)).toHaveLength(3);
+  // Which routes are signed in is pinned by the route table above; Plan 7 adds its own.
+  expect(Object.keys(signedIn).length).toBeGreaterThanOrEqual(3);
   for (const method of Object.values(signedIn) as Resource[]) {
     expect(method.Properties.AuthorizerId).toEqual({ Ref: authorizerId });
   }
