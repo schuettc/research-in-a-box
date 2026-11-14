@@ -1,60 +1,394 @@
+/*
+ * The Reading room look. The brand's properties (--brand, its shades and --font-heading) are
+ * set again after this file from the archive config's brand block, at build time.
+ */
 :root {
-  --text: #1f2328;
-  --muted: #59636e;
-  --line: #d1d9e0;
-  --surface: #f6f8fa;
-  --accent: #0b5cad;
+  --brand: #24395f;
+  --brand-ink: #ffffff;
+  --brand-hover: #1f3051;
+  --brand-active: #192843;
+  --accent: #8a4d12;
+  --paper: #fbf9f5;
+  --ink: #1d1f23;
+  --muted: #555b64;
+  --rule: #ddd6c9;
+  --soft: #f3efe7;
+  --field: #8c857a;
+  --focus: #c26a00;
+  --open: #256029;
+  --restricted: #8a3b00;
   --danger: #a40e26;
-  --radius: 6px;
+  --font-heading: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-body:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --radius: 3px;
+  --measure: 70ch;
   --gap: 1rem;
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
-  color: var(--text);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.6 var(--font-body);
 }
 
 a {
-  color: var(--accent);
+  color: var(--brand);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
 }
 
-.site-header {
-  padding: 0.75rem var(--gap);
-  border-bottom: 1px solid var(--line);
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
   font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
 }
 
-.site-header a {
-  color: var(--text);
+h1 {
+  font-size: 2.35rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+h1:focus {
+  outline: none;
+}
+
+h1:focus-visible {
+  outline: 3px solid var(--focus);
+}
+
+code {
+  font:
+    0.9em/1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  overflow-wrap: anywhere;
+}
+
+p,
+li,
+dd {
+  overflow-wrap: break-word;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -10rem;
+  z-index: 10;
+  padding: 0.6rem 1rem;
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-weight: 600;
+  border-radius: var(--radius);
+}
+
+.skip-link:focus {
+  top: 0.75rem;
+}
+
+/* Masthead and footer */
+
+.masthead {
+  border-top: 6px solid var(--brand);
+  border-bottom: 1px solid var(--rule);
+  background: #fff;
+}
+
+.masthead .inner,
+.footer .inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.1rem 1.5rem;
+}
+
+.masthead .inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+}
+
+.mark {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   text-decoration: none;
+  color: var(--ink);
+}
+
+.mark img {
+  flex: none;
+  display: block;
+}
+
+.mark .name {
+  font: 600 1.3rem/1.15 var(--font-heading);
+}
+
+.masthead nav {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  font-size: 0.95rem;
+}
+
+.masthead nav a {
+  color: var(--ink);
+  text-decoration: none;
+  padding: 0.25rem 0;
+  border-bottom: 2px solid transparent;
+}
+
+.masthead nav a:hover,
+.masthead nav a[aria-current="page"] {
+  border-bottom-color: var(--brand);
 }
 
 main {
-  max-width: 60rem;
+  display: block;
+  max-width: 72rem;
   margin: 0 auto;
-  padding: var(--gap);
+  padding: 2.5rem 1.5rem 4rem;
 }
 
-button {
-  font: inherit;
-  padding: 0.25rem 0.75rem;
-  border: 1px solid var(--line);
+main:focus {
+  outline: none;
+}
+
+.footer {
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.footer .inner {
+  padding: 1.5rem;
+}
+
+/* Text */
+
+.prose,
+.lede {
+  max-width: var(--measure);
+}
+
+.lede {
+  font: 1.15rem/1.6 var(--font-heading);
+  color: #33373d;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.missing {
+  color: #6b6157;
+  font-style: italic;
+}
+
+.small {
+  font-size: 0.85rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.note {
+  max-width: var(--measure);
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--brand);
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--rule);
+}
+
+/* Buttons: one primary style, a quieter one for the rest */
+
+button,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  font: 600 0.95rem/1.2 var(--font-body);
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--field);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: #fff;
+  color: var(--ink);
+  text-decoration: none;
   cursor: pointer;
+}
+
+button:hover,
+.button:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.primary {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+
+.primary:hover {
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
+  color: var(--brand-ink);
+}
+
+.primary:active {
+  background: var(--brand-active);
 }
 
 button:disabled {
   cursor: default;
   color: var(--muted);
+  border-color: var(--rule);
 }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.link-button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
+
+/* Form fields */
+
+input[type="search"],
+input[type="text"],
+select,
+textarea {
+  font: inherit;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--field);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+}
+
+input[type="checkbox"] {
+  accent-color: var(--brand);
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+
+/* Small-caps labels and access labels */
+
+.label {
+  font-variant: small-caps;
+  text-transform: lowercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.access {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.access.open {
+  color: var(--open);
+}
+
+.access.restricted {
+  color: var(--restricted);
+}
+
+/* Sections */
+
+section.block {
+  margin-top: 2.5rem;
+}
+
+section.block > h2 {
+  font-size: 1.5rem;
+  margin: 0 0 1rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+@media (max-width: 40rem) {
+  .masthead .inner {
+    padding: 0.9rem 1rem;
+  }
+
+  .masthead nav {
+    margin-left: 0;
+    width: 100%;
+    gap: 0.5rem 1.25rem;
+  }
+
+  .mark .name {
+    font-size: 1.1rem;
+  }
+
+  main {
+    padding: 1.75rem 1rem 3rem;
+  }
+
+  h1 {
+    font-size: 1.85rem;
+  }
+
+  .footer .inner {
+    padding: 1.25rem 1rem;
+  }
+}
+
+/* Search and the dataset page */
 
 .search form {
   display: flex;
@@ -76,7 +410,7 @@ button:disabled {
 }
 
 .filters fieldset {
-  border: 1px solid var(--line);
+  border: 1px solid var(--rule);
   border-radius: var(--radius);
   margin: 0 0 var(--gap);
 }
@@ -92,7 +426,7 @@ button:disabled {
 }
 
 .result {
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--rule);
   padding-bottom: var(--gap);
 }
 
@@ -122,9 +456,9 @@ button:disabled {
 .badges li {
   font-size: 0.85rem;
   padding: 0 0.5rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--rule);
   border-radius: 999px;
-  background: var(--surface);
+  background: var(--soft);
 }
 
 .pages {
@@ -139,30 +473,17 @@ button:disabled {
   }
 }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.muted {
-  color: var(--muted);
-}
-
 .note {
   padding: 0.5rem var(--gap);
-  border-left: 4px solid var(--accent);
-  background: var(--surface);
+  border-left: 4px solid var(--brand);
+  background: var(--soft);
 }
 
 .citation {
   padding: 0.75rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--rule);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--soft);
 }
 
 .facts div {
@@ -194,7 +515,7 @@ button:disabled {
   text-align: left;
   vertical-align: top;
   padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--rule);
 }
 
 .members {
@@ -206,7 +527,7 @@ button:disabled {
 .usage {
   margin: var(--gap) 0;
   padding: var(--gap);
-  border: 1px solid var(--line);
+  border: 1px solid var(--rule);
   border-radius: var(--radius);
 }
 

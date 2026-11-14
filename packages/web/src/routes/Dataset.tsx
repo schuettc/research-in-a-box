@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router";
 import { ApiRefused, downloadLink, getDataset, getVersion, getVersions } from "../api";
 import { apiToken, signIn } from "../auth";
 import { citation, creatorNames } from "../citation";
+import { PageHeading, useTitle } from "../page";
 import type { Field, Manifest, Resource, TableSchema } from "../generated/manifest";
 import { UsagePanel, usagePanelDone } from "../UsagePanel";
 
@@ -195,6 +196,7 @@ function CopyButton({ text }: { text: string }) {
 function DatasetPage({ id, view }: { id: string; view: View }) {
   const { manifest } = view;
   const title = manifest.title ?? manifest.name ?? id;
+  useTitle(title);
   const [usageOpen, setUsageOpen] = useState(false);
   const onDownload = () => {
     if (!usagePanelDone()) setUsageOpen(true);
@@ -247,7 +249,7 @@ function DatasetPage({ id, view }: { id: string; view: View }) {
 
   return (
     <article className="dataset">
-      <h1>{title}</h1>
+      <PageHeading>{title}</PageHeading>
       {view.newer !== null && (
         <p className="note">
           A newer version of this dataset exists:{" "}
@@ -394,6 +396,23 @@ function DatasetPage({ id, view }: { id: string; view: View }) {
   );
 }
 
+function Title({ page }: { page: string }) {
+  useTitle(page);
+  return null;
+}
+
+function Loading() {
+  useTitle("Loading dataset");
+  return (
+    <>
+      <PageHeading>Loading dataset…</PageHeading>
+      <p role="status" className="muted">
+        One moment.
+      </p>
+    </>
+  );
+}
+
 export function Dataset({ id, version }: { id: string; version?: number }) {
   const key = `${id}@${version ?? "current"}`;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -419,12 +438,13 @@ export function Dataset({ id, version }: { id: string; version?: number }) {
     if (view) shown();
   }, [view, shown]);
 
-  if (!result) return <p role="status">Loading the dataset…</p>;
+  if (!result) return <Loading />;
   if ("failed" in result) {
     if (result.failed === "missing") {
       return (
         <>
-          <h1>Dataset not found</h1>
+          <Title page="Not found" />
+          <PageHeading>Dataset not found</PageHeading>
           <p>
             There's no dataset {id}
             {version ? ` version ${version}` : ""}. <Link to="/">Search the archive</Link>.
@@ -434,7 +454,8 @@ export function Dataset({ id, version }: { id: string; version?: number }) {
     }
     return (
       <>
-        <h1>Dataset</h1>
+        <Title page="Dataset unavailable" />
+        <PageHeading>Dataset unavailable</PageHeading>
         <p role="alert">This dataset can't be loaded right now.</p>
       </>
     );

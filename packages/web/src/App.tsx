@@ -1,14 +1,17 @@
-import { Link, Route, Routes, useParams } from "react-router";
+import { useState } from "react";
+import { Link, NavLink, Route, Routes, useLocation, useParams } from "react-router";
+import { NavigatedContext, PageHeading, useTitle } from "./page";
+import { About } from "./routes/About";
 import { Callback } from "./routes/Callback";
 import { Dataset } from "./routes/Dataset";
 import { Search } from "./routes/Search";
-
-declare const __PUBLISHER__: string;
+import { BRAND, PUBLISHER } from "./site";
 
 function NotFound() {
+  useTitle("Not found");
   return (
     <>
-      <h1>Page not found</h1>
+      <PageHeading>Page not found</PageHeading>
       <p>
         There's nothing at this address. <Link to="/">Search the archive</Link>.
       </p>
@@ -29,21 +32,59 @@ function CurrentDataset() {
   return <Dataset id={id} />;
 }
 
-export function AppRoutes() {
+function Masthead() {
   return (
-    <>
-      <header className="site-header">
-        <Link to="/">{__PUBLISHER__}</Link>
-      </header>
-      <main>
+    <header className="masthead">
+      <div className="inner">
+        <Link className="mark" to="/">
+          {BRAND.logo && <img src={BRAND.logo} alt="" width="44" height="44" />}
+          <span className="name">{BRAND.name}</span>
+        </Link>
+        <nav aria-label="Main">
+          <NavLink to="/" end>
+            Browse
+          </NavLink>
+          <NavLink to="/about">About the archive</NavLink>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+export function AppRoutes() {
+  // Focus moves to each new page's h1, but not on the page the reader arrived at.
+  const { pathname } = useLocation();
+  const [seen, setSeen] = useState({ path: pathname, moved: false });
+  if (seen.path !== pathname) setSeen({ path: pathname, moved: true });
+  const navigated = seen.moved || seen.path !== pathname;
+
+  return (
+    <NavigatedContext value={navigated}>
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <Masthead />
+      <main id="main" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<Search />} />
+          <Route path="/about" element={<About />} />
           <Route path="/datasets/:id" element={<CurrentDataset />} />
           <Route path="/datasets/:id/:version" element={<VersionedDataset />} />
           <Route path="/auth/callback" element={<Callback />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-    </>
+      <footer className="footer">
+        <div className="inner">
+          {PUBLISHER} · Data are shared under the licence shown on each dataset.
+          {BRAND.contact && (
+            <>
+              {" "}
+              Contact <a href={`mailto:${BRAND.contact}`}>{BRAND.contact}</a>.
+            </>
+          )}
+        </div>
+      </footer>
+    </NavigatedContext>
   );
 }

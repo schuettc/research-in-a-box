@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { search, type CatalogRow, type SearchAnswer } from "../api";
+import { PageHeading, useTitle } from "../page";
 
 const FACETS = [
   ["access", "Access"],
@@ -94,7 +95,9 @@ function useYear(name: "from" | "to") {
 }
 
 export function Search() {
+  useTitle("Search");
   const [params, setParams] = useSearchParams();
+  const box = useRef<HTMLInputElement>(null);
   const q = params.get("q") ?? "";
   const query = apiQuery(params);
   const page = pageOf(params);
@@ -165,6 +168,7 @@ export function Search() {
   function clearFilters() {
     setText("");
     setParams(new URLSearchParams());
+    box.current?.focus();
   }
 
   // The last answer stays on screen while the next one loads, so focus isn't lost.
@@ -172,11 +176,12 @@ export function Search() {
 
   return (
     <div className="search">
-      <h1>Search the archive</h1>
+      <PageHeading>Search the archive</PageHeading>
       <form role="search" onSubmit={(event) => event.preventDefault()}>
         <label htmlFor="search-q">Search</label>
         <input
           id="search-q"
+          ref={box}
           type="search"
           value={text}
           onChange={(event) => setText(event.target.value)}
