@@ -3,7 +3,7 @@ diazo: research-archive-in-a-box/femc-migration-and-practice-corpus
 file: spec
 status: approved
 approved: 2026-11-13T22:07:37-06:00
-hash: 9ebbdc30fea9969f6d401840ce499598139fdacfec8bfb48ae320b706c08fb37
+hash: b0e4d1f91b32fa7afade457651148613482bfb2a5f13fb1cd1a113799dc91119
 rests_on: [AGNT1, AGNT8, AGNT2, AGNT7, AGNT3, AGNT4, DCSN1, AGNT5, AGNT6, DCSN2, AGNT9]
 record: README.md
 ---
@@ -76,7 +76,7 @@ Ten datasets, converted in this order, each adding one problem the converter has
 | 9 | Development Related Projects with Threatened or Endangered Species | By request, ongoing, protected species: metadata only. |
 | 10 | 1991 White clover clones as a biomonitor | Description only: metadata only. |
 
-Datasets 7 to 10 are new. Their EML records are saved from each page's `/eml_xmlview`; datasets 7 and 8 are downloaded by hand through FEMC's public pages; each gets a row in `SOURCES.md` with the license its page shows and a line in `CHECKSUMS.sha256`. The raster and image files' exact formats are read when they are downloaded, and they map to the contract's existing `raster` and `media` kinds.
+Datasets 7 to 10 are new. Their EML records are saved from each page's `/eml_xmlview`; datasets 7 and 8 are downloaded through FEMC's public pages (done by the agent at Court's word, through each page's anonymous Download Data form); each gets a row in `SOURCES.md` with the license its page shows and a line in `CHECKSUMS.sha256`. The raster and image files' exact formats are read when they are downloaded, and they map to the contract's existing `raster` and `media` kinds.
 
 Rests on: DCSN1, AGNT5
 
@@ -96,7 +96,7 @@ Rests on: DCSN2, AGNT9
 
 Risk: low. The converter writes only new package folders under `practice-data/packages/` on Court's machine and adds new code under `examples/femc/`; nothing in the core changes and nothing is deployed. A wrong conversion is undone by deleting the package folder and running the converter again. The one thing that must not happen is committing FEMC's data, since `practice-data/` is git-ignored and licenses vary.
 
-Cost: two downloads by hand from Court (the raster and the images). No new programs: the converter uses the contract and the standard library.
+Cost: two downloads through FEMC's public pages (the raster and the images), done by the agent at Court's word. No new programs: the converter uses the contract and the standard library.
 
 Rests on: DCSN1, AGNT1
 

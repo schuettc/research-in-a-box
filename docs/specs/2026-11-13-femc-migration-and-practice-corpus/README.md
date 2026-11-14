@@ -4,7 +4,9 @@
 
 `research-archive-in-a-box/femc-migration-and-practice-corpus` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 0 of 5** → Sign off
+
+PLAN1 building · 0 of 5 done
 
 ## What was asked
 
@@ -46,12 +48,17 @@
 
 ## Plans
 
-None yet.
+- [PLAN1](plans/1-femc-converter-and-corpus.md) The FEMC converter and the ten-dataset corpus: building · 0 of 5 done
+  - TASK1 Task 1: The femc package and FEMC's config: not started
+  - TASK2 Task 2: Reading FEMC's EML: not started
+  - TASK3 Task 3: Writing a package: not started
+  - TASK4 Task 4: Convert the ten: not started
+  - TASK5 Task 5: The audit and its counts: not started
 
 ## Steps
 
-- STEP1 Download Vegetation Class Raster from FEMC: needs the user
-- STEP2 Download Mount Mansfield Quadrat Images from FEMC: needs the user
+- STEP1 Download Vegetation Class Raster from FEMC: done
+- STEP2 Download Mount Mansfield Quadrat Images from FEMC: done
 
 ## Files
 
@@ -61,6 +68,7 @@ None yet.
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |
 
