@@ -1,0 +1,14 @@
+{
+  "name": "research-archive",
+  "displayName": "research archive",
+  "version": "0.1.0",
+  "description": "Find and fetch data in a research-in-a-box archive, check and fix a dataset package with the archive's own checks, submit it, and review submissions as a curator. Nothing is written to a manifest or sent to the archive without your yes.",
+  "author": {
+    "name": "Court Schuett"
+  },
+  "homepage": "https://github.com/schuettc/research-in-a-box",
+  "repository": "https://github.com/schuettc/research-in-a-box",
+  "license": "MIT",
+  "keywords": ["research data", "archive", "frictionless", "curation"],
+  "mcpServers": "./.mcp.json"
+}

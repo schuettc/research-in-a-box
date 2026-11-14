@@ -27,7 +27,7 @@ def _table(header: list[str], rows: list[list[str]]) -> list[str]:
     return [line(cells[0]), rule, *(line(r) for r in cells[1:])]
 
 
-def _citation(manifest: Manifest) -> str | None:
+def citation(manifest: Manifest) -> str | None:
     """The citation the authors ask for (`archive:citation`), else one built from the manifest."""
     if manifest.citation:
         return " ".join(manifest.citation.split())
@@ -154,9 +154,9 @@ def render_readme(manifest: Manifest, project: Project | None = None) -> str:
         "This README is generated from `datapackage.json`. Edit the manifest, not this file.",
         "",
     ]
-    citation = _citation(manifest)
-    if citation:
-        lines += ["## Citation", "", citation, ""]
+    cited = citation(manifest)
+    if cited:
+        lines += ["## Citation", "", cited, ""]
     if manifest.purpose:
         lines += ["## Purpose", "", " ".join(manifest.purpose.split()), ""]
     names = [n for n in (person_name(c) for c in creators(manifest)) if n]

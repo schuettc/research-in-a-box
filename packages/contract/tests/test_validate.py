@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from archive_contract import write_checksums
 from archive_contract.findings import Finding
 from archive_contract.validate import validate_package
 
@@ -30,15 +31,6 @@ def edited(
     if refresh_checksums:
         write_checksums(root)
     return root
-
-
-def write_checksums(root: Path) -> None:
-    lines = [
-        f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.relative_to(root).as_posix()}\n"
-        for p in sorted(root.rglob("*"))
-        if p.is_file() and p.name != "checksums.sha256"
-    ]
-    (root / "checksums.sha256").write_text("".join(lines), encoding="utf-8")
 
 
 def test_valid_package_has_no_findings() -> None:

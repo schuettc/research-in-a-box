@@ -7,7 +7,14 @@ requires-python = ">=3.12"
 package = false
 
 [tool.uv.workspace]
-members = ["packages/contract", "packages/tool", "packages/backend", "examples/femc"]
+members = [
+    "packages/contract",
+    "packages/tool",
+    "packages/backend",
+    "packages/client",
+    "packages/agent",
+    "examples/femc",
+]
 
 [dependency-groups]
 dev = [
@@ -38,6 +45,8 @@ mypy_path = [
     "packages/contract/src",
     "packages/tool/src",
     "packages/backend/src",
+    "packages/client/src",
+    "packages/agent/src",
     "examples/femc/src",
     "scripts",
 ]
@@ -51,4 +60,12 @@ pythonpath = ["scripts"]
 addopts = ["--import-mode=importlib"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["archive_contract", "cruise", "archive_backend", "femc", "smoke"]
+known-first-party = [
+    "archive_contract",
+    "cruise",
+    "archive_backend",
+    "archive_client",
+    "archive_agent",
+    "femc",
+    "smoke",
+]
