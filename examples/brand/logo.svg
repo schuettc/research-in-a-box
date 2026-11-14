@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44" role="img" aria-label="Invented Research Cooperative">
+<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
   <rect x="1" y="1" width="42" height="42" rx="4" fill="none" stroke="#24395f" stroke-width="2"/>
   <rect x="5" y="5" width="34" height="34" rx="2" fill="#24395f"/>
-  <text x="22" y="27.5" text-anchor="middle" font-family="Iowan Old Style, Palatino, Georgia, serif" font-size="14" font-weight="700" letter-spacing=".5" fill="#ffffff">IRC</text>
+  <path d="M11.5 15V29M16 29V15h4.2a3.6 3.6 0 0 1 0 7.2H16M20.2 22.2L24 29M34 17a6 7 0 1 0 0 10" fill="none" stroke="#ffffff" stroke-width="2.4"/>
 </svg>
