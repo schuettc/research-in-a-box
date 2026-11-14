@@ -11,7 +11,12 @@ import type { Manifest } from "../generated/manifest";
 import { mount } from "../main";
 import { Dataset } from "./Dataset";
 
-vi.mock("../auth", () => ({ apiToken: vi.fn(() => null), signIn: vi.fn(async () => {}) }));
+vi.mock("../auth", () => ({
+  apiToken: vi.fn(() => null),
+  signIn: vi.fn(async () => {}),
+  subscribe: vi.fn(() => () => {}),
+  signedInEmail: vi.fn(() => null),
+}));
 
 const SAMPLE = join(import.meta.dirname, "../../../../examples/sample-package");
 const MANIFEST = JSON.parse(readFileSync(join(SAMPLE, "datapackage.json"), "utf-8")) as Manifest;
@@ -77,17 +82,21 @@ function renderDataset(version?: number, id = ID) {
   );
 }
 
-/** The Files table's row whose first cell is the title. */
-function rowOf(files: HTMLElement, title: string): HTMLElement | undefined {
-  return [...files.querySelectorAll("tbody tr")].find(
-    (row) => row.querySelector("td")?.textContent === title,
-  ) as HTMLElement | undefined;
+/** The Files list's item whose title is `title`. */
+function itemOf(files: HTMLElement, title: string): HTMLElement {
+  const item = [...files.querySelectorAll(":scope > li")].find(
+    (li) => li.querySelector(".file-title")?.textContent === title,
+  );
+  if (!item) throw new Error(`no file item titled ${title}`);
+  return item as HTMLElement;
 }
 
-async function filesTable(): Promise<HTMLElement> {
+async function filesList(): Promise<HTMLElement> {
   await screen.findByRole("heading", { level: 1, name: MANIFEST.title ?? "" });
-  return screen.getByRole("table", { name: "Files" });
+  return screen.getByRole("list", { name: "Files" });
 }
+
+const LOGGER = /^Download Logger readings \(\d/;
 
 beforeEach(() => {
   fetchMock = apiAnswers();
@@ -104,51 +113,141 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-test("every resource shows with its kind, and each file has its download", async () => {
+test("every resource is a card with its kind, size and one download button", async () => {
   renderDataset();
-  const files = await filesTable();
+  const files = await filesList();
 
   for (const resource of MANIFEST.resources ?? []) {
-    const row = rowOf(files, resource.title ?? resource.name);
-    expect(row?.textContent).toContain(resource["archive:kind"] ?? "");
+    const item = itemOf(files, resource.title ?? resource.name);
+    expect(item.className).toContain("file");
+    expect(item.textContent).toContain(resource["archive:kind"] ?? "");
   }
-  const logger = within(files).getByRole("link", { name: "Download Logger readings" });
+  const logger = within(files).getByRole("link", { name: LOGGER });
   expect(logger.getAttribute("href")).toBe(`/data/${ID}/1/data/logger.csv`);
-  const sites = rowOf(files, "Sites");
-  expect(sites?.textContent).toContain("4 files");
-  expect(within(files).getByRole("link", { name: "Download data/sites/sites.dbf" })).toBeDefined();
+  expect(logger.className).toContain("button");
+  expect(logger.textContent).toContain("3.4 kB");
+  const sites = itemOf(files, "Sites");
+  expect(within(sites).getByText("Files in this set (4)").closest("details")).not.toBeNull();
+  expect(
+    within(sites).getByRole("link", { name: /^Download data\/sites\/sites.dbf/ }),
+  ).toBeDefined();
   const linked = within(files).getByRole("link", { name: "Open link Discharge" });
   expect(linked.getAttribute("href")).toBe("https://example.org/stream-temperature/discharge.csv");
 });
 
-test("the citation is the README's with the versioned URL, and Copy writes it", async () => {
+test("Download all and a multi-file row's Download fetch the version's zips", async () => {
+  renderDataset();
+  const files = await filesList();
+
+  const all = within(screen.getByTestId("summary-strip")).getByRole("link", {
+    name: /^Download all/,
+  });
+  expect(all.getAttribute("href")).toBe(`/data/${ID}/1/_zips/all/package.zip`);
+  const sites = itemOf(files, "Sites");
+  const whole = within(sites).getByRole("link", { name: /^Download Sites/ });
+  expect(whole.getAttribute("href")).toBe(`/data/${ID}/1/_zips/sites.zip`);
+  expect(whole.textContent).toContain("zip");
+  expect(within(sites).getByText("Files in this set (4)").closest("details")).not.toBeNull();
+  const logger = within(files).getByRole("link", { name: LOGGER });
+  expect(logger.getAttribute("href")).toBe(`/data/${ID}/1/data/logger.csv`);
+});
+
+test("signed in on a restricted page, Download all asks the API for the package zip", async () => {
+  vi.mocked(apiToken).mockReturnValue("TOKEN");
+  renderDataset(undefined, RESTRICTED_ID);
+  await filesList();
+
+  fireEvent.click(
+    within(screen.getByTestId("summary-strip")).getByRole("button", { name: /^Download all/ }),
+  );
+
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  const [url] = fetchMock.mock.calls[2] as [string, RequestInit];
+  expect(url).toBe(
+    `/api/datasets/${RESTRICTED_ID}/versions/1/download?path=_zips%2Fall%2Fpackage.zip`,
+  );
+});
+
+test("the page leads with the meta line, then the summary strip, files, columns and about", async () => {
+  renderDataset();
+  await filesList();
+
+  const meta = screen.getByTestId("meta");
+  for (const text of ["Ada Invented", "Version 1", "CC BY 4.0"]) {
+    expect(meta.textContent).toContain(text);
+  }
+  const summary = screen.getByTestId("summary");
+  expect(summary.textContent).toMatch(/12 files · 50\.\d kB/);
+  const order = ["Files", "Columns", "About"].map((name) =>
+    screen.getByRole("heading", { level: 2, name }),
+  );
+  expect(
+    order[0]!.compareDocumentPosition(order[1]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    order[1]!.compareDocumentPosition(order[2]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
+test("the citation is the README's with the versioned URL, and Copy inside its box writes it", async () => {
   const writeText = vi.fn(async () => {});
   vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
   renderDataset();
-  await filesTable();
+  await filesList();
 
   const readme = readFileSync(join(SAMPLE, "README.md"), "utf-8").split("\n");
   const expected = `${readme[readme.indexOf("## Citation") + 2]} ${location.origin}/datasets/${ID}/v1`;
   const section = screen.getByRole("region", { name: "Cite this dataset" });
-  expect(within(section).getByText(expected)).toBeDefined();
-  fireEvent.click(within(section).getByRole("button", { name: "Copy" }));
+  const box = within(section).getByText(expected).closest(".citation") as HTMLElement;
+  fireEvent.click(within(box).getByRole("button", { name: "Copy" }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(expected));
+  expect(await within(box).findByText("Copied ✓")).toBeDefined();
 });
 
-test("the page shows the About facts and each table's columns", async () => {
+test("About shows the facts and Methods, and the columns tidy their dictionary", async () => {
   renderDataset();
-  await filesTable();
+  await filesList();
 
   const about = screen.getByRole("region", { name: "About" });
-  for (const text of ["Ada Invented", "CC-BY-4.0", "stream temperature", "2024-06-01 to ongoing"]) {
+  for (const text of ["Ada Invented", "CC BY 4.0", "stream temperature", "2024-06-01 to ongoing"]) {
     expect(about.textContent).toContain(text);
   }
+  expect(within(about).getByText("Methods")).toBeDefined();
+  expect(about.textContent).toContain("Hourly loggers with field checks");
+
   const logger = screen.getByRole("table", { name: "Columns of Logger readings" });
-  const battery = within(logger).getByText("battery_v").closest("tr");
-  expect(battery?.textContent).toContain("No description");
-  const condition = within(logger).getByText("condition").closest("tr");
-  expect(condition?.textContent).toContain("condition-codes");
+  expect(logger.closest("details")?.open).toBe(true);
+  expect(logger.closest("details")?.querySelector("summary")?.textContent).toContain("9 columns");
+  const row = (name: string) => within(logger).getByText(name).closest("tr") as HTMLElement;
+  expect(row("battery_v").textContent).toContain("No description");
+  expect(row("depth_cm").textContent).toContain("No description");
+  expect(row("qc_flag").textContent).toContain("No code list");
+  const codes = within(row("condition")).getByRole("link", { name: "condition-codes" });
+  const target = document.getElementById(codes.getAttribute("href")?.slice(1) ?? "");
+  expect(target?.textContent).toContain("Logger condition codes");
+});
+
+test("spatial coverage shows its description, then the box on an outline, then the numbers", async () => {
+  renderDataset();
+  await filesList();
+
+  const about = screen.getByRole("region", { name: "About" });
+  const map = within(about).getByRole("img", { name: /area the data covers/ });
+  expect(map.tagName.toLowerCase()).toBe("svg");
+  const text = about.textContent ?? "";
+  expect(text.indexOf("Three invented sites")).toBeLessThan(text.indexOf("West -72.74"));
+});
+
+test("the versions list marks the version the citation points at", async () => {
+  renderDataset(1);
+
+  const versions = await screen.findByRole("region", { name: "Versions" });
+  const items = within(versions).getAllByRole("listitem");
+  expect(items).toHaveLength(2);
+  expect(items[0]?.textContent).toContain("cited above");
+  expect(items[1]?.textContent).not.toContain("cited above");
+  expect(within(items[1]!).getByRole("link").getAttribute("href")).toBe(`/datasets/${ID}/v2`);
 });
 
 test("the versioned route shows a note linking to the newer version", async () => {
@@ -156,7 +255,7 @@ test("the versioned route shows a note linking to the newer version", async () =
 
   const note = await screen.findByText(/A newer version of this dataset exists/);
   expect(within(note).getByRole("link").getAttribute("href")).toBe(`/datasets/${ID}/v2`);
-  expect(screen.getByText("Published 2024-07-01")).toBeDefined();
+  expect(screen.getByTestId("meta").textContent).toContain("Published 2024-07-01");
 });
 
 test("on the versioned route, an open prefix with no archive:access gives a plain /data link", async () => {
@@ -171,28 +270,30 @@ test("on the versioned route, an open prefix with no archive:access gives a plai
     return Response.json({ message: "not found" }, { status: 404 });
   });
   renderDataset(1);
-  const files = await filesTable();
+  const files = await filesList();
 
-  const logger = within(files).getByRole("link", { name: "Download Logger readings" });
+  const logger = within(files).getByRole("link", { name: LOGGER });
   expect(logger.getAttribute("href")).toBe(`/data/${ID}/1/data/logger.csv`);
 });
 
-test("the usage panel appears after a download and sends the answers", async () => {
+test("the usage panel appears beside the pressed download, is announced, and sends the answers", async () => {
   renderDataset();
-  const files = await filesTable();
+  const files = await filesList();
   expect(screen.queryByRole("region", { name: /how will you use this data/ })).toBeNull();
 
-  fireEvent.click(within(files).getByRole("link", { name: "Download Logger readings" }));
+  fireEvent.click(within(files).getByRole("link", { name: LOGGER }));
   const panel = screen.getByRole("region", { name: /how will you use this data/ });
+  expect(panel.closest("li")).toBe(itemOf(files, "Logger readings"));
+  expect(screen.getByRole("status").textContent).toContain("Your download has started");
   fireEvent.change(within(panel).getByLabelText("Kind of organisation"), {
     target: { value: "university" },
   });
   fireEvent.change(within(panel).getByLabelText("Purpose"), { target: { value: "teaching" } });
-  fireEvent.change(within(panel).getByLabelText("Note"), { target: { value: "A class" } });
+  fireEvent.change(within(panel).getByLabelText(/^Note/), { target: { value: "A class" } });
   fireEvent.click(within(panel).getByRole("button", { name: "Send" }));
 
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-  const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  const [url, init] = fetchMock.mock.calls[2] as [string, RequestInit];
   expect(url).toBe(`/api/datasets/${ID}/usage`);
   expect(init.method).toBe("POST");
   expect(JSON.parse(String(init.body))).toEqual({
@@ -200,13 +301,13 @@ test("the usage panel appears after a download and sends the answers", async () 
     purpose: "teaching",
     note: "A class",
   });
-  expect(await screen.findByText("Thank you.")).toBeDefined();
+  expect(await screen.findByText("Thanks, your answers were sent anonymously.")).toBeDefined();
 });
 
 test("after No thanks the usage panel stays gone for the visit", async () => {
   renderDataset();
-  const files = await filesTable();
-  const download = within(files).getByRole("link", { name: "Download Logger readings" });
+  const files = await filesList();
+  const download = within(files).getByRole("link", { name: LOGGER });
 
   fireEvent.click(download);
   fireEvent.click(screen.getByRole("button", { name: "No thanks" }));
@@ -216,33 +317,38 @@ test("after No thanks the usage panel stays gone for the visit", async () => {
   expect(screen.queryByRole("region", { name: /how will you use this data/ })).toBeNull();
   cleanup();
   renderDataset();
-  fireEvent.click(
-    within(await filesTable()).getByRole("link", { name: "Download Logger readings" }),
-  );
+  fireEvent.click(within(await filesList()).getByRole("link", { name: LOGGER }));
   expect(screen.queryByRole("region", { name: /how will you use this data/ })).toBeNull();
 });
 
-test("a restricted file asks a reader who isn't signed in to sign in, and comes back here", async () => {
+test("a restricted page explains access, names the contact and offers one Sign in", async () => {
   renderDataset(undefined, RESTRICTED_ID);
-  const files = await filesTable();
+  const files = await filesList();
 
-  fireEvent.click(
-    within(files).getByRole("button", { name: "Sign in to download Logger readings" }),
-  );
+  const banner = screen.getByRole("region", { name: "Restricted" });
+  expect(banner.textContent).toContain("invited accounts");
+  expect(within(banner).getByRole("link", { name: "archive-admin@example.org" })).toBeDefined();
+  const signIns = screen.getAllByRole("button", { name: /sign in/i });
+  expect(signIns).toHaveLength(1);
+  expect(within(itemOf(files, "Logger readings")).getByText("Sign in above")).toBeDefined();
+  expect(within(files).queryByRole("link", { name: LOGGER })).toBeNull();
 
+  fireEvent.click(signIns[0]!);
   expect(signIn).toHaveBeenCalledWith(`/datasets/${RESTRICTED_ID}`);
-  expect(within(files).queryByRole("link", { name: "Download Logger readings" })).toBeNull();
 });
 
 test("signed in, a restricted download asks the API for its link with the access token", async () => {
   vi.mocked(apiToken).mockReturnValue("TOKEN");
   renderDataset(undefined, RESTRICTED_ID);
-  const files = await filesTable();
+  const files = await filesList();
 
-  fireEvent.click(within(files).getByRole("button", { name: "Download Logger readings" }));
+  expect(screen.getByRole("region", { name: "Restricted" }).textContent).toContain(
+    "You're signed in",
+  );
+  fireEvent.click(within(files).getByRole("button", { name: LOGGER }));
 
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-  const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  const [url, init] = fetchMock.mock.calls[2] as [string, RequestInit];
   expect(url).toBe(`/api/datasets/${RESTRICTED_ID}/versions/1/download?path=data%2Flogger.csv`);
   expect(new Headers(init.headers).get("Authorization")).toBe("Bearer TOKEN");
   expect(screen.getByRole("region", { name: /how will you use this data/ })).toBeDefined();
@@ -252,14 +358,12 @@ test("a 401 asks the reader to sign in again", async () => {
   vi.mocked(apiToken).mockReturnValue("TOKEN");
   downloadStatus = 401;
   renderDataset(undefined, RESTRICTED_ID);
-  const files = await filesTable();
+  const files = await filesList();
 
-  fireEvent.click(within(files).getByRole("button", { name: "Download Logger readings" }));
+  fireEvent.click(within(files).getByRole("button", { name: LOGGER }));
 
   expect(await within(files).findByText("Your sign-in has expired.")).toBeDefined();
-  fireEvent.click(
-    within(files).getByRole("button", { name: "Sign in to download Logger readings" }),
-  );
+  fireEvent.click(within(files).getByRole("button", { name: "Sign in again Logger readings" }));
   expect(signIn).toHaveBeenCalledWith(`/datasets/${RESTRICTED_ID}`);
 });
 
@@ -267,12 +371,70 @@ test("a 403 says the file isn't available to this account", async () => {
   vi.mocked(apiToken).mockReturnValue("TOKEN");
   downloadStatus = 403;
   renderDataset(undefined, RESTRICTED_ID);
-  const files = await filesTable();
+  const files = await filesList();
 
-  fireEvent.click(within(files).getByRole("button", { name: "Download Logger readings" }));
+  fireEvent.click(within(files).getByRole("button", { name: LOGGER }));
 
   expect(
     await within(files).findByText("This file isn't available to this account."),
+  ).toBeDefined();
+});
+
+test("an unreachable API keeps an h1 and offers Try again, search and the current page", async () => {
+  fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+  renderDataset(1);
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Dataset unavailable" }),
+  ).toBeDefined();
+  expect(screen.getByRole("link", { name: "Search the archive" }).getAttribute("href")).toBe("/");
+  expect(screen.getByRole("link", { name: /current version/ }).getAttribute("href")).toBe(
+    `/datasets/${ID}`,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: MANIFEST.title ?? "" }),
+  ).toBeDefined();
+});
+
+test("a version that isn't there links to the current one", async () => {
+  renderDataset(9);
+
+  expect(await screen.findByRole("heading", { level: 1, name: "Version not found" })).toBeDefined();
+  expect(screen.getByRole("link", { name: /current version/ }).getAttribute("href")).toBe(
+    `/datasets/${ID}`,
+  );
+});
+
+// 5xx is ApiUnreachable already; any other refusal (429 here) isn't a missing version either.
+test("a refusal other than 404 on a versioned link offers Try again, not Version not found", async () => {
+  const answers = apiAnswers();
+  fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+    new URL(url, "https://site").pathname === `/api/datasets/${ID}/versions/1`
+      ? Response.json({ message: "slow down" }, { status: 429 })
+      : answers(url, init),
+  );
+  renderDataset(1);
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Dataset unavailable" }),
+  ).toBeDefined();
+  expect(screen.queryByText("Version not found")).toBeNull();
+  fetchMock.mockImplementation(answers);
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: MANIFEST.title ?? "" }),
+  ).toBeDefined();
+});
+
+test("a refusal other than 404 on a dataset reads as unavailable, not as no such dataset", async () => {
+  fetchMock.mockResolvedValueOnce(Response.json({ message: "slow down" }, { status: 429 }));
+  renderDataset();
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Dataset unavailable" }),
   ).toBeDefined();
 });
 
@@ -308,10 +470,10 @@ test("on a static dataset page, the app renders over it once it has the dataset"
   act(() => root?.unmount());
 });
 
-test("an axe check of the page finds no violations", async () => {
-  const { container } = renderDataset();
-  const files = await filesTable();
-  fireEvent.click(within(files).getByRole("link", { name: "Download Logger readings" }));
+test.each([ID, RESTRICTED_ID])("an axe check of %s finds no violations", async (id) => {
+  const { container } = renderDataset(undefined, id);
+  const files = await filesList();
+  if (id === ID) fireEvent.click(within(files).getByRole("link", { name: LOGGER }));
 
   const results = await axe.run(container);
   expect(results.violations).toEqual([]);

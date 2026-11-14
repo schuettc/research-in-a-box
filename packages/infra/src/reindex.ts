@@ -1,4 +1,4 @@
-import { CfnOutput, Duration, Stack } from "aws-cdk-lib";
+import { CfnOutput, Duration, Size, Stack } from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
@@ -11,7 +11,7 @@ export interface ReindexProps {
 /**
  * The reindex: a durable function that rebuilds the inactive catalog table from the archive's
  * manifests with a bulk load, then flips the active-catalog parameter to it and rewrites the
- * catalog file and every dataset's page from it.
+ * catalog file and every dataset's page from it, and writes each version's zips that changed.
  */
 export class Reindex extends Construct {
   readonly alias: lambda.Alias;
@@ -24,6 +24,8 @@ export class Reindex extends Construct {
       handler: "archive_backend.reindex.handler",
       timeout: Duration.minutes(15),
       memorySize: 1024,
+      // Each version's zips are built in /tmp before their one PUT.
+      ephemeralStorageSize: Size.gibibytes(10),
       durableConfig: { executionTimeout: Duration.hours(12), retentionPeriod: Duration.days(30) },
       environment: {
         ARCHIVE_BUCKET: archive.archiveBucket.bucketName,
@@ -39,6 +41,9 @@ export class Reindex extends Construct {
     this.alias = new lambda.Alias(this, "Live", { aliasName: "live", version: fn.currentVersion });
 
     archive.archiveBucket.grantRead(fn);
+    // The zips beside each version, and nothing else in the archive bucket.
+    archive.archiveBucket.grantPut(fn, "open/*/_zips/*");
+    archive.archiveBucket.grantPut(fn, "restricted/*/_zips/*");
     archive.derivedBucket.grantReadWrite(fn, "reindex/*");
     archive.derivedBucket.grantPut(fn, "site/catalog.json");
     archive.derivedBucket.grantPut(fn, "site/datasets/*");

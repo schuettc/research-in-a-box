@@ -1,4 +1,7 @@
-import { Stack } from "aws-cdk-lib";
+import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { FileSystem, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import type { CfnRestApi } from "aws-cdk-lib/aws-apigateway";
 import type { CfnDistribution } from "aws-cdk-lib/aws-cloudfront";
@@ -83,6 +86,18 @@ test("the site function sends /datasets/<id> to its page and other extensionless
   expect(rewrite(code, "/datasets/abc")).toBe("/datasets/abc/index.html");
   expect(rewrite(code, "/datasets/abc/")).toBe("/datasets/abc/index.html");
   expect(rewrite(code, "/app.js")).toBe("/app.js");
+});
+
+test("the site function sends /datasets/<id>/v<n> to that version's page", () => {
+  const { archive: a, stack, template } = archive();
+  const behaviour = distributionConfig(a, stack, template).DefaultCacheBehavior as Json;
+  const code = functionCode(template, (behaviour.FunctionAssociations as Json[])[0]?.FunctionARN);
+
+  expect(rewrite(code, "/datasets/x/v2")).toBe("/datasets/x/v2/index.html");
+  expect(rewrite(code, "/datasets/x/v2/")).toBe("/datasets/x/v2/index.html");
+  expect(rewrite(code, "/datasets/x")).toBe("/datasets/x/index.html");
+  expect(rewrite(code, "/datasets/x/other")).toBe("/index.html");
+  expect(rewrite(code, "/datasets/x/v2/extra")).toBe("/index.html");
 });
 
 test("/data/* serves open/ from the archive bucket and strips /data", () => {
@@ -214,7 +229,12 @@ test("the no-cache deployment writes auth-config.json and invalidates the app's 
   );
 
   expect(site?.DistributionId).toEqual({ Ref: distribution });
-  expect(site?.DistributionPaths).toEqual(["/index.html", "/app.js", "/auth-config.json"]);
+  expect(site?.DistributionPaths).toEqual([
+    "/index.html",
+    "/app.js",
+    "/auth-config.json",
+    "/brand/logo.*",
+  ]);
   expect(site?.SourceObjectKeys).toHaveLength(2);
 });
 
@@ -238,4 +258,42 @@ test("auth-config.json holds exactly the region, sign-in domain and both client 
   expect(stack.resolve(data.cliClientId)).toEqual(ref(a.userPoolClients.cli));
   expect(stack.resolve(data.region)).toEqual({ Ref: "AWS::Region" });
   expect(JSON.stringify(stack.resolve(data.cognitoDomain))).toContain("amazoncognito.com");
+});
+
+test("brand files go immutable only under their content-hashed names; the stable logo is no-cache", () => {
+  const asset = vi.spyOn(s3deploy.Source, "asset");
+  archive();
+  // deploySite calls Source.asset on the web build twice: SiteAssets (immutable) first, then Site
+  // (no-cache); the test above shows which cache-control each deployment carries.
+  const calls = asset.mock.calls.filter(([path]) => path.endsWith(join("web", "dist")));
+  expect(calls).toHaveLength(2);
+
+  const build = mkdtempSync(join(tmpdir(), "dist-"));
+  const files = [
+    "index.html",
+    "app.js",
+    "assets/index-Ab12Cd34.js",
+    "brand/logo-0a1b2c3d.svg",
+    "brand/favicon-4e5f6a7b.svg",
+    "brand/logo.svg",
+  ];
+  for (const file of files) {
+    mkdirSync(dirname(join(build, file)), { recursive: true });
+    writeFileSync(join(build, file), "");
+  }
+  const sent = calls.map(([, options], i) => {
+    const out = join(build, `..`, `${String(i)}-${String(Date.now())}`);
+    FileSystem.copyDirectory(build, out, options);
+    return readdirSync(out, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => join(entry.parentPath, entry.name).slice(out.length + 1))
+      .sort();
+  });
+
+  expect(sent[0]).toEqual([
+    "assets/index-Ab12Cd34.js",
+    "brand/favicon-4e5f6a7b.svg",
+    "brand/logo-0a1b2c3d.svg",
+  ]);
+  expect(sent[1]).toEqual(["app.js", "brand/logo.svg", "index.html"]);
 });

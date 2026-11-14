@@ -217,3 +217,20 @@ test("the reindex is told the archive-config parameter and may read it", () => {
   expect(grantedActions(template, id)).toContain("ssm:GetParameter");
   expect(policies).toContain(configParameter);
 });
+
+test("in the archive bucket it may write only the versions' zips, with room to build them", () => {
+  const archiveWrites = statements()
+    .filter((s) => actions(s).includes("s3:PutObject"))
+    .map((s) => JSON.stringify(s.Resource))
+    .filter((r) =>
+      r.includes(stack.getLogicalId(archive.archiveBucket.node.defaultChild as CfnElement)),
+    );
+
+  expect(archiveWrites.length).toBeGreaterThan(0);
+  for (const r of archiveWrites) {
+    expect(r).toMatch(/\/(open|restricted)\/\*\/_zips\/\*/);
+  }
+  expect(archiveWrites.join()).toContain("/open/*/_zips/*");
+  expect(archiveWrites.join()).toContain("/restricted/*/_zips/*");
+  expect(reindexFunction().properties).toMatchObject({ EphemeralStorage: { Size: 10240 } });
+});

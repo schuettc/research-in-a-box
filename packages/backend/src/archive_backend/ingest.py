@@ -52,7 +52,7 @@ from aws_durable_execution_sdk_python.waits import (
 )
 from botocore.exceptions import ClientError
 
-from archive_backend import pages
+from archive_backend import pages, zips
 from archive_backend.config import read_archive_config
 from archive_backend.embeddings import Bedrock, with_embedding
 from archive_backend.reindex import catalog_items, dataset_item
@@ -86,6 +86,7 @@ CHUNK = 1024 * 1024
 class S3(Protocol):
     def get_object_tagging(self, **kwargs: Any) -> dict[str, Any]: ...
     def get_object(self, **kwargs: Any) -> dict[str, Any]: ...
+    def head_object(self, **kwargs: Any) -> dict[str, Any]: ...
     def put_object(self, **kwargs: Any) -> Any: ...
     def copy_object(self, **kwargs: Any) -> Any: ...
     def get_paginator(self, name: str) -> Any: ...
@@ -723,23 +724,26 @@ def _page(
     _: StepContext, c: Clients, env: Env, target: dict[str, Any], filled: dict[str, Any]
 ) -> str:
     dataset_id, version = target["datasetId"], int(target["version"])
-    text = _read(c, env.archive_bucket, _root(filled, target) + MANIFEST).decode("utf-8")
-    html = pages.render_page(
-        Manifest.model_validate_json(text),
-        dataset_id=dataset_id,
-        version=version,
-        domain=env.site_domain,
-        files=filled["files"],
-    )
-    key = f"site/datasets/{dataset_id}/index.html"
-    c.s3.put_object(
-        Bucket=env.derived_bucket,
-        Key=key,
-        Body=html.encode("utf-8"),
-        ContentType="text/html; charset=utf-8",
-        # Short, so a later version's page shows within five minutes.
-        CacheControl="max-age=300",
-    )
+    root = _root(filled, target)
+    text = _read(c, env.archive_bucket, root + MANIFEST).decode("utf-8")
+    zips.write_zips(c.s3, env.archive_bucket, root, json.loads(text))
+    manifest = Manifest.model_validate_json(text)
+    brand = pages.page_brand(read_archive_config(c.ssm, env.archive_config_parameter))
+    key = ""
+    for versioned in (False, True):
+        html = pages.render_page(
+            manifest,
+            dataset_id=dataset_id,
+            version=version,
+            domain=env.site_domain,
+            files=filled["files"],
+            versioned=versioned,
+            brand=brand,
+        )
+        written = pages.write_page(
+            cast(Any, c.s3), env.derived_bucket, html, dataset_id, version if versioned else None
+        )
+        key = key or written
     return key
 
 

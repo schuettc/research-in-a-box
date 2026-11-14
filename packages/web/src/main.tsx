@@ -1,4 +1,5 @@
 import "./styles.css";
+import "virtual:brand.css";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { BrowserRouter } from "react-router";

@@ -15,6 +15,7 @@ from aws_durable_execution_sdk_python.exceptions import (
     WaitForConditionError,
 )
 from aws_durable_execution_sdk_python.waits import WaitForConditionConfig
+from botocore.exceptions import ClientError
 
 from archive_backend import ingest, submissions
 from archive_backend.embeddings import Bedrock
@@ -105,6 +106,11 @@ class FakeS3:
         else:
             self.objects[Key] = body
         return {}
+
+    def head_object(self, *, Bucket: str, Key: str) -> dict[str, Any]:
+        if (Bucket, Key) not in self.published:
+            raise ClientError({"Error": {"Code": "404"}}, "HeadObject")
+        return {"Metadata": {}}
 
     def copy_object(
         self, *, Bucket: str, Key: str, CopySource: dict[str, str], **_: Any

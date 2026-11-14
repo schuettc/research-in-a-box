@@ -4,9 +4,9 @@
 
 `research-archive-in-a-box/web-app-catalog-and-curation` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 2 to write** → **Build · 7 of 7** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans · 1 to write** → **Build · 7 of 15** → Sign off
 
-PLAN1 built · PLAN2 can be written now · PLAN3 can be written now
+PLAN1 built · PLAN2 can be written now · PLAN3 building · 0 of 8 done
 
 ## Pick up next
 
@@ -20,6 +20,7 @@ PLAN1 built · PLAN2 can be written now · PLAN3 can be written now
 - **PARK8 Small dataset page fixes:** From the final review: a description-only dataset's 404 should say there is no file; limit manifest URLs in href to http(s); don't fail the versioned page when only the versions call fails; tighten the synth test's site/ filter.
 - **PARK9 Destroy cleans the upload helper's logs:** just destroy deletes the S3 auto-delete helper's log group but not the one CDK's BucketDeployment helper leaves (/aws/lambda/ResearchArchive-&lt;stage>-CustomCDKBucketDeployment-*), which Plan 8 added. Delete both prefixes in the recipe.
 - **PARK10 A signed-in mark in the header:** Nothing on the page says the reader is signed in; only the restricted buttons change from Sign in to download to Download. Show who is signed in, with Sign out, in the header.
+- **PARK11 Custom domain moves passkeys:** When the custom-domain follow-up gives sign-in its own domain, the passkey relying party moves from the prefix domain to it, and readers must register their passkeys again. Say so in that change and in the deploy notes.
 
 ## What was asked
 
@@ -34,6 +35,9 @@ PLAN1 built · PLAN2 can be written now · PLAN3 can be written now
 ## Decisions
 
 - **DCSN1 Usage form on the page.** Should the dataset page ask readers, optionally, how they will use the data? The user chose A: After a download, a small optional panel.
+- **DCSN2 Our own look.** Which look should the archive have? The user chose A: Reading room: calm and scholarly.
+- **DCSN3 Sign-in page.** Should readers sign in on Cognito's page themed to match the archive, or on a page of our own? The user chose A: Cognito's page, themed from the archive config.
+- **DCSN4 UX review changes.** Which of the UX review's changes go into the reader's screens now? The user chose A: All ten, with the map as a drawn box.
 - **AGNT1 Shipped by the stage's deploy.** The construct uploads the Vite build to the derived bucket's site/ with one CDK BucketDeployment, with pruning off, so files other plans write there (catalog.json, datasets/) are never deleted. The same deployment writes /auth-config.json with Source.jsonData from the construct's own values: region, cognitoDomain, webClientId, cliClientId (the fields Plan 9 agreed), sent no-cache. Plan 9 only reads it. index.html and the loader are no-cache; hashed assets cache for a year. One cdk deploy ships the app and its settings. The user kept it.
 - **AGNT2 Takeover by a stable loader.** Plan 8 owns the dataset page template from here (the coordinating session settled it with Plans 7 and 10a); Plan 7's publish writes the pages. The build emits a small loader at /app.js, served no-cache, that loads the current hashed bundle. The template gains a root element around its readable content and one script tag for /app.js. When the app has the dataset from the API it renders over that content; with no JavaScript or no API, the static page stays readable (title, citation, file links and schema.org stay in the HTML). A new app release never needs the dataset pages rewritten. Plan 8 edits archive_backend.pages after Plan 7's PLAN1 merges, and records the root element and /app.js in the Decision log. The user kept it.
 - **AGNT3 Types generated, drift-checked.** openapi-typescript generates the API's types from the committed openapi.json, and json-schema-to-typescript the manifest's types from the contract's JSON Schema (the dataset answer's manifest is an untyped object in the API). Both are committed under packages/web/src/generated and checked by just check-schema like the others. The user kept it.
@@ -44,6 +48,8 @@ PLAN1 built · PLAN2 can be written now · PLAN3 can be written now
 - **AGNT8 Plain CSS, checked by keyboard.** Plain CSS with a few variables, no component library. Semantic HTML (one h1, labelled controls, real buttons and links), with an axe check of each screen in the Vitest suite and a keyboard pass in the walk. The header says the archive's publisher from the config; theming from the config is a follow-up. The user kept it.
 - **AGNT9 Walk waits on Plan 7's publish.** Screens are built and tested against the generated types right away. The takeover task and the walk wait on Plan 7's TASK5 (publish and the dataset page): the walk publishes the sample package through Plan 7's pipeline on a test stage, invites a user, and walks search, page and both downloads. The user kept it.
 - **AGNT10 Reindex rewrites dataset pages.** In PLAN1: after the reindex flips the active table and writes catalog.json, it calls Plan 7's archive_backend.pages.render_page(manifest, dataset_id=, version=, domain=, files=) and then write_page(s3, bucket, html, dataset_id) for every dataset, fed from the catalog items, the same way it calls Plan 6's catalog-file writer. Ingest is untouched. One path, no second command: a stage rebuilt by reindex serves /datasets/&lt;id>, and a template change rolls out with just reindex (Plan 10a's rebuild step after a deploy). The reindex Lambda gains put on site/datasets/* and the site's domain. Template edits keep escaping manifest text, which Plan 7's test_pages pins. Recorded in the Decision log. The user kept it.
+- **AGNT11 Rebranding from one brand block.** One small brand section in archive.yaml: name (default the publisher), a one-paragraph intro for the home page, a contact email (shown on restricted pages and errors), logo and favicon files, a primary colour, and an optional font stack. A strict Brand model in the contract validates it (hex colour, file types, logo at most 200 KB, email shape). The app reads it at build time: CSS custom properties, the page title, the favicon, the header logo, the intro and the contact, so nothing flashes unthemed and the static dataset pages get it too. The same block generates Cognito's sign-in branding and the invitation email's subject and text at deploy. One shared function derives hover, active and text-on-colour shades so both surfaces match. The user kept it.
+- **AGNT12 Passkeys through managed login.** Turn on choice-based sign-in with password and passkey as first factors (Essentials plan, which the pool already has). Managed login then offers a passkey to anyone who has one, and prompts a reader to add one after they sign in with a password; an invited user signs in with the temporary password first, then can add a passkey. The header's signed-in menu gets Add a passkey, which opens managed login's passkey registration page. The relying party is the sign-in domain: today the prefix domain (archive-&lt;stage>-&lt;account>.auth.&lt;region>.amazoncognito.com). User verification stays at Cognito's default, preferred. The web and CLI clients both allow it, so the CLI's sign-in takes a passkey too. The user kept it.
 
 ## Spec
 
@@ -73,7 +79,15 @@ PLAN1 built · PLAN2 can be written now · PLAN3 can be written now
   - TASK6 Task 6: The page takeover and the reindex's page step: done. 6ee8f5e (rebased on Plan 7 PLAN1 and Plan 6 PLAN3): template gains div id app and /app.js, write_page added, reindex page step with put grant and SITE_DOMAIN; pytest backend 173, infra 81, just check exit 0
   - TASK7 Task 7: The walk on a test stage: done. #41 and #49 merged; ResearchArchive-web-test deployed, both samples published through Plan 7, headless walk 13/13 after three fixes (blank page, static CSS, ID token), Court's look: works, not attractive yet (PLAN3); destroyed, nothing left
 - PLAN2 Submission review and policy screens: can be written now
-- PLAN3 Visual design: can be written now
+- [PLAN3](plans/3-ux-review-and-branding.md) A look of our own, the UX review's changes, and themed sign-in with passkeys: building · 0 of 8 done
+  - TASK8 Task 8: The brand block: not started
+  - TASK9 Task 9: The Reading room look and the brand at build time: not started
+  - TASK10 Task 10: Search: not started
+  - TASK11 Task 11: The dataset page: not started
+  - TASK12 Task 12: Download a resource whole, and Download all: not started
+  - TASK13 Task 13: A static page for every version: not started
+  - TASK14 Task 14: Themed sign-in, passkeys and the invitation email: not started
+  - TASK15 Task 15: The walk on web-test: not started
 
 ## Steps
 
@@ -98,6 +112,7 @@ PLAN1 built · PLAN2 can be written now · PLAN3 can be written now
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `screenshots/` | the user | The screenshots the user pasted into a note or the opening. |
+| `documents/` | the agent and the user | Every other file the plan holds, of any type: CSV, PDF, Markdown, transcripts. |
 
 ## Ids
 

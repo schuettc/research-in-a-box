@@ -1,6 +1,8 @@
+import json
 from pathlib import Path
 
 import pytest
+import yaml
 from pydantic import ValidationError
 
 from archive_contract.config import ArchiveConfig, Infrastructure, Stage, load_config
@@ -142,3 +144,100 @@ def test_root_archive_yaml_is_valid() -> None:
     config = load_config(REPO_ROOT / "archive.yaml")
 
     assert config.infrastructure is not None
+
+
+LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10"/></svg>'
+
+
+def _brand_config(tmp_path: Path, brand: str) -> Path:
+    (tmp_path / "logo.svg").write_text(LOGO, encoding="utf-8")
+    (tmp_path / "favicon.svg").write_text(LOGO, encoding="utf-8")
+    path = tmp_path / "archive.yaml"
+    path.write_text(f"publisher: Invented Research Cooperative\nbrand:\n{brand}", encoding="utf-8")
+    return path
+
+
+VALID_BRAND = (
+    "  intro: The cooperative shares the data behind its field studies.\n"
+    "  contact: data@example.org\n"
+    "  logo: logo.svg\n"
+    "  favicon: favicon.svg\n"
+    "  primaryColor: '#24395f'\n"
+    "  font: Georgia, 'Times New Roman', serif\n"
+)
+
+
+def test_a_valid_brand_block_loads(tmp_path: Path) -> None:
+    brand = load_config(_brand_config(tmp_path, VALID_BRAND)).brand
+
+    assert brand is not None
+    assert brand.name == "Invented Research Cooperative"
+    assert brand.contact == "data@example.org"
+    assert brand.logo == "logo.svg"
+    assert brand.favicon == "favicon.svg"
+    assert brand.primary_color == "#24395f"
+    assert brand.font == "Georgia, 'Times New Roman', serif"
+
+
+def test_a_brand_name_overrides_the_publisher(tmp_path: Path) -> None:
+    brand = load_config(_brand_config(tmp_path, "  name: The Archive\n" + VALID_BRAND)).brand
+
+    assert brand is not None
+    assert brand.name == "The Archive"
+
+
+def test_no_brand_block_gives_the_defaults() -> None:
+    config = ArchiveConfig(publisher="P")
+
+    assert config.brand is None
+
+
+@pytest.mark.parametrize(
+    ("change", "field"),
+    [
+        (("primaryColor: '#24395f'", "primaryColor: navy"), "primaryColor"),
+        (("logo: logo.svg", "logo: missing.svg"), "logo"),
+        (("contact: data@example.org", "contact: not-an-address"), "contact"),
+        (("font: Georgia, 'Times New Roman', serif", 'font: "serif; } body { color: red"'), "font"),
+        (("logo: logo.svg", "logo: favicon.ico"), "logo"),
+    ],
+)
+def test_a_bad_brand_value_is_refused_naming_its_field(
+    tmp_path: Path, change: tuple[str, str], field: str
+) -> None:
+    path = _brand_config(tmp_path, VALID_BRAND.replace(*change))
+    (tmp_path / "favicon.ico").write_bytes(b"\0")
+
+    with pytest.raises(ValidationError, match=rf"brand\.{field}"):
+        load_config(path)
+
+
+def test_a_300_kb_logo_is_refused(tmp_path: Path) -> None:
+    path = _brand_config(tmp_path, VALID_BRAND)
+    (tmp_path / "logo.svg").write_bytes(b" " * 300 * 1024)
+
+    with pytest.raises(ValidationError, match=r"brand\.logo[\s\S]*200 KB"):
+        load_config(path)
+
+
+def test_an_unknown_brand_key_is_refused(tmp_path: Path) -> None:
+    path = _brand_config(tmp_path, VALID_BRAND + "  colour: '#000000'\n")
+
+    with pytest.raises(ValidationError, match=r"brand\.colour"):
+        load_config(path)
+
+
+def test_an_intro_over_600_characters_is_refused(tmp_path: Path) -> None:
+    long = VALID_BRAND.replace("field studies.", "x" * 600)
+
+    with pytest.raises(ValidationError, match=r"brand\.intro"):
+        load_config(_brand_config(tmp_path, long))
+
+
+def test_root_archive_yaml_has_a_brand_and_fits_the_ssm_parameter() -> None:
+    config = load_config(REPO_ROOT / "archive.yaml")
+    as_json = json.dumps(yaml.safe_load((REPO_ROOT / "archive.yaml").read_text("utf-8")))
+
+    assert config.brand is not None
+    assert config.brand.logo is not None
+    assert len(as_json.encode("utf-8")) <= 4096

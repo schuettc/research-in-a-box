@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en" data-brand="main">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Look C · Workbench · mockup</title>
+<style>
+/* ==== Brand: change these to rebrand ==================================== */
+:root{
+  --brand:#3b35a8;          /* sidebar, primary actions, links */
+  --brand-ink:#ffffff;      /* text on --brand */
+  --accent:#b4123a;         /* counts, active marks */
+  --font-heading:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --font-body:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --radius:4px;
+}
+:root[data-brand=alt]{
+  --brand:#15693a; --brand-ink:#ffffff; --accent:#8f4a00; --radius:2px;
+  --font-heading:"Gill Sans","Gill Sans MT",ui-sans-serif,system-ui,sans-serif;
+}
+/* ==== Derived ============================================================ */
+:root{--bg:#fff;--panel:#f6f7f9;--ink:#16181d;--muted:#545b66;--line:#e1e4e9;--line2:#cdd2d9;--focus:#e8a100;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --brand-soft:color-mix(in srgb,var(--brand) 8%,#fff)}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:13.5px/1.45 var(--font-body)}
+a{color:var(--brand)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+h1,h2,h3{font-family:var(--font-heading);line-height:1.25;margin:0}
+code{font:12px/1.4 var(--mono);overflow-wrap:anywhere}
+
+.app{display:grid;grid-template-columns:15rem minmax(0,1fr);min-height:calc(100vh - 44px)}
+.sidebar{background:var(--brand);color:var(--brand-ink);padding:.9rem .8rem;display:flex;flex-direction:column;gap:1rem}
+.sidebar a{color:var(--brand-ink)}
+.mark{display:flex;align-items:center;gap:.55rem;text-decoration:none;font:650 .95rem/1.2 var(--font-heading)}
+.mark svg{flex:none}
+.side-nav{display:flex;flex-direction:column;gap:1px}
+.side-nav a{text-decoration:none;padding:.35rem .55rem;border-radius:var(--radius);font-weight:500}
+.side-nav a:hover{background:rgba(255,255,255,.12)}
+.side-nav a[aria-current]{background:rgba(255,255,255,.2)}
+.side-nav .n{float:right;opacity:.85;font-variant-numeric:tabular-nums}
+.side-foot{margin-top:auto;font-size:12px;opacity:.9}
+.main{min-width:0;display:flex;flex-direction:column}
+.toolbar{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;border-bottom:1px solid var(--line);background:#fff;position:sticky;top:44px;z-index:5;flex-wrap:wrap}
+.toolbar form{display:flex;flex:1;min-width:12rem;max-width:40rem}
+.toolbar input{flex:1;min-width:0;font:inherit;padding:.4rem .6rem;border:1px solid var(--line2);border-right:0;border-radius:var(--radius) 0 0 var(--radius)}
+.toolbar .btn{border-radius:0 var(--radius) var(--radius) 0}
+.toolbar .who{margin-left:auto;color:var(--muted);font-size:12.5px}
+.btn{font:600 12.5px/1.2 var(--font-body);padding:.45rem .8rem;border-radius:var(--radius);border:1px solid var(--line2);background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.btn.ghost{background:#fff}
+.btn.block{width:100%;padding:.6rem}
+.content{padding:1rem 1.1rem 2.5rem}
+.intro{display:flex;gap:1rem;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:.75rem;margin-bottom:.9rem;flex-wrap:wrap}
+.intro h1{font-size:16px;font-weight:700}
+.intro p{margin:0;color:var(--muted);flex:1;min-width:16rem;max-width:60rem}
+
+/* home: facet column + list */
+.layout{display:grid;grid-template-columns:12.5rem minmax(0,1fr);gap:1.1rem;align-items:start}
+.filters{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+.filters summary{padding:.5rem .65rem;font-weight:700;cursor:pointer;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.filters .fbody{padding:0 .65rem .4rem}
+.facet-group{border:0;border-top:1px solid var(--line);margin:0;padding:.5rem 0}
+.facet-group legend{float:left;width:100%;font-weight:700;font-size:12px;margin-bottom:.25rem;padding:0}
+.facet{display:flex;align-items:center;gap:.4rem;padding:.12rem 0;cursor:pointer;clear:both}
+.facet input{accent-color:var(--brand);margin:0;width:13px;height:13px}
+.facet .facet-v{font-family:var(--mono);font-size:12px}
+.facet .count{margin-left:auto;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums;font-size:12px}
+.year-row{display:flex;gap:.4rem;clear:both}
+.year-row label{display:flex;flex-direction:column;font-size:11.5px;color:var(--muted);flex:1}
+.year-row input{width:100%;font:12px var(--mono);padding:.25rem .35rem;border:1px solid var(--line2);border-radius:var(--radius)}
+.rhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;color:var(--muted);gap:.5rem;flex-wrap:wrap}
+.rhead strong{color:var(--ink)}
+.rhead select{font:inherit;padding:.15rem .3rem;border:1px solid var(--line2);border-radius:var(--radius)}
+.rlist{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--radius)}
+.rlist li{display:grid;grid-template-columns:minmax(0,1fr) 7rem 6.5rem 5rem;gap:.2rem 1rem;padding:.6rem .75rem;border-bottom:1px solid var(--line)}
+.rlist li:last-child{border-bottom:0}
+.rlist li:hover{background:var(--brand-soft)}
+.rlist h2{font-size:14px;font-weight:650}
+.rlist h2 a{text-decoration:none}
+.rlist h2 a:hover{text-decoration:underline}
+.rlist .d{grid-column:1;color:var(--muted);margin:.1rem 0 .25rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rlist .fm{grid-column:1;display:flex;gap:.25rem;flex-wrap:wrap}
+.rlist .c{font-size:12.5px;color:var(--muted)}
+.rlist .c b{display:block;color:var(--ink);font-weight:500}
+.tag{font:11.5px/1.5 var(--mono);padding:0 .35rem;border:1px solid var(--line2);border-radius:var(--radius);color:#2d333b;background:#fff}
+.acc{font-size:11.5px;font-weight:700;padding:0 .35rem;border-radius:var(--radius)}
+.acc.open{background:#e3f4e8;color:#14602b}.acc.restricted{background:#fdeedd;color:#8a3b00}
+.colhead{display:grid;grid-template-columns:minmax(0,1fr) 7rem 6.5rem 5rem;gap:1rem;padding:.35rem .75rem;font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--panel);border:1px solid var(--line);border-bottom:0;border-radius:var(--radius) var(--radius) 0 0}
+.colhead+.rlist{border-radius:0 0 var(--radius) var(--radius)}
+
+/* dataset */
+.ds-top{display:flex;gap:1rem;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:.75rem}
+.ds-top h1{font-size:19px;font-weight:700;margin:.1rem 0 .35rem}
+.ds-top .id{font:12px var(--mono);color:var(--muted)}
+.badges{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.15rem}
+.badge{font-size:11.5px;font-weight:600;padding:.05rem .4rem;border:1px solid var(--line2);border-radius:var(--radius);background:#fff}
+.badge.open{background:#e3f4e8;color:#14602b;border-color:#bfe3c9}
+.ds-top .act{display:flex;gap:.4rem;flex-wrap:wrap}
+.ds-desc{margin:.6rem 0 0;max-width:62rem}
+.two{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:1rem;margin-top:1rem}
+.panel{border:1px solid var(--line);border-radius:var(--radius);min-width:0}
+.panel>h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--panel);padding:.4rem .65rem;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.panel>h2 .n{color:var(--accent);text-transform:none;letter-spacing:0;font-weight:700}
+.pbody{padding:.6rem .65rem}
+.cite-box{display:flex;gap:.6rem;align-items:flex-start;flex-wrap:wrap}
+.cite-text{margin:0;flex:1 1 16rem;min-width:0;font:12.5px/1.5 var(--mono)}
+.cite-url{overflow-wrap:anywhere;color:var(--muted)}
+.copied{color:#14602b;font-weight:600;font-size:12px}
+.cite-alt{margin:.5rem 0 0;font-size:12px;color:var(--muted)}
+.about{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.25rem .9rem}
+.about div{display:contents}
+.about dt{color:var(--muted);font-weight:600}
+.about dd{margin:0}
+.section{margin-top:1rem}
+.table-scroll{overflow-x:auto}
+table.dense{width:100%;border-collapse:collapse}
+table.dense th,table.dense td{text-align:left;vertical-align:top;padding:.3rem .65rem;border-bottom:1px solid var(--line)}
+table.dense thead th{position:sticky;top:0;background:#fff;font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;border-bottom:1px solid var(--line2)}
+table.dense tbody tr:hover{background:var(--brand-soft)}
+table.dense .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.dense .k{font:11.5px var(--mono);color:var(--muted)}
+table.dense tr.side td{border-bottom-style:dotted;padding-top:.1rem;padding-bottom:.1rem;color:var(--muted)}
+table.dense tr.side td:first-child{padding-left:1.6rem}
+table.cols{width:100%;border-collapse:collapse}
+table.cols caption{text-align:left;font-weight:700;padding:.4rem .65rem;background:var(--panel);border-bottom:1px solid var(--line)}
+table.cols caption code{font-weight:400;color:var(--muted);margin-left:.4rem}
+table.cols th,table.cols td{text-align:left;vertical-align:top;padding:.28rem .65rem;border-bottom:1px solid var(--line)}
+table.cols thead th{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;border-bottom:1px solid var(--line2)}
+table.cols tbody th{font-weight:400;white-space:nowrap}
+table.cols td[data-l=Description]{min-width:18rem}
+table.cols tbody tr:hover{background:var(--brand-soft)}
+.missing{color:#a3122f;font-style:italic}
+.usage{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--radius);padding:.6rem .75rem;margin-top:1rem;background:var(--panel);display:grid;grid-template-columns:auto minmax(0,1fr);gap:.2rem 1rem;align-items:center}
+.usage h2{font-size:13px;font-weight:700;grid-column:1/-1}
+.usage .hint{grid-column:1/-1}
+.usage-fields{grid-column:1/-1;display:grid;grid-template-columns:12rem 14rem minmax(0,1fr);gap:.6rem;align-items:end}
+.usage .actions{grid-column:1/-1}
+.hint{color:var(--muted);margin:0 0 .5rem;font-size:12.5px}
+.field{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.field label{font-weight:600;font-size:12px}
+.opt{font-weight:400;color:var(--muted)}
+.field input,.field select,.field textarea{font:inherit;padding:.4rem .5rem;border:1px solid var(--line2);border-radius:var(--radius);background:#fff;color:var(--ink);width:100%}
+.usage textarea{height:2.1rem;resize:vertical}
+.field input[readonly]{background:var(--panel);color:var(--muted)}
+.actions{display:flex;gap:.4rem;margin-top:.5rem;flex-wrap:wrap}
+
+/* sign in */
+.auth{min-height:calc(100vh - 44px);display:flex;flex-direction:column;align-items:center;padding:2.5rem 1rem;background:var(--panel)}
+.auth-top{display:flex;align-items:center;gap:.55rem;font:700 15px/1.2 var(--font-heading);margin-bottom:1.5rem;text-decoration:none;color:var(--ink)}
+.auth-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,20rem));gap:1.25rem}
+.state-label{font-size:11.5px;color:var(--muted);margin:0 0 .35rem;text-transform:uppercase;letter-spacing:.05em}
+.auth-form{background:#fff;border:1px solid var(--line2);border-top:3px solid var(--brand);border-radius:var(--radius);padding:1.1rem 1.1rem 1rem;display:grid;gap:.7rem}
+.auth-form h2{font-size:16px}
+.auth-form .hint{margin:0}
+.aux{margin:0;font-size:12.5px}
+.rules{margin:-.3rem 0 0;padding:0;list-style:none;font-size:12px;color:var(--muted)}
+.rules li.ok::before{content:"✓ ";color:#14602b;font-weight:700}
+
+@media (max-width:980px){
+  .two{grid-template-columns:minmax(0,1fr)}
+  .usage-fields{grid-template-columns:1fr 1fr}
+  .usage-fields .wide{grid-column:1/-1}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .sidebar{flex-direction:row;align-items:center;padding:.55rem .8rem;flex-wrap:wrap;gap:.5rem}
+  .side-nav{flex-direction:row;margin-left:auto}
+  .side-nav a .n,.side-nav .hide-phone,.side-foot{display:none}
+  .toolbar{position:static}
+  .toolbar .who{display:none}
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .colhead{display:none}
+  .colhead+.rlist{border-radius:var(--radius)}
+  .rlist li{grid-template-columns:1fr 1fr}
+  .rlist li>div:first-child{grid-column:1/-1}
+  .rlist .c{grid-row:auto}
+  .rlist .c.files{display:none}
+  .usage-fields{grid-template-columns:1fr}
+  .auth-wrap{grid-template-columns:minmax(0,22rem)}
+  .auth{padding:1.5rem 1rem}
+}
+@media (max-width:520px){
+  table.files thead{display:none}
+  table.files,table.files tbody,table.files tr,table.files td{display:block}
+  table.files tr{display:grid;grid-template-columns:minmax(0,1fr) auto;padding:.4rem .65rem;border-bottom:1px solid var(--line)}
+  table.files td{border:0;padding:0}
+  table.files td.t{grid-column:1}
+  table.files td.k{grid-column:1}
+  table.files td.p{grid-column:1/-1}
+  table.files td.num{grid-column:2;grid-row:1;text-align:right}
+  table.files td.d{grid-column:2;grid-row:2;text-align:right}
+  table.files tr.side{grid-template-columns:minmax(0,1fr) auto}
+  table.files tr.side td:first-child{padding-left:.9rem}
+  table.files tr.side td:empty{display:none}
+  table.files tr.side td.p{grid-column:1;padding-left:.9rem}
+  table.files tr.side td.d{grid-row:1}
+}
+
+.mock-bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;padding:.5rem .75rem;background:#1f2328;color:#f6f8fa;font:500 13px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif}
+.mock-bar .mock-label{opacity:.8;margin-right:.25rem}
+.mock-bar [role=tablist]{display:flex;flex-wrap:wrap;gap:.25rem}
+.mock-bar button{font:inherit;color:#f6f8fa;background:#32383f;border:1px solid #4b535d;border-radius:6px;padding:.3rem .65rem;cursor:pointer}
+.mock-bar button[aria-selected=true],.mock-bar button[aria-pressed=true]{background:#f6f8fa;color:#1f2328;border-color:#f6f8fa}
+.mock-bar button:focus-visible{outline:3px solid #ffd33d;outline-offset:2px}
+.mock-bar .spacer{flex:1}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+[role=tabpanel][hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="mock-bar" aria-label="Mockup controls">
+  <span class="mock-label">Mockup · C · Workbench</span>
+  <div role="tablist" aria-label="Screen">
+    <button role="tab" id="t-home" aria-controls="p-home" aria-selected="true">Home / search</button>
+    <button role="tab" id="t-dataset" aria-controls="p-dataset" aria-selected="false" tabindex="-1">Dataset</button>
+    <button role="tab" id="t-signin" aria-controls="p-signin" aria-selected="false" tabindex="-1">Sign in</button>
+  </div>
+  <span class="spacer"></span>
+  <button type="button" id="rebrand" aria-pressed="false">Rebrand</button>
+</div>
+<section role="tabpanel" id="p-home" aria-labelledby="t-home">
+<div class="app"><nav class="sidebar" aria-label="Archive">
+  <a class="mark" href="#" data-go="home"><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+  <rect x=".75" y=".75" width="26.5" height="26.5" rx="3" fill="var(--brand-ink)"/>
+  <path d="M5 21h18" stroke="var(--brand)" stroke-width="1.5"/>
+  <text x="14" y="17.5" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="10" font-weight="700" fill="var(--brand)" data-b="short">IRC</text>
+</svg><span data-b="name">Invented Research Cooperative</span></a>
+  <div class="side-nav">
+    <a href="#" data-go="home" aria-current="page">Datasets <span class="n">4</span></a>
+    <a href="#recent" class="hide-phone">Recently updated</a>
+    <a href="#about" class="hide-phone">About</a>
+    <a href="#" data-go="signin">Sign in</a>
+  </div>
+  <p class="side-foot">Research Archive in a Box</p>
+</nav>
+<div class="main"><div class="toolbar">
+  <form role="search" onsubmit="return false"><label class="vh" for="c-q-h">Search datasets</label><input id="c-q-h" type="search" value="" placeholder="Search datasets and columns"><button class="btn primary" type="submit">Search</button></form>
+  <span class="who">Not signed in · <a href="#" data-go="signin">Sign in</a></span>
+</div>
+<main class="content">
+  <div class="intro"><h1>Datasets</h1><p data-b="intro">The Invented Research Cooperative shares the data behind its field studies: streams, lakes, snow and the land around them. Every dataset comes with its files, a description of each column, and a citation you can copy.</p></div>
+  <div class="layout">
+    <details class="filters" open data-collapse-phone><summary>Filters</summary><div class="fbody">
+      <fieldset class="facet-group">
+        <legend>Access</legend>
+        
+        <label class="facet"><input type="checkbox" id="c-Access-0"> <span class="facet-v">open</span> <span class="count" aria-label="3 datasets">3</span></label>
+        <label class="facet"><input type="checkbox" id="c-Access-1"> <span class="facet-v">restricted</span> <span class="count" aria-label="1 datasets">1</span></label>
+      </fieldset>
+      <fieldset class="facet-group">
+        <legend>Licence</legend>
+        
+        <label class="facet"><input type="checkbox" id="c-Licence-0"> <span class="facet-v">CC-BY-4.0</span> <span class="count" aria-label="2 datasets">2</span></label>
+        <label class="facet"><input type="checkbox" id="c-Licence-1"> <span class="facet-v">CC-BY-NC-4.0</span> <span class="count" aria-label="1 datasets">1</span></label>
+        <label class="facet"><input type="checkbox" id="c-Licence-2"> <span class="facet-v">CC0-1.0</span> <span class="count" aria-label="1 datasets">1</span></label>
+      </fieldset>
+      <fieldset class="facet-group">
+        <legend>Format</legend>
+        
+        <label class="facet"><input type="checkbox" id="c-Format-0"> <span class="facet-v">csv</span> <span class="count" aria-label="4 datasets">4</span></label>
+        <label class="facet"><input type="checkbox" id="c-Format-1"> <span class="facet-v">md</span> <span class="count" aria-label="2 datasets">2</span></label>
+        <label class="facet"><input type="checkbox" id="c-Format-2"> <span class="facet-v">shp</span> <span class="count" aria-label="2 datasets">2</span></label>
+        <label class="facet"><input type="checkbox" id="c-Format-3"> <span class="facet-v">asc</span> <span class="count" aria-label="1 datasets">1</span></label>
+        <label class="facet"><input type="checkbox" id="c-Format-4"> <span class="facet-v">pdf</span> <span class="count" aria-label="1 datasets">1</span></label>
+        <label class="facet"><input type="checkbox" id="c-Format-5"> <span class="facet-v">png</span> <span class="count" aria-label="1 datasets">1</span></label>
+        <label class="facet"><input type="checkbox" id="c-Format-6"> <span class="facet-v">xlsx</span> <span class="count" aria-label="1 datasets">1</span></label>
+      </fieldset>
+      <fieldset class="facet-group years">
+        <legend>Years</legend>
+        <div class="year-row">
+          <label>From <input type="number" inputmode="numeric" placeholder="1950" min="1900" max="2100"></label>
+          <label>To <input type="number" inputmode="numeric" placeholder="2026" min="1900" max="2100"></label>
+        </div>
+      </fieldset></div></details>
+    <div>
+      <div class="rhead"><span><strong>4</strong> datasets · page 1 of 1</span><label>Sort <select><option>Updated</option><option>Title</option><option>Relevance</option></select></label></div>
+      <div class="colhead" aria-hidden="true"><span>Dataset</span><span>Creator</span><span>Coverage</span><span>Files</span></div>
+      <ul class="rlist"><li>
+  <div><h2><a href="#" data-go="dataset">Stream temperature at three invented sites</a></h2>
+  <p class="d">Hourly water temperature from loggers at three invented stream sites, with each logger's condition, the site locations, a depth grid and the methods.</p>
+  <div class="fm"><span class="acc open">open</span><span class="tag">CC-BY-4.0</span><span class="tag">csv</span><span class="tag">xlsx</span><span class="tag">shp</span><span class="tag">asc</span><span class="tag">md</span><span class="tag">png</span></div></div>
+  <div class="c"><b>Ada Invented</b>creator</div>
+  <div class="c"><b>2024 – ongoing</b>coverage</div>
+  <div class="c files"><b>9</b>files</div>
+</li><li>
+  <div><h2><a href="#" data-go="dataset">Riparian vegetation plots along two invented streams</a></h2>
+  <p class="d">Percent cover by species in 40 plots, surveyed each July from 2019 to 2023, with the plot locations and the field protocol.</p>
+  <div class="fm"><span class="acc open">open</span><span class="tag">CC-BY-4.0</span><span class="tag">csv</span><span class="tag">shp</span><span class="tag">pdf</span></div></div>
+  <div class="c"><b>Cara Example</b>creator</div>
+  <div class="c"><b>2019 – 2023</b>coverage</div>
+  <div class="c files"><b>6</b>files</div>
+</li><li>
+  <div><h2><a href="#" data-go="dataset">Snow depth on an invented ridge transect</a></h2>
+  <p class="d">Weekly snow depth and density at 12 stakes, winters 2015 to 2024. Stake coordinates are withheld; ask the curators for them.</p>
+  <div class="fm"><span class="acc restricted">restricted</span><span class="tag">CC-BY-NC-4.0</span><span class="tag">csv</span></div></div>
+  <div class="c"><b>Dev Sample</b>creator</div>
+  <div class="c"><b>2015 – 2024</b>coverage</div>
+  <div class="c files"><b>3</b>files</div>
+</li><li>
+  <div><h2><a href="#" data-go="dataset">Ice-out dates for an invented lake, 1950–2024</a></h2>
+  <p class="d">The first ice-free day each spring, from observer logs and later a shore camera, with a note on each year's source.</p>
+  <div class="fm"><span class="acc open">open</span><span class="tag">CC0-1.0</span><span class="tag">csv</span><span class="tag">md</span></div></div>
+  <div class="c"><b>Eli Mock</b>creator</div>
+  <div class="c"><b>1950 – 2024</b>coverage</div>
+  <div class="c files"><b>2</b>files</div>
+</li></ul>
+    </div>
+  </div>
+</main></div></div>
+</section>
+<section role="tabpanel" id="p-dataset" aria-labelledby="t-dataset" hidden>
+<div class="app"><nav class="sidebar" aria-label="Archive">
+  <a class="mark" href="#" data-go="home"><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+  <rect x=".75" y=".75" width="26.5" height="26.5" rx="3" fill="var(--brand-ink)"/>
+  <path d="M5 21h18" stroke="var(--brand)" stroke-width="1.5"/>
+  <text x="14" y="17.5" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="10" font-weight="700" fill="var(--brand)" data-b="short">IRC</text>
+</svg><span data-b="name">Invented Research Cooperative</span></a>
+  <div class="side-nav">
+    <a href="#" data-go="home">Datasets <span class="n">4</span></a>
+    <a href="#recent" class="hide-phone">Recently updated</a>
+    <a href="#about" class="hide-phone">About</a>
+    <a href="#" data-go="signin">Sign in</a>
+  </div>
+  <p class="side-foot">Research Archive in a Box</p>
+</nav>
+<div class="main"><div class="toolbar">
+  <form role="search" onsubmit="return false"><label class="vh" for="c-q-d">Search datasets</label><input id="c-q-d" type="search" value="stream" placeholder="Search datasets and columns"><button class="btn primary" type="submit">Search</button></form>
+  <span class="who">Not signed in · <a href="#" data-go="signin">Sign in</a></span>
+</div>
+<main class="content">
+  <div class="ds-top">
+    <div><span class="id"><a href="#" data-go="home">Datasets</a> / stream-temperature-sample / v1</span>
+      <h1>Stream temperature at three invented sites</h1>
+      <div class="badges"><span class="badge open">open</span><span class="badge">CC-BY-4.0</span><span class="badge">Published 2026-11-14</span><span class="badge">Version 1</span><span class="badge">9 files · 51 kB</span></div>
+    </div>
+    <div class="act"><a class="btn primary" href="#download" data-download style="text-decoration:none">Download all (.zip)</a><a class="btn" href="#manifest" style="text-decoration:none">datapackage.json</a></div>
+  </div>
+  <p class="ds-desc">Hourly water temperature from loggers at three invented stream sites, with each logger's condition, the site locations, a depth grid and the methods. A sample package for the research archive; every site and reading is invented.</p>
+  <div class="two">
+    <section class="panel" aria-labelledby="c-about"><h2 id="c-about">About</h2><div class="pbody"><dl class="about"><div><dt>Creators</dt><dd>Ada Invented (Example Lab)</dd></div><div><dt>Curator</dt><dd>Ben Placeholder</dd></div><div><dt>Purpose</dt><dd>To show how a research archive package holds tables, code lists, spatial data and documents, with gaps left in for the audit to find.</dd></div><div><dt>Rights</dt><dd>Licensed CC-BY-4.0 (Creative Commons Attribution 4.0 International). <a href="#licence">Read the licence</a></dd></div><div><dt>Keywords</dt><dd>stream temperature, water quality, loggers</dd></div><div><dt>Temporal coverage</dt><dd>2024-06-01 to ongoing</dd></div><div><dt>Spatial coverage</dt><dd>West −72.74, south 44.23, east −72.66, north 44.32. Three invented sites along two streams.</dd></div></dl></div></section>
+    <section class="panel" aria-labelledby="c-cite"><h2 id="c-cite">Cite</h2><div class="pbody"><div class="cite-box"><p class="cite-text" id="cite-text">Invented, A. (2024). Stream temperature at three invented sites. Version 1. Example Lab. <span class="cite-url">https://<span data-b="host">data.invented-cooperative.example</span>/datasets/stream-temperature-sample/v1</span></p>
+        <button type="button" class="btn copy" data-copy="cite-text">Copy</button><span class="copied" role="status"></span></div><p class="cite-alt">Also as <a href="#bibtex">BibTeX</a> · <a href="#ris">RIS</a></p></div></section>
+  </div>
+  <section class="panel section" aria-labelledby="c-files"><h2 id="c-files">Files <span class="n">9</span></h2>
+    <div class="table-scroll" role="region" aria-label="Files" tabindex="0"><table class="dense files">
+      <thead><tr><th scope="col">Title</th><th scope="col">Kind</th><th scope="col">Path</th><th scope="col" class="num">Size</th><th scope="col"><span class="vh">Download</span></th></tr></thead>
+      <tbody><tr><td class="t"><strong>Logger readings</strong></td><td class="k">table</td><td class="p"><code>data/logger.csv</code></td><td class="num">3.4 kB</td><td class="d"><a class="dl" href="#download" data-download>Download<span class="vh"> logger.csv</span></a></td></tr><tr><td class="t"><strong>Logger condition codes</strong></td><td class="k">table</td><td class="p"><code>data/codes/condition-codes.csv</code></td><td class="num">258 B</td><td class="d"><a class="dl" href="#download" data-download>Download<span class="vh"> condition-codes.csv</span></a></td></tr><tr><td class="t"><strong>Sites</strong></td><td class="k">vector</td><td class="p"><code>data/sites/sites.shp</code> <span class="k">+3</span></td><td class="num">697 B</td><td class="d"><a class="dl" href="#download" data-download>Download<span class="vh"> sites.shp</span></a></td></tr><tr class="side"><td></td><td></td><td class="p"><code>sites.shx</code></td><td></td><td class="d"><a href="#download" data-download>Download<span class="vh"> sites.shx</span></a></td></tr><tr class="side"><td></td><td></td><td class="p"><code>sites.dbf</code></td><td></td><td class="d"><a href="#download" data-download>Download<span class="vh"> sites.dbf</span></a></td></tr><tr class="side"><td></td><td></td><td class="p"><code>sites.prj</code></td><td></td><td class="d"><a href="#download" data-download>Download<span class="vh"> sites.prj</span></a></td></tr><tr><td class="t"><strong>Stream depth</strong></td><td class="k">raster</td><td class="p"><code>data/depth.asc</code> <span class="k">+1</span></td><td class="num">269 B</td><td class="d"><a class="dl" href="#download" data-download>Download<span class="vh"> depth.asc</span></a></td></tr><tr class="side"><td></td><td></td><td class="p"><code>depth.prj</code></td><td></td><td class="d"><a href="#download" data-download>Download<span class="vh"> depth.prj</span></a></td></tr><tr><td class="t"><strong>Logger readings (Excel)</strong></td><td class="k">table</td><td class="p"><code>data/logger.xlsx</code></td><td class="num">41.9 kB</td><td class="d"><a class="dl" href="#download" data-download>Download<span class="vh"> logger.xlsx</span></a></td></tr><tr><td class="t"><strong>Logger export, untouched</strong></td><td class="k">file</td><td class="p"><code>original/logger-raw.csv</code></td><td class="num">3.1 kB</td><td class="d"><a class="dl" href="#download" data-download>Download<span class="vh"> logger-raw.csv</span></a></td></tr><tr><td class="t"><strong>Methods</strong></td><td class="k">document</td><td class="p"><code>docs/methods.md</code></td><td class="num">472 B</td><td class="d"><a class="dl" href="#download" data-download>Download<span class="vh"> methods.md</span></a></td></tr><tr><td class="t"><strong>Site photo</strong></td><td class="k">media</td><td class="p"><code>docs/site-photo.png</code></td><td class="num">656 B</td><td class="d"><a class="dl" href="#download" data-download>Download<span class="vh"> site-photo.png</span></a></td></tr><tr><td class="t"><strong>Discharge</strong></td><td class="k">linked</td><td class="p"><code>example.org/stream-temperature/discharge.csv</code></td><td class="num">—</td><td class="d"><a class="dl" href="#linked">Open link<span class="vh"> to Discharge (external)</span></a></td></tr></tbody></table></div>
+  </section>
+  <section class="usage" aria-labelledby="c-usage-h">
+      <h2 id="c-usage-h">Help this archive: how will you use this data?</h2>
+      <p class="hint">All optional. We don't ask who you are. Your download has already started.</p>
+      <div class="usage-fields">
+        <div class="field"><label for="c-usage-org">Kind of organisation</label><select id="c-usage-org"><option value="">Choose…</option><option>University</option><option>Government</option><option>Non-profit</option><option>Company</option><option>Individual</option><option>Other</option></select></div>
+        <div class="field"><label for="c-usage-purpose">Purpose</label><select id="c-usage-purpose"><option value="">Choose…</option><option>Research</option><option>Teaching</option><option>Policy or management</option><option>Commercial</option><option>Personal</option><option>Other</option></select></div>
+        <div class="field wide"><label for="c-usage-note">Note <span class="opt">(optional)</span></label><textarea id="c-usage-note" rows="2"></textarea></div>
+      </div>
+      <div class="actions"><button type="button" class="btn primary">Send</button><button type="button" class="btn ghost">No thanks</button></div>
+    </section>
+  <section class="panel section" aria-labelledby="c-cols" id="codes"><h2 id="c-cols">Columns <span class="n">2 tables · 12 columns · 3 gaps</span></h2>
+    <div class="table-scroll" role="region" aria-label="Columns of Logger readings" tabindex="0"><table class="cols">
+      <caption>Logger readings <code>data/logger.csv</code></caption>
+      <thead><tr><th scope="col">Column</th><th scope="col">Title</th><th scope="col">Type</th><th scope="col">Unit</th><th scope="col">Description</th><th scope="col">Codes</th></tr></thead>
+      <tbody><tr><th scope="row"><code>timestamp</code></th><td data-l="Title">Reading time</td><td data-l="Type">datetime</td><td data-l="Unit"></td><td data-l="Description">Local standard time of the reading, on the hour.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>site</code></th><td data-l="Title">Site</td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">Site code; the Sites file holds each site's location.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>water_temp_c</code></th><td data-l="Title">Water temperature (C)</td><td data-l="Type">number</td><td data-l="Unit">degC</td><td data-l="Description">Water temperature in degrees Celsius.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>water_temp_unc_c</code></th><td data-l="Title">Water temperature uncertainty (C)</td><td data-l="Type">number</td><td data-l="Unit">degC</td><td data-l="Description">The logger's stated accuracy at the reading, wider when it drifted or was buried; added in cleaning. Uncertainty of water_temp_c.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>condition</code></th><td data-l="Title">Logger condition</td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">The logger's condition at the reading, from the code list.</td><td data-l="Codes"><a href="#codes">condition-codes</a></td></tr><tr><th scope="row"><code>qc_flag</code></th><td data-l="Title">QC flag</td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">Quality flag set by the logger's software.</td><td data-l="Codes"><span class="missing">Undocumented codes</span></td></tr><tr><th scope="row"><code>logger_model</code></th><td data-l="Title">Logger model</td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">Model of the temperature logger.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>battery_v</code></th><td data-l="Title"><span class="missing">No title</span></td><td data-l="Type">number</td><td data-l="Unit">V</td><td data-l="Description"><span class="missing">No description yet</span></td><td data-l="Codes"></td></tr><tr><th scope="row"><code>depth_cm</code></th><td data-l="Title"><span class="missing">No title</span></td><td data-l="Type">integer</td><td data-l="Unit">cm</td><td data-l="Description"><span class="missing">“depth_cm” (repeats the name)</span></td><td data-l="Codes"></td></tr></tbody></table></div><div class="table-scroll" role="region" aria-label="Columns of Logger condition codes" tabindex="0"><table class="cols">
+      <caption>Logger condition codes <code>data/codes/condition-codes.csv</code></caption>
+      <thead><tr><th scope="col">Column</th><th scope="col">Title</th><th scope="col">Type</th><th scope="col">Unit</th><th scope="col">Description</th><th scope="col">Codes</th></tr></thead>
+      <tbody><tr><th scope="row"><code>code</code></th><td data-l="Title"><span class="missing">No title</span></td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">The code.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>label</code></th><td data-l="Title"><span class="missing">No title</span></td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">A short label.</td><td data-l="Codes"></td></tr><tr><th scope="row"><code>description</code></th><td data-l="Title"><span class="missing">No title</span></td><td data-l="Type">string</td><td data-l="Unit"></td><td data-l="Description">What the code means.</td><td data-l="Codes"></td></tr></tbody></table></div>
+  </section>
+</main></div></div>
+</section>
+<section role="tabpanel" id="p-signin" aria-labelledby="t-signin" hidden>
+<div class="auth">
+  <a class="auth-top" href="#" data-go="home"><svg width="32" height="32" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+  <rect x=".75" y=".75" width="26.5" height="26.5" rx="3" fill="var(--brand-ink)"/>
+  <path d="M5 21h18" stroke="var(--brand)" stroke-width="1.5"/>
+  <text x="14" y="17.5" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="10" font-weight="700" fill="var(--brand)" data-b="short">IRC</text>
+</svg><span data-b="name">Invented Research Cooperative</span></a>
+  <div class="auth-wrap">
+    <div><p class="state-label">State 1 · returning reader</p><form class="auth-form" onsubmit="return false" aria-labelledby="c-si-h">
+      <h2 id="c-si-h">Sign in</h2>
+      <p class="hint">For curators and readers with access to restricted datasets.</p>
+      <div class="field"><label for="c-si-email">Email</label><input id="c-si-email" type="email" autocomplete="username" value="ben@example.org"></div>
+      <div class="field"><label for="c-si-pw">Password</label><input id="c-si-pw" type="password" autocomplete="current-password" value="correcthorse"></div>
+      <button class="btn primary block" type="submit">Sign in</button>
+      <p class="aux"><a href="#forgot">Forgot your password?</a></p>
+    </form></div>
+    <div><p class="state-label">State 2 · first sign-in</p><form class="auth-form" onsubmit="return false" aria-labelledby="c-np-h">
+      <h2 id="c-np-h">Set a new password</h2>
+      <p class="hint">This is your first sign-in. Choose a password to replace the temporary one we emailed you.</p>
+      <div class="field"><label for="c-np-email2">Email</label><input id="c-np-email2" type="email" value="ben@example.org" readonly aria-readonly="true"></div>
+      <div class="field"><label for="c-np-np">New password</label><input id="c-np-np" type="password" autocomplete="new-password" aria-describedby="c-np-rules" value="a-longer-passphrase"></div>
+      <ul class="rules" id="c-np-rules"><li class="ok">At least 12 characters</li><li class="ok">Not the temporary password</li></ul>
+      <div class="field"><label for="c-np-np2">Confirm new password</label><input id="c-np-np2" type="password" autocomplete="new-password" value="a-longer-passphrase"></div>
+      <button class="btn primary block" type="submit">Set password and sign in</button>
+    </form></div>
+  </div>
+</div>
+</section>
+<script>
+(function(){
+  var BRANDS={"main":{"name":"Invented Research Cooperative","short":"IRC","host":"data.invented-cooperative.example","intro":"The Invented Research Cooperative shares the data behind its field studies: streams, lakes, snow and the land around them. Every dataset comes with its files, a description of each column, and a citation you can copy."},"alt":{"name":"Northern Watershed Data Commons","short":"NW","host":"commons.northern-watershed.example","intro":"Northern Watershed Data Commons keeps the monitoring data of its member groups across the northern basins. Search the collection, read how each dataset was made, and cite it in one click."}};
+  var tabs=[].slice.call(document.querySelectorAll('[role=tab]'));
+  function show(tab){tabs.forEach(function(t){var on=t===tab;t.setAttribute('aria-selected',on);t.tabIndex=on?0:-1;document.getElementById(t.getAttribute('aria-controls')).hidden=!on;});window.scrollTo(0,0);}
+  tabs.forEach(function(t,i){t.addEventListener('click',function(){show(t)});t.addEventListener('keydown',function(e){var d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(d){var n=tabs[(i+d+tabs.length)%tabs.length];n.focus();show(n);}});});
+  document.querySelectorAll('[data-go]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();show(document.getElementById('t-'+a.getAttribute('data-go')));});});
+  var rb=document.getElementById('rebrand');
+  function brand(key){var b=BRANDS[key];document.documentElement.dataset.brand=key;rb.setAttribute('aria-pressed',key==='alt');
+    document.querySelectorAll('[data-b]').forEach(function(el){el.textContent=b[el.getAttribute('data-b')];});
+    document.title=b.name+' · mockup';}
+  rb.addEventListener('click',function(){brand(document.documentElement.dataset.brand==='alt'?'main':'alt');});
+  document.querySelectorAll('[data-copy]').forEach(function(btn){btn.addEventListener('click',function(){
+    var text=document.getElementById(btn.getAttribute('data-copy')).textContent.trim();var st=btn.nextElementSibling;
+    function done(){st.textContent='Copied';setTimeout(function(){st.textContent='';},2000);}
+    try{navigator.clipboard.writeText(text).then(done,done);}catch(e){done();}
+  });});
+  document.querySelectorAll('[data-download]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();var u=document.querySelector('.usage');if(u){u.hidden=false;}});});
+  if(matchMedia('(max-width:900px)').matches)document.querySelectorAll('details[data-collapse-phone]').forEach(function(d){d.open=false;});
+  brand('main');
+})();
+</script>
+</body>
+</html>

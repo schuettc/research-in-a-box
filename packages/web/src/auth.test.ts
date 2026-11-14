@@ -21,6 +21,7 @@ const ID_TOKEN = jwt({
   iss: DOMAIN,
   iat: now,
   exp: now + 3600,
+  email: "reader@example.org",
 });
 
 let fetchMock: Mock;
@@ -120,4 +121,59 @@ test("the user is kept in memory without its refresh token", async () => {
   const stored = setItem.mock.calls.map(([, value]) => value).join("\n");
   expect(stored).toContain(ACCESS_TOKEN);
   expect(stored).not.toContain(REFRESH_TOKEN);
+});
+
+async function signedIn() {
+  const state = (await redirectUrl()).searchParams.get("state");
+  const auth = await import("./auth");
+  await auth.completeSignIn(`${location.origin}/auth/callback?code=abc&state=${state}`);
+  return auth;
+}
+
+test("signed in, the reader's email is known and listeners hear of it", async () => {
+  const { signedInEmail } = await import("./auth");
+  expect(signedInEmail()).toBeNull();
+
+  const auth = await signedIn();
+
+  expect(auth.signedInEmail()).toBe("reader@example.org");
+});
+
+test("Sign out forgets the token and goes to managed login's logout", async () => {
+  const auth = await signedIn();
+  const heard = vi.fn();
+  auth.subscribe(heard);
+  assign.mockClear();
+
+  await auth.signOut();
+
+  expect(auth.apiToken()).toBeNull();
+  expect(auth.signedInEmail()).toBeNull();
+  expect(heard).toHaveBeenCalled();
+  const url = new URL(String(assign.mock.calls[0]?.[0]));
+  expect(`${url.origin}${url.pathname}`).toBe(`${DOMAIN}/logout`);
+  expect(url.searchParams.get("client_id")).toBe("web-client-id");
+  expect(url.searchParams.get("logout_uri")).toBe(`${location.origin}/`);
+});
+
+test("Add a passkey goes to managed login's passkey page, back to the callback", async () => {
+  const auth = await signedIn();
+  assign.mockClear();
+
+  await auth.addPasskey("/datasets/ds-1");
+
+  const url = new URL(String(assign.mock.calls[0]?.[0]));
+  expect(`${url.origin}${url.pathname}`).toBe(`${DOMAIN}/passkeys/add`);
+  expect(url.searchParams.get("client_id")).toBe("web-client-id");
+  expect(url.searchParams.get("redirect_uri")).toBe(`${location.origin}/auth/callback`);
+  // Managed login comes back with no code; the callback page knows it from these.
+  expect(auth.passkeyReturn("")).toBe("/datasets/ds-1");
+  expect(auth.passkeyReturn("?code=abc&state=x")).toBeNull();
+});
+
+test("the page to return to is kept across the redirect for a failed sign-in", async () => {
+  const { lastReturnTo } = await import("./auth");
+  await redirectUrl();
+
+  expect(lastReturnTo()).toBe("/datasets/ds-1");
 });

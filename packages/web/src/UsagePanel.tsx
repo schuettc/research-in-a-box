@@ -50,40 +50,49 @@ export function UsagePanel({ datasetId, onClose }: { datasetId: string; onClose:
     setSent(true);
   }
 
-  if (sent) return <p className="usage">Thank you.</p>;
+  if (sent) return <p className="usage">Thanks, your answers were sent anonymously.</p>;
 
   return (
     <section className="usage" aria-labelledby="usage-heading">
       <h2 id="usage-heading">Help this archive: how will you use this data?</h2>
-      <p>All optional. We don't ask who you are.</p>
-      <label>
-        Kind of organisation
-        <select value={organisation} onChange={(event) => setOrganisation(event.target.value)}>
-          <option value="">Choose…</option>
-          {ORGANISATIONS.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Purpose
-        <select value={purpose} onChange={(event) => setPurpose(event.target.value)}>
-          <option value="">Choose…</option>
-          {PURPOSES.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Note
-        <textarea maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} />
-      </label>
-      <div className="usage-actions">
-        <button type="button" onClick={send}>
+      <p className="hint">All optional. We don't ask who you are.</p>
+      <div className="usage-fields">
+        <label className="field">
+          Kind of organisation
+          <select value={organisation} onChange={(event) => setOrganisation(event.target.value)}>
+            <option value="">Choose…</option>
+            {ORGANISATIONS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          Purpose
+          <select value={purpose} onChange={(event) => setPurpose(event.target.value)}>
+            <option value="">Choose…</option>
+            {PURPOSES.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field wide">
+          <span>
+            Note <span className="muted">(optional)</span>
+          </span>
+          <textarea
+            rows={2}
+            maxLength={500}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
+        </label>
+      </div>
+      <div className="actions">
+        <button type="button" className="primary" onClick={send}>
           Send
         </button>
         <button

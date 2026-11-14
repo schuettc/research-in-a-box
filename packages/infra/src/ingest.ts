@@ -106,6 +106,13 @@ export class Ingest extends Construct {
         objects(archive.archiveBucket, "open/", "restricted/"),
       ),
     );
+    // The page step HEADs each zip to see whether it changed; without list rights S3 answers a
+    // missing key with 403 instead of 404.
+    fn.addToRolePolicy(
+      allow(["s3:ListBucket"], [archive.archiveBucket.bucketArn], {
+        StringLike: { "s3:prefix": ["open/*", "restricted/*"] },
+      }),
+    );
     fn.addToRolePolicy(allow(["s3:PutObject"], objects(archive.derivedBucket, "site/datasets/")));
     archive.submissions.grant(fn, "dynamodb:GetItem", "dynamodb:UpdateItem");
     archive.reviews.grant(fn, "dynamodb:PutItem");

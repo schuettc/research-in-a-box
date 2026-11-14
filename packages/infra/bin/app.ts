@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { App, Stack, Tags } from "aws-cdk-lib";
 import { loadArchiveConfig, stagesOf } from "../src/config";
@@ -19,7 +20,11 @@ export function createApp(configPath: string = process.env.ARCHIVE_CONFIG ?? ARC
         ? { account: stage.account ?? undefined, region: stage.region ?? undefined }
         : undefined;
     const stack = new Stack(app, stackName(stage.name), { env });
-    new ResearchArchive(stack, "Archive", { config, stage: stage.name });
+    new ResearchArchive(stack, "Archive", {
+      config,
+      stage: stage.name,
+      configDir: dirname(configPath),
+    });
   }
   Tags.of(app).add("Repo", "schuettc/research-in-a-box");
   return app;
