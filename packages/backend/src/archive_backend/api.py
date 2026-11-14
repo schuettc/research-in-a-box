@@ -20,6 +20,7 @@ from datetime import UTC, date, datetime
 from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Protocol, cast
+from urllib.parse import quote
 
 import boto3
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -444,7 +445,8 @@ def download_link(id: str, version: int, path: Annotated[str, Query()]) -> Downl
     if _get(table, f"DATASET#{id}", f"{_sk(version)}#FILE#{path}") is None:
         raise NotFoundError(f"no file {path} in version {version} of {id}")
     if access == "open":
-        return DownloadAnswer(url=f"https://{_site_domain()}/data/{id}/{version}/{path}")
+        data = quote(f"{id}/{version}/{path}", safe="/")
+        return DownloadAnswer(url=f"https://{_site_domain()}/data/{data}")
     c = clients()
     url = c.s3.generate_presigned_url(
         "get_object",

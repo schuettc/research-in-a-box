@@ -550,3 +550,18 @@ def test_openapi_lists_every_route(tmp_path: Path) -> None:
         "/api/admin/usage",
     }
     assert out.read_text() == json.dumps(spec, indent=2, sort_keys=True) + "\n"
+
+
+def test_download_of_an_open_file_encodes_its_path(world: World) -> None:
+    world.publish(
+        "ds",
+        {
+            "title": "T",
+            "resources": [{"name": "r", "path": "data/results #1?.csv", "format": "csv"}],
+        },
+    )
+
+    status, body = _download(world, "ds", "data/results #1?.csv")
+
+    assert status == 200
+    assert body == {"url": f"https://{DOMAIN}/data/ds/1/data/results%20%231%3F.csv"}
