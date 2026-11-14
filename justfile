@@ -10,7 +10,7 @@ check: check-python check-ts check-schema
 check-python:
     uv run ruff format --check
     uv run ruff check
-    uv run mypy packages examples/femc
+    uv run mypy packages examples/femc scripts
     uv run pytest
 
 # TypeScript: format check, lint, type check, tests, web build
@@ -72,6 +72,12 @@ add-curator stage email userId:
     aws sns subscribe --topic-arn "$topic" --protocol email --notification-endpoint '{{email}}' \
         --attributes "$attributes" --query SubscriptionArn --output text >/dev/null
     echo "{{email}} subscribed to the {{stage}} curators' topic; they must confirm from the email"
+
+# Drive the sample package through the ingest pipeline on a deployed non-prod stage, with the
+# caller's AWS_PROFILE and region. Set INGEST_E2E_REVIEWER to your curator user id to receive
+# the reminder; the reminder run leaves one submission waiting, and the next day's run checks it.
+ingest-e2e stage:
+    uv run python scripts/ingest_e2e.py {{stage}}
 
 # Install archive-backend, its workspace packages (the contract and cruise) and its locked
 # dependencies as arm64 Lambda wheels, without Docker
