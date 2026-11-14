@@ -112,6 +112,21 @@ def test_submit_sends_exactly_the_checksummed_files_each_with_its_checksum_heade
     )
 
 
+def test_submit_names_the_manifests_dataset_so_a_published_one_gets_a_new_version(
+    connected: Any, package: Path, session: Session
+) -> None:
+    answer_uploads(connected, "POST /api/submissions", package, "s1", 1)
+    connected.json(
+        "POST /api/submissions/s1/submit",
+        {"submissionId": "s1", "round": 1, "status": "checking"},
+        202,
+    )
+
+    submit.submit(session, str(package))
+
+    assert json.loads(connected.seen[0].body)["datasetId"] == "stream-temperature-sample"
+
+
 def test_submit_with_a_submission_sends_the_next_round_through_uploads(
     connected: Any, package: Path, session: Session
 ) -> None:

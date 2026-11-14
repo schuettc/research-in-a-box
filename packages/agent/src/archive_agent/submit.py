@@ -85,7 +85,12 @@ def submit(session: Session, folder: str, submission: str | None = None) -> dict
     files = _files(root)
     archive = session.archive()
     if submission is None:
-        started = archive.post("/api/submissions", {"files": files}, group=CONTRIBUTOR)
+        # The manifest's id names the dataset: a published one gets its next version.
+        body: dict[str, Any] = {"files": files}
+        dataset_id = json.loads((root / "datapackage.json").read_text(encoding="utf-8")).get("id")
+        if isinstance(dataset_id, str) and dataset_id:
+            body["datasetId"] = dataset_id
+        started = archive.post("/api/submissions", body, group=CONTRIBUTOR)
     else:
         started = archive.post(
             f"/api/submissions/{_quote(submission)}/uploads", {"files": files}, group=CONTRIBUTOR
