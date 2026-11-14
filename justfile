@@ -61,10 +61,28 @@ reindex-status stage:
     aws lambda get-durable-execution --durable-execution-arn "$arn" \
         --query "{status: Status, result: Result}" --output json
 
+# Print a stage's region or account from archive.yaml (or ARCHIVE_CONFIG), empty when it names none
+_stage-field stage field:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv run --all-packages --frozen python - "${ARCHIVE_CONFIG:-archive.yaml}" "{{stage}}" "{{field}}" <<'EOF'
+    import sys
+    from pathlib import Path
+    from archive_contract.config import load_config
+    path, name, field = sys.argv[1:]
+    infrastructure = load_config(Path(path)).infrastructure
+    stages = {stage.name: stage for stage in infrastructure.stages} if infrastructure else {}
+    if name not in stages:
+        sys.exit(f"stage {name} is not in {path}")
+    print(getattr(stages[name], field) or "")
+    EOF
+
 # Invite a person to the stage by email, optionally into groups: a comma-separated list of contributor, curator and admin
 invite-user stage email groups="":
     #!/usr/bin/env bash
     set -euo pipefail
+    region="$({{just_executable()}} _stage-field "{{stage}}" region)"
+    aws() { command aws ${region:+--region "$region"} "$@"; }
     pool="$(aws cloudformation describe-stack-resources --stack-name "ResearchArchive-{{stage}}" \
         --query "StackResources[?ResourceType=='AWS::Cognito::UserPool'].PhysicalResourceId" --output text)"
     aws cognito-idp admin-create-user --user-pool-id "$pool" --username "{{email}}" \
@@ -78,12 +96,18 @@ invite-user stage email groups="":
     done
     echo "invited {{email}} to {{stage}} {{groups}}"
 
-# Check the stage's site with no sign-in: site, health, search, the sample dataset's page and a download
-smoke stage:
+# Check the stage's site with no sign-in: site, health, search, the sample dataset's page and a download.
+# CI passes the domain from cdk deploy's outputs; with none, it is read from the stack.
+smoke stage domain="":
     #!/usr/bin/env bash
     set -euo pipefail
-    domain="$(aws cloudformation describe-stacks --stack-name "ResearchArchive-{{stage}}" \
-        --query "Stacks[0].Outputs[?OutputKey=='SiteDomain'].OutputValue" --output text)"
+    domain="{{domain}}"
+    if [ -z "$domain" ]; then
+        region="$({{just_executable()}} _stage-field "{{stage}}" region)"
+        domain="$(aws ${region:+--region "$region"} cloudformation describe-stacks \
+            --stack-name "ResearchArchive-{{stage}}" \
+            --query "Stacks[0].Outputs[?OutputKey=='SiteDomain'].OutputValue" --output text)"
+    fi
     if [ -z "$domain" ] || [ "$domain" = "None" ]; then
         echo "ResearchArchive-{{stage}} has no SiteDomain output"
         exit 1
@@ -94,6 +118,16 @@ smoke stage:
 destroy stage:
     #!/usr/bin/env bash
     set -euo pipefail
+    region="$({{just_executable()}} _stage-field "{{stage}}" region)"
+    account="$({{just_executable()}} _stage-field "{{stage}}" account)"
+    aws() { command aws ${region:+--region "$region"} "$@"; }
+    if [ -n "$account" ]; then
+        caller="$(aws sts get-caller-identity --query Account --output text)"
+        if [ "$caller" != "$account" ]; then
+            echo "{{stage}} is in account $account, but you are signed in to $caller; nothing destroyed"
+            exit 1
+        fi
+    fi
     (cd packages/infra && npx cdk destroy "ResearchArchive-{{stage}}" --force)
     prefix="/aws/lambda/ResearchArchive-{{stage}}-CustomS3AutoDeleteObjects"
     for group in $(aws logs describe-log-groups --log-group-name-prefix "$prefix" \
