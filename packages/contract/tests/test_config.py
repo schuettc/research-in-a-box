@@ -97,6 +97,24 @@ def test_infrastructure_defaults_to_prod_only() -> None:
     assert infrastructure.monthly_budget_usd == 50
     assert infrastructure.modules.waf is False
     assert infrastructure.modules.object_lock is None
+    assert infrastructure.modules.embeddings is None
+
+
+def test_embeddings_present_means_on_with_titan_v2() -> None:
+    modules = Infrastructure.model_validate(
+        {"alertEmail": "a@b.c", "modules": {"embeddings": {}}}
+    ).modules
+
+    assert modules.embeddings is not None
+    assert modules.embeddings.model == "amazon.titan-embed-text-v2:0"
+    with pytest.raises(ValidationError):
+        Infrastructure.model_validate(
+            {"alertEmail": "a@b.c", "modules": {"embeddings": {"model": "cohere.embed-v4"}}}
+        )
+    with pytest.raises(ValidationError):
+        Infrastructure.model_validate(
+            {"alertEmail": "a@b.c", "modules": {"embeddings": {"dimensions": 512}}}
+        )
 
 
 def test_infrastructure_refuses_unknown_keys() -> None:

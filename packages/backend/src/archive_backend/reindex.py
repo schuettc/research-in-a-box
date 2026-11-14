@@ -5,7 +5,8 @@ at its root. The durable handler empties the inactive table, writes every manife
 items as DynamoDB JSON lines under the derived bucket's `reindex/<run>/data/`, bulk-loads them
 into that table, waits for the load to end, and flips the active-catalog parameter only when the
 load ends COMPLETED, then rewrites the catalog file from the table it flipped to. Every stage is
-a checkpointed step, so a replay never repeats one.
+a checkpointed step, so a replay never repeats one. With the embeddings module on, each dataset
+item gets its embedding in the write step, before its line is written.
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ from aws_durable_execution_sdk_python.waits import (
 )
 
 from archive_backend.catalog_file import write_catalog_file
+from archive_backend.embeddings import Bedrock, with_embedding
 from archive_contract.manifest import Manifest
 
 if TYPE_CHECKING:
@@ -65,6 +67,7 @@ class Clients:
     dynamodb: DynamoDB
     ssm: SSM
     sns: SNSClient
+    bedrock: Bedrock
 
 
 def clients() -> Clients:
@@ -73,7 +76,14 @@ def clients() -> Clients:
         dynamodb=cast(DynamoDB, boto3.client("dynamodb")),
         ssm=cast(SSM, boto3.client("ssm")),
         sns=boto3.client("sns"),
+        bedrock=cast(Bedrock, boto3.client("bedrock-runtime")),
     )
+
+
+def embeddings_enabled(c: Clients) -> bool:
+    """Whether the archive config switches the embeddings module on."""
+    # TODO(plan7-archive-config): replace with `read_archive_config(ssm, os.environ["ARCHIVE_CONFIG_PARAMETER"]).infrastructure.modules.embeddings is not None`, cached like the active table.  # noqa: E501
+    return False
 
 
 def _s(value: Any) -> dict[str, str]:
@@ -247,7 +257,14 @@ def _batches(keys: list[str]) -> list[list[str]]:
 
 @durable_step
 def _write(
-    _: StepContext, c: Clients, archive: str, derived: str, run: str, n: int, keys: list[str]
+    _: StepContext,
+    c: Clients,
+    archive: str,
+    derived: str,
+    run: str,
+    n: int,
+    keys: list[str],
+    embeddings: bool = False,
 ) -> int:
     items: list[dict[str, Any]] = []
     versions: dict[str, list[tuple[str, int, dict[str, Any]]]] = {}
@@ -259,7 +276,11 @@ def _write(
         text = c.s3.get_object(Bucket=archive, Key=key)["Body"].read().decode("utf-8")
         items.extend(catalog_items(prefix, dataset_id, version, text))
         versions.setdefault(dataset_id, []).append((prefix, version, json.loads(text)))
-    items.extend(dataset_item(d, v) for d, v in versions.items())
+    for dataset_id, found in versions.items():
+        item = dataset_item(dataset_id, found)
+        if embeddings:
+            item = with_embedding(item, max(found, key=lambda v: v[1])[2], c.bedrock)
+        items.append(item)
     c.s3.put_object(
         Bucket=derived,
         Key=f"reindex/{run}/data/part-{n:05d}.json",
@@ -314,10 +335,15 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
 
     def start(_: object) -> dict[str, str]:
         active = c.ssm.get_parameter(Name=parameter)["Parameter"]["Value"]
-        return {"run": datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"), "active": active}
+        return {
+            "run": datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
+            "active": active,
+            "embeddings": embeddings_enabled(c),
+        }
 
     begun = context.step(start, name="start")
     run_id: str = begun["run"]
+    embeddings = bool(begun.get("embeddings"))
     target = "A" if begun["active"] == "B" else "B"
     table = tables[target]
 
@@ -332,7 +358,7 @@ def run(event: dict[str, Any], context: DurableContext) -> dict[str, Any]:
     count = 0
     for n, batch in enumerate(_batches(keys)):
         count += context.step(
-            _write(c, archive, derived, run_id, n, batch),
+            _write(c, archive, derived, run_id, n, batch, embeddings),
             name=f"write-{n}",
         )
 

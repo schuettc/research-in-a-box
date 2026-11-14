@@ -1,7 +1,7 @@
 """The archive config: the one file an adopter edits."""
 
 from pathlib import Path
-from typing import Self, get_args
+from typing import Literal, Self, get_args
 
 import yaml
 from pydantic import ConfigDict, PositiveInt, model_validator
@@ -36,11 +36,18 @@ class ObjectLock(_Strict):
     retention_days: PositiveInt = PydanticField(alias="retentionDays")
 
 
+class Embeddings(_Strict):
+    """Semantic search: an embedding on each dataset item and a vector index to search them."""
+
+    model: Literal["amazon.titan-embed-text-v2:0"] = "amazon.titan-embed-text-v2:0"
+
+
 class Modules(_Strict):
     """The optional parts, each built only when switched on."""
 
     waf: bool = False
     object_lock: ObjectLock | None = PydanticField(default=None, alias="objectLock")
+    embeddings: Embeddings | None = PydanticField(default=None, alias="embeddings")
 
 
 class Infrastructure(_Strict):
