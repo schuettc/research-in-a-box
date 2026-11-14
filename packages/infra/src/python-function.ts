@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
+import { Duration, RemovalPolicy, type Size } from "aws-cdk-lib";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
@@ -9,11 +9,15 @@ import type { Construct } from "constructs";
 export const PYTHON_ASSETS = fileURLToPath(new URL("../assets/python", import.meta.url));
 
 export interface PythonFunctionProps {
+  /** A fixed name, for a function others must name before CloudFormation creates it. */
+  readonly functionName?: string;
   /** A dotted path in archive_backend, such as `archive_backend.health.handler`. */
   readonly handler: string;
   readonly environment?: Record<string, string>;
   readonly timeout?: Duration;
   readonly memorySize?: number;
+  /** The function's /tmp; Lambda's default is 512 MiB. */
+  readonly ephemeralStorageSize?: Size;
   /** Makes the function durable; invoke it only through a version or alias. */
   readonly durableConfig?: lambda.DurableConfig;
 }
@@ -35,10 +39,12 @@ export function makePythonFunction(
     runtime: lambda.Runtime.PYTHON_3_13,
     architecture: lambda.Architecture.ARM_64,
     code: lambda.Code.fromAsset(PYTHON_ASSETS),
+    functionName: props.functionName,
     handler: props.handler,
     environment: props.environment,
     timeout: props.timeout ?? Duration.seconds(30),
     memorySize: props.memorySize ?? 512,
+    ephemeralStorageSize: props.ephemeralStorageSize,
     durableConfig: props.durableConfig,
     logGroup,
   });

@@ -11,6 +11,7 @@ import { Api } from "./api";
 import { Auth } from "./auth";
 import { stagesOf } from "./config";
 import type { ArchiveConfig } from "./generated/archive-config";
+import { Ingest } from "./ingest";
 import { IntegrityCheck } from "./integrity";
 import { Operations } from "./operations";
 import { makePythonFunction, type PythonFunctionProps } from "./python-function";
@@ -55,6 +56,10 @@ export class ResearchArchive extends Construct {
   readonly distribution: cloudfront.Distribution;
   /** The reindex's `live` alias: durable functions are invoked only through a version or alias. */
   readonly reindexFunction: lambda.Alias;
+  /** The ingest's `live` alias: one durable execution per submission, named by its id. */
+  readonly ingestFunction: lambda.Alias;
+  /** Curators subscribe by email, filtered on `audience` (their user id, or "all"). */
+  readonly curatorTopic: sns.Topic;
   private readonly operations: Operations;
 
   constructor(scope: Construct, id: string, props: ResearchArchiveProps) {
@@ -146,6 +151,10 @@ export class ResearchArchive extends Construct {
     this.operations.addTables([this.usageResponses]);
 
     this.reindexFunction = new Reindex(this, "Reindex", { archive: this }).alias;
+
+    const ingest = new Ingest(this, "Ingest", { archive: this, stage: props.stage });
+    this.ingestFunction = ingest.alias;
+    this.curatorTopic = ingest.curatorTopic;
   }
 
   /** A Python Lambda from archive-backend, built the way the archive's own are, with its alarm. */

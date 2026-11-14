@@ -61,6 +61,18 @@ invite-user stage email group="":
     fi
     echo "invited {{email}} to {{stage}} {{group}}"
 
+# Subscribe a curator's email to the stage's curators' topic, for messages to their user id or to all
+add-curator stage email userId:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    topic="$(aws cloudformation describe-stacks --stack-name "ResearchArchive-{{stage}}" \
+        --query "Stacks[0].Outputs[?OutputKey=='CuratorTopic'].OutputValue" --output text)"
+    attributes="$(jq -cn --arg user '{{userId}}' \
+        '{FilterPolicy: ({audience: [$user, "all"]} | tojson)}')"
+    aws sns subscribe --topic-arn "$topic" --protocol email --notification-endpoint '{{email}}' \
+        --attributes "$attributes" --query SubscriptionArn --output text >/dev/null
+    echo "{{email}} subscribed to the {{stage}} curators' topic; they must confirm from the email"
+
 # Install archive-backend, its workspace packages (the contract and cruise) and its locked
 # dependencies as arm64 Lambda wheels, without Docker
 lambda-assets:
