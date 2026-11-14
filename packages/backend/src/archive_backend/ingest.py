@@ -4,7 +4,9 @@ Each round is scanned (GuardDuty's tag on every file), checked (`cruise.diagnose
 archive config), held (copied to `held/<id>/`, which never expires) and matched against the
 review policy, read once. A round under review waits on a curator's callback, reminding and
 marking stale on the policy's days; a blocked round or a request for changes waits 30 days on
-the contributor's resubmit callback. Every call that reads the clock, the network or a random
+the contributor's resubmit callback. Every wait is capped to end by 360 days after the start,
+so a submission still open then ends itself as `expired` before the platform's one-year
+execution timeout ends it without a word. Every call that reads the clock, the network or a random
 value runs inside a named step, every status change writes its event in the same step, and a
 step that fails after its retries ends the submission as `failed` with an admin alert.
 """
@@ -16,7 +18,7 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol, cast, get_args
 
@@ -46,6 +48,7 @@ from cruise.diagnose import diagnose
 
 DAY = 86400
 RESUBMIT_DAYS = 30
+EXPIRY_DAYS = 360
 SCAN_TAG = "GuardDutyMalwareScanStatus"
 CLEAN = "NO_THREATS_FOUND"
 MANIFEST = "datapackage.json"
@@ -130,6 +133,10 @@ class BadCallback(Exception):
     """A callback result the pipeline can't act on."""
 
 
+class Expired(Exception):
+    """The submission reached its 360 days still open."""
+
+
 def _set(c: Clients, sid: str, fields: dict[str, Any], remove: tuple[str, ...] = ()) -> None:
     """Set and remove attributes on a submission."""
     names = {f"#f{i}": name for i, name in enumerate(fields)}
@@ -199,8 +206,15 @@ def _payload(result: Any) -> dict[str, Any]:
 
 
 @durable_step
-def _start(_: StepContext, c: Clients, sid: str) -> int:
-    return int(_submission(c, sid)["round"])
+def _start(_: StepContext, c: Clients, sid: str) -> dict[str, Any]:
+    return {"round": int(_submission(c, sid)["round"]), "startedAt": _clock().isoformat()}
+
+
+@durable_step
+def _left(_: StepContext, started: str) -> int:
+    """Seconds until the submission's 360 days are up."""
+    end = datetime.fromisoformat(started) + timedelta(days=EXPIRY_DAYS)
+    return int((end - _clock()).total_seconds())
 
 
 @durable_step
@@ -435,6 +449,15 @@ def _abandon(_: StepContext, c: Clients, env: Env, sid: str, round: int) -> None
 
 
 @durable_step
+def _expire(_: StepContext, c: Clients, env: Env, sid: str) -> int:
+    round = int(_submission(c, sid)["round"])
+    _delete_prefix(c, env, f"held/{sid}/")
+    _set(c, sid, {"status": "expired"}, remove=("callbackId",))
+    put_event(c.reviews, sid, "expired", PIPELINE, round, days=EXPIRY_DAYS)
+    return round
+
+
+@durable_step
 def _publish(_: StepContext, c: Clients, sid: str, round: int, rule: int | None) -> None:
     """Publish: for now only the finish; the version, fill-in, copy, catalog and page steps
     come before it once the publisher is built."""
@@ -461,6 +484,25 @@ def _store_callback(c: Clients, sid: str) -> Any:
         _set(c, sid, {"callbackId": callback_id})
 
     return submitter
+
+
+def _wait(
+    context: DurableContext, c: Clients, sid: str, name: str, timeout: int, started: str
+) -> Any:
+    """A callback wait capped to end by the 360th day; `Expired` when the cap ended it."""
+    left = context.step(_left(started), name=f"{name}-deadline")
+    if left <= 0:
+        raise Expired(name)
+    try:
+        return context.wait_for_callback(
+            _store_callback(c, sid),
+            name=name,
+            config=WaitForCallbackConfig(timeout=Duration.from_seconds(min(timeout, left))),
+        )
+    except CallbackTimeoutError:
+        if left <= timeout:
+            raise Expired(name) from None
+        raise
 
 
 def _scan(
@@ -500,6 +542,7 @@ def _review(
     sid: str,
     round: int,
     policy: dict[str, Any],
+    started: str,
 ) -> str:
     """Wait for decisions until one ends the review: `approved`, `rejected` or `changes`."""
     reminders: list[int] = policy["reminders"]
@@ -520,11 +563,7 @@ def _review(
         try:
             if timeout <= 0:
                 raise CallbackTimeoutError("the mark was already due")
-            result = context.wait_for_callback(
-                _store_callback(c, sid),
-                name=f"review-{round}-{n}",
-                config=WaitForCallbackConfig(timeout=Duration.from_seconds(timeout)),
-            )
+            result = _wait(context, c, sid, f"review-{round}-{n}", timeout, started)
         except CallbackTimeoutError:
             if stale:
                 continue
@@ -560,14 +599,12 @@ def _review(
             raise BadCallback(f"unknown decision {decision!r}")
 
 
-def _resubmit(context: DurableContext, c: Clients, env: Env, sid: str, round: int) -> int | None:
+def _resubmit(
+    context: DurableContext, c: Clients, env: Env, sid: str, round: int, started: str
+) -> int | None:
     """Wait 30 days for the next round; None when none arrives and the submission is abandoned."""
     try:
-        result = context.wait_for_callback(
-            _store_callback(c, sid),
-            name=f"resubmit-{round}",
-            config=WaitForCallbackConfig(timeout=Duration.from_days(RESUBMIT_DAYS)),
-        )
+        result = _wait(context, c, sid, f"resubmit-{round}", RESUBMIT_DAYS * DAY, started)
     except CallbackTimeoutError:
         context.step(_abandon(c, env, sid, round), name=f"abandon-{round}")
         return None
@@ -579,7 +616,19 @@ def _resubmit(context: DurableContext, c: Clients, env: Env, sid: str, round: in
 
 
 def _ingest(context: DurableContext, c: Clients, env: Env, sid: str) -> dict[str, Any]:
-    round: int = context.step(_start(c, sid), name="start")
+    begun = context.step(_start(c, sid), name="start")
+    round: int = begun["round"]
+    started: str = begun["startedAt"]
+    try:
+        return _rounds(context, c, env, sid, round, started)
+    except Expired:
+        round = context.step(_expire(c, env, sid), name="expire")
+        return {"submissionId": sid, "status": "expired", "round": round}
+
+
+def _rounds(
+    context: DurableContext, c: Clients, env: Env, sid: str, round: int, started: str
+) -> dict[str, Any]:
     while True:
         paths = context.step(_files(c, sid, round), name=f"files-{round}")
         tags = _scan(context, c, env, sid, round, paths)
@@ -590,13 +639,13 @@ def _ingest(context: DurableContext, c: Clients, env: Env, sid: str) -> dict[str
             policy = context.step(_policy(c, env, sid, round, checked), name=f"policy-{round}")
             outcome = "approved"
             if policy["outcome"] != "skip":
-                outcome = _review(context, c, env, sid, round, policy)
+                outcome = _review(context, c, env, sid, round, policy, started)
             if outcome == "approved":
                 context.step(_publish(c, sid, round, policy["rule"]), name=f"publish-{round}")
                 return {"submissionId": sid, "status": "published", "round": round}
             if outcome == "rejected":
                 return {"submissionId": sid, "status": "rejected", "round": round}
-        next_round = _resubmit(context, c, env, sid, round)
+        next_round = _resubmit(context, c, env, sid, round, started)
         if next_round is None:
             return {"submissionId": sid, "status": "abandoned", "round": round}
         round = next_round

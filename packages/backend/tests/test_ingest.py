@@ -557,3 +557,32 @@ def test_a_replay_repeats_no_step_and_names_each_operation_once(world: World) ->
 
     assert replayed == first
     assert (len(world.reviews.events), len(world.sns.published)) == (events, messages)
+
+
+def test_a_submission_still_open_at_360_days_ends_expired(world: World) -> None:
+    def late_changes() -> dict[str, Any]:
+        world.now += timedelta(days=350)
+        return _decision("request-changes")
+
+    result, context = world.run([late_changes, "timeout"])
+
+    assert result["status"] == "expired"
+    assert world.item["status"] == "expired"
+    assert world.types() == [*REVIEWED, "expired"]
+    name, timeout = context.timeouts[-1]
+    assert name == "resubmit-1"
+    assert 9 * DAY < timeout <= 10 * DAY
+    assert world.s3.keys(f"held/{SID}/") == []
+    assert "callbackId" not in world.item
+
+
+def test_a_wait_past_the_cap_ends_expired_before_it_starts(world: World) -> None:
+    def very_late_changes() -> dict[str, Any]:
+        world.now += timedelta(days=361)
+        return _decision("request-changes")
+
+    result, context = world.run([very_late_changes])
+
+    assert result["status"] == "expired"
+    assert world.types() == [*REVIEWED, "expired"]
+    assert [n for n, _ in context.timeouts] == ["review-1-1"]
