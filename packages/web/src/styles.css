@@ -1357,6 +1357,133 @@ table.queue th {
   white-space: nowrap;
 }
 
+/* The admin's review policy */
+
+.policy {
+  max-width: 52rem;
+}
+
+.policy .block:first-child {
+  margin-top: 1.5rem;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+}
+
+.rule {
+  margin: 0 0 1rem;
+  padding: 1rem 1.2rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+  min-width: 0;
+}
+
+.rule > legend {
+  padding: 0 0.4rem;
+  font: 600 1.05rem/1.2 var(--font-heading);
+}
+
+.rule-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.choices {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.choices > legend {
+  padding: 0;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.choices .hint {
+  margin-top: 0.2rem;
+}
+
+.rule-fields {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.field input[type="text"],
+.field input[type="number"] {
+  width: 100%;
+  font: inherit;
+  font-weight: 400;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--field);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.rule-actions {
+  margin-top: 0.75rem;
+}
+
+.rule-actions button {
+  min-height: 2rem;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.88rem;
+}
+
+.theme {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.theme .actions {
+  margin-top: 0.4rem;
+}
+
+.add-theme,
+.timing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.add-theme .field,
+.timing .field {
+  flex: 0 1 16rem;
+}
+
+.save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.save-row p {
+  margin: 0;
+  flex: 1 1 20rem;
+}
+
+.saved {
+  color: var(--open);
+  font-weight: 600;
+}
+
 /* Questions and confirmations are modal dialogs: they overlay the page, so opening one moves
    nothing on it. */
 .modal {
@@ -1401,6 +1528,10 @@ table.queue th {
 }
 
 @media (max-width: 40rem) {
+  .rule-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .history li {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
