@@ -14,6 +14,7 @@ from aws_durable_execution_sdk_python import DurableContext
 from botocore.exceptions import ClientError
 
 from archive_backend import ingest, reindex, submissions
+from archive_backend.embeddings import Bedrock
 from archive_backend.ingest import Clients, Env
 from archive_contract.exports.readme import render_readme
 from archive_contract.manifest import Manifest
@@ -111,6 +112,7 @@ class FakeDynamoDB:
             "catalog-b": {},
         }
         self.stale: dict[str, dict[tuple[str, str], dict[str, Any]]] | None = None
+        self.writes: list[tuple[str, str]] = []
 
     def get_item(self, *, TableName: str, Key: dict[str, Any]) -> dict[str, Any]:
         # A stale snapshot answers one read, as a publish that read before another wrote.
@@ -129,6 +131,7 @@ class FakeDynamoDB:
     ) -> dict[str, Any]:
         """Only the `SET a = :x, ...` updates, under `attribute_not_exists(PK)` or `a = :x`."""
         key = (Key["PK"]["S"], Key["SK"]["S"])
+        self.writes.append(("update", key[0]))
         current = self.tables[TableName].get(key)
         if ConditionExpression == "attribute_not_exists(PK)":
             holds = current is None
@@ -153,8 +156,14 @@ class FakeDynamoDB:
             assert len(requests) <= 25
             for request in requests:
                 item = request["PutRequest"]["Item"]
+                self.writes.append(("put", item["PK"]["S"]))
                 self.tables[table][(item["PK"]["S"], item["SK"]["S"])] = item
         return {"UnprocessedItems": {}}
+
+    def updates_after_put(self, pk: str) -> int:
+        """How many updates of `pk` came after its first put."""
+        writes = [op for op, key in self.writes if key == pk]
+        return writes[writes.index("put") :].count("update")
 
 
 class FakeTable:
@@ -189,12 +198,24 @@ class FakeTable:
 class FakeSSM:
     def __init__(self) -> None:
         self.active = "B"
+        self.config: dict[str, Any] = {"publisher": "Example Archive"}
 
     def get_parameter(self, *, Name: str) -> dict[str, Any]:
         if Name == ACTIVE:
             return {"Parameter": {"Value": self.active}}
         assert Name == CONFIG
-        return {"Parameter": {"Value": json.dumps({"publisher": "Example Archive"})}}
+        return {"Parameter": {"Value": json.dumps(self.config)}}
+
+
+class FakeBedrock:
+    def __init__(self) -> None:
+        self.texts: list[str] = []
+
+    def invoke_model(self, **kwargs: Any) -> dict[str, Any]:
+        body = json.loads(kwargs["body"])
+        self.texts.append(body["inputText"])
+        answer = {"embedding": [0.5] * body["dimensions"]}
+        return {"body": io.BytesIO(json.dumps(answer).encode())}
 
 
 class StepContext:
@@ -211,6 +232,7 @@ class World:
         self.s3 = FakeS3()
         self.dynamodb = FakeDynamoDB()
         self.ssm = FakeSSM()
+        self.bedrock = FakeBedrock()
         self.submissions = FakeTable()
         self.reviews = FakeTable()
         self.now = datetime(2026, 11, 14, 9, 30, tzinfo=UTC)
@@ -222,6 +244,7 @@ class World:
             submissions=cast(submissions.Table, self.submissions),
             reviews=cast(submissions.Table, self.reviews),
             settings=cast(submissions.Table, None),
+            bedrock=cast(Bedrock, self.bedrock),
         )
         monkeypatch.setattr(ingest, "_clock", lambda: self.now)
 
@@ -362,6 +385,32 @@ def test_the_catalog_items_are_what_the_reindex_builds(world: World) -> None:
     ]
     assert world.table() == {(i["PK"]["S"], i["SK"]["S"]): i for i in expected}
     assert world.dynamodb.tables["catalog-a"] == {}
+
+
+def test_with_the_embeddings_module_the_dataset_item_is_written_with_its_embedding(
+    world: World,
+) -> None:
+    world.ssm.config["infrastructure"] = {"alertEmail": "a@b.c", "modules": {"embeddings": {}}}
+    world.hold(SID, _package(), datasetId="stream")
+
+    world.publish()
+
+    meta = world.table()[("DATASET#stream", "META")]
+    assert len(meta["embedding"]["L"]) == 1024
+    assert all(float(n["N"]) == 0.5 for n in meta["embedding"]["L"])
+    [text] = world.bedrock.texts
+    assert text.startswith("Stream temperature")
+    assert world.dynamodb.updates_after_put("DATASET#stream") == 0
+
+
+def test_without_the_embeddings_module_bedrock_is_never_called(world: World) -> None:
+    world.ssm.config["infrastructure"] = {"alertEmail": "a@b.c"}
+    world.hold(SID, _package(), datasetId="stream")
+
+    world.publish()
+
+    assert world.bedrock.texts == []
+    assert "embedding" not in world.table()[("DATASET#stream", "META")]
 
 
 def test_the_page_is_written_with_its_json_ld(world: World) -> None:

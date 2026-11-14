@@ -17,6 +17,7 @@ from aws_durable_execution_sdk_python.exceptions import (
 from aws_durable_execution_sdk_python.waits import WaitForConditionConfig
 
 from archive_backend import ingest, submissions
+from archive_backend.embeddings import Bedrock
 from archive_backend.ingest import Clients, Env
 
 SAMPLE = Path(__file__).parents[3] / "examples" / "sample-package"
@@ -353,6 +354,7 @@ class World:
             submissions=cast(submissions.Table, self.submissions),
             reviews=cast(submissions.Table, self.reviews),
             settings=cast(submissions.Table, self.settings),
+            bedrock=cast(Bedrock, None),
         )
         monkeypatch.setattr(ingest, "clients", lambda env: self.clients)
         monkeypatch.setattr(ingest, "_clock", lambda: self.now)

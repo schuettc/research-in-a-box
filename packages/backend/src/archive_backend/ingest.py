@@ -54,6 +54,7 @@ from botocore.exceptions import ClientError
 
 from archive_backend import pages
 from archive_backend.config import read_archive_config
+from archive_backend.embeddings import Bedrock, with_embedding
 from archive_backend.reindex import catalog_items, dataset_item
 from archive_backend.submissions import Table, put_event, stored_policy
 from archive_contract import SubmissionFacts, match, reminder_schedule
@@ -116,6 +117,7 @@ class Clients:
     submissions: Table
     reviews: Table
     settings: Table
+    bedrock: Bedrock
 
 
 @dataclass(frozen=True)
@@ -167,6 +169,7 @@ def clients(env: Env) -> Clients:
         submissions=table(env.submissions_table),
         reviews=table(env.reviews_table),
         settings=table(env.settings_table),
+        bedrock=cast(Bedrock, boto3.client("bedrock-runtime")),
     )
 
 
@@ -703,8 +706,14 @@ def _catalog(
     """The version, file and dataset items, built as the reindex builds them."""
     dataset_id, version, prefix = target["datasetId"], int(target["version"]), filled["prefix"]
     text = _read(c, env.archive_bucket, _root(filled, target) + MANIFEST).decode("utf-8")
+    manifest = json.loads(text)
     items = catalog_items(prefix, dataset_id, version, text)
-    items.append(dataset_item(dataset_id, [(prefix, version, json.loads(text))]))
+    item = dataset_item(dataset_id, [(prefix, version, manifest)])
+    infrastructure = read_archive_config(c.ssm, env.archive_config_parameter).infrastructure
+    if infrastructure is not None and infrastructure.modules.embeddings is not None:
+        # Set before the put, so no later write can drop it.
+        item = with_embedding(item, manifest, c.bedrock)
+    items.append(item)
     _write_items(c, target["table"], items)
     return len(items)
 

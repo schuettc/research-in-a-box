@@ -301,3 +301,34 @@ test("the ingest may claim a version on either catalog table with a conditional 
     expect(resources).toContain(stack.getLogicalId(table.node.defaultChild as CfnBucket));
   }
 });
+
+test("the ingest may call Bedrock only with the embeddings module, to embed what it publishes", () => {
+  const embedded = new Stack(testApp(), "E");
+  new ResearchArchive(embedded, "Archive", {
+    config: {
+      publisher: "P",
+      infrastructure: {
+        alertEmail: "a@example.org",
+        stages: [{ name: "prod" }],
+        modules: { embeddings: {} },
+      },
+    },
+    stage: "prod",
+  });
+  const withModule = Template.fromStack(embedded);
+  const [ingest] = Object.values(
+    withModule.findResources("AWS::Lambda::Function", { Properties: { Handler: INGEST } }),
+  ) as { Properties: { Role: { "Fn::GetAtt": string[] } } }[];
+  const granted = Object.values(
+    withModule.findResources("AWS::IAM::Policy", {
+      Properties: { Roles: [{ Ref: ingest!.Properties.Role["Fn::GetAtt"][0] }] },
+    }),
+  ).flatMap((p) =>
+    (
+      p as { Properties: { PolicyDocument: { Statement: Statement[] } } }
+    ).Properties.PolicyDocument.Statement.flatMap(actions),
+  );
+
+  expect(granted).toContain("bedrock:InvokeModel");
+  expect(statements(INGEST).flatMap(actions)).not.toContain("bedrock:InvokeModel");
+});
