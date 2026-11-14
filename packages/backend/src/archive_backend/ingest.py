@@ -228,18 +228,23 @@ def _delete_prefix(c: Clients, env: Env, prefix: str) -> None:
         )
 
 
+def _subject(text: str) -> str:
+    """SNS refuses a subject of 100 characters or more, or one with a line break."""
+    return " ".join(text.split())[:99]
+
+
 def _notify(c: Clients, env: Env, audience: str, subject: str, message: str) -> None:
     """A message on the curators' topic, for one named reviewer or `all` curators."""
     c.sns.publish(
         TopicArn=env.curator_topic_arn,
-        Subject=subject[:100],
+        Subject=_subject(subject),
         Message=message,
         MessageAttributes={"audience": {"DataType": "String", "StringValue": audience}},
     )
 
 
 def _alert(c: Clients, env: Env, subject: str, message: str) -> None:
-    c.sns.publish(TopicArn=env.alert_topic_arn, Subject=subject[:100], Message=message)
+    c.sns.publish(TopicArn=env.alert_topic_arn, Subject=_subject(subject), Message=message)
 
 
 def _payload(result: Any) -> dict[str, Any]:

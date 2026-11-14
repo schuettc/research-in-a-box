@@ -42,16 +42,22 @@ ENV = Env(
 )
 
 
-def _package(themes: list[str] | None = None, broken: bool = False) -> dict[str, bytes]:
-    """The sample package's files; with themes, its manifest and checksum line rewritten."""
+def _package(
+    themes: list[str] | None = None, broken: bool = False, title: str | None = None
+) -> dict[str, bytes]:
+    """The sample package's files; with themes or a title, its manifest and checksum line
+    rewritten."""
     files = {
         str(p.relative_to(SAMPLE)): p.read_bytes()
         for p in sorted(SAMPLE.rglob("*"))
         if p.is_file() and "_build" not in p.relative_to(SAMPLE).parts
     }
-    if themes is not None:
+    if themes is not None or title is not None:
         manifest = json.loads(files["datapackage.json"])
-        manifest["archive:themes"] = themes
+        if themes is not None:
+            manifest["archive:themes"] = themes
+        if title is not None:
+            manifest["title"] = title
         text = json.dumps(manifest, indent=2).encode()
         old = hashlib.sha256(files["datapackage.json"]).hexdigest()
         files["datapackage.json"] = text
@@ -175,6 +181,10 @@ class FakeSNS:
         self.published: list[dict[str, Any]] = []
 
     def publish(self, **kwargs: Any) -> dict[str, str]:
+        # SNS refuses a subject of 100 characters or more, or one with a control character.
+        subject = kwargs.get("Subject", "")
+        if len(subject) >= 100 or any(ord(ch) < 32 for ch in subject):
+            raise RuntimeError("InvalidParameter: Subject")
         self.published.append(kwargs)
         return {"MessageId": "m"}
 
@@ -429,6 +439,19 @@ def test_approve_publishes_after_the_scan_check_hold_and_one_review(world: World
     [message] = world.sns.to(CURATORS)
     assert message["MessageAttributes"]["audience"] == {"DataType": "String", "StringValue": "all"}
     assert world.sns.to(ALERTS) == []
+
+
+def test_a_long_title_with_a_line_break_still_reaches_the_curators(world: World) -> None:
+    title = "Stream temperature\n" + "at three invented sites " * 6
+    assert len(title) >= 150 and "\n" in title
+    world.s3.objects = {}
+    world.upload(1, _package(title=title))
+
+    result, _ = world.run([_decision("approve")])
+
+    assert result["status"] == "published"
+    [message] = world.sns.to(CURATORS)
+    assert message["Subject"] == " ".join(f"Review: {title}".split())[:99]
 
 
 def test_reject_ends_rejected_and_deletes_the_held_copy(world: World) -> None:
