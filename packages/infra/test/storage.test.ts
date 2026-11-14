@@ -64,12 +64,12 @@ test("the archive bucket is versioned, blocks public access and enforces TLS", (
   ).toBeUndefined();
 });
 
-test("staging objects expire after 30 days", () => {
+test("only staging's incoming/ objects expire after 30 days", () => {
   const { archive: a, template } = archive();
   const staging = template.toJSON().Resources[bucketOf(a, "stagingBucket")];
 
   expect(staging.Properties.LifecycleConfiguration.Rules).toEqual([
-    expect.objectContaining({ ExpirationInDays: 30, Status: "Enabled" }),
+    expect.objectContaining({ ExpirationInDays: 30, Prefix: "incoming/", Status: "Enabled" }),
   ]);
 });
 
