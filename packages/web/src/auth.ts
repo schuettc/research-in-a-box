@@ -21,6 +21,8 @@ class MemoryUserStore extends WebStorageStateStore {
 }
 
 const RETURN_TO_KEY = "sign-in-return-to";
+// Set while the reader is away adding a passkey: the page to offer when they come back.
+const PASSKEY_KEY = "passkey-add-return-to";
 
 let manager: Promise<UserManager> | null = null;
 let user: User | null = null;
@@ -133,12 +135,30 @@ export async function signOut(): Promise<void> {
   go(`${config.domain}/logout?${query}`);
 }
 
-/** Managed login's page for adding a passkey; it comes back through the sign-in callback. */
-export async function addPasskey(): Promise<void> {
+/**
+ * Managed login's page for adding a passkey. It comes back to the sign-in callback without a
+ * code, so the page to return to is kept for the callback to tell the two apart.
+ */
+export async function addPasskey(returnTo: string): Promise<void> {
+  sessionStorage.setItem(PASSKEY_KEY, returnTo);
   const config = await readConfig();
   const query = new URLSearchParams({
     client_id: config.webClientId,
     redirect_uri: `${location.origin}/auth/callback`,
   });
   go(`${config.domain}/passkeys/add?${query}`);
+}
+
+/**
+ * The page to return to when the callback is managed login coming back from adding a passkey
+ * (the callback's `search` has no code and a passkey was being added), else null.
+ */
+export function passkeyReturn(search: string): string | null {
+  if (new URLSearchParams(search).has("code")) return null;
+  return sessionStorage.getItem(PASSKEY_KEY);
+}
+
+/** Forget that a passkey was being added, once the callback has shown it. */
+export function clearPasskeyReturn(): void {
+  sessionStorage.removeItem(PASSKEY_KEY);
 }

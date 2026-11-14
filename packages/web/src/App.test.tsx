@@ -167,7 +167,7 @@ test("signed in, the header names the reader with Sign out and Add a passkey", (
   const banner = within(screen.getByRole("banner"));
   expect(banner.getByText("Signed in as reader@example.org")).toBeDefined();
   fireEvent.click(banner.getByRole("button", { name: "Add a passkey" }));
-  expect(addPasskey).toHaveBeenCalled();
+  expect(addPasskey).toHaveBeenCalledWith("/");
   fireEvent.click(banner.getByRole("button", { name: "Sign out" }));
   expect(signOut).toHaveBeenCalled();
 });
@@ -187,4 +187,28 @@ test("a failed sign-in offers Back to the dataset and Try again", async () => {
   expect(back.getAttribute("href")).toBe("/datasets/ds-1");
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   expect(signIn).toHaveBeenCalledWith("/datasets/ds-1");
+});
+
+test("back from adding a passkey, with no code, the callback says Passkey added and offers Sign in", async () => {
+  vi.mocked(completeSignIn).mockClear();
+  vi.mocked(signIn).mockClear();
+  sessionStorage.setItem("passkey-add-return-to", "/datasets/ds-1");
+  renderAt("/auth/callback");
+
+  expect(await screen.findByRole("heading", { level: 1, name: "Passkey added" })).toBeDefined();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(completeSignIn).not.toHaveBeenCalled();
+  const back = screen.getByRole("link", { name: "Back to the dataset" });
+  expect(back.getAttribute("href")).toBe("/datasets/ds-1");
+  fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+  expect(signIn).toHaveBeenCalledWith("/datasets/ds-1");
+  await waitFor(() => expect(sessionStorage.getItem("passkey-add-return-to")).toBeNull());
+});
+
+test("a callback with no code and no passkey flag still says sign-in didn't finish", async () => {
+  vi.mocked(completeSignIn).mockRejectedValueOnce(new Error("no code"));
+  renderAt("/auth/callback");
+
+  expect((await screen.findByRole("alert")).textContent).toBe("Sign-in didn't finish.");
+  expect(screen.queryByText("Passkey added")).toBeNull();
 });

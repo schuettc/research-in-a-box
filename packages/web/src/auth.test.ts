@@ -160,12 +160,15 @@ test("Add a passkey goes to managed login's passkey page, back to the callback",
   const auth = await signedIn();
   assign.mockClear();
 
-  await auth.addPasskey();
+  await auth.addPasskey("/datasets/ds-1");
 
   const url = new URL(String(assign.mock.calls[0]?.[0]));
   expect(`${url.origin}${url.pathname}`).toBe(`${DOMAIN}/passkeys/add`);
   expect(url.searchParams.get("client_id")).toBe("web-client-id");
   expect(url.searchParams.get("redirect_uri")).toBe(`${location.origin}/auth/callback`);
+  // Managed login comes back with no code; the callback page knows it from these.
+  expect(auth.passkeyReturn("")).toBe("/datasets/ds-1");
+  expect(auth.passkeyReturn("?code=abc&state=x")).toBeNull();
 });
 
 test("the page to return to is kept across the redirect for a failed sign-in", async () => {

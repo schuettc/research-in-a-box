@@ -36,11 +36,16 @@ function CurrentDataset() {
 /** Who is signed in, with Sign out and Add a passkey; nothing when no one is. */
 function Account() {
   const email = useSyncExternalStore(subscribe, signedInEmail);
+  const { pathname, search } = useLocation();
   if (!email) return null;
   return (
     <p className="account">
       <span>Signed in as {email}</span>
-      <button type="button" className="link-button" onClick={() => void addPasskey()}>
+      <button
+        type="button"
+        className="link-button"
+        onClick={() => void addPasskey(`${pathname}${search}`)}
+      >
         Add a passkey
       </button>
       <button type="button" className="link-button" onClick={() => void signOut()}>
