@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "Ingest, review and access workflows (Plan 7)",
   "expect": 4,
-  "agent_at": "2026-11-14T19:30:12.270054Z",
+  "agent_at": "2026-11-14T20:08:29.156351Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 2, folder 8da653f233f9, Plan 3, the quality rules and local tool, and Plan 4, the archive infrastructure.)\n\nBrief: Plan 7 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the ingest pipeline and the review and access workflows (Plan 7). It is one Lambda durable function in Python with a callback wait for curator review. That is decided. Plan the steps, the review policy an admin controls, and the request-changes loop. Take the open questions with me one at a time."
@@ -739,18 +739,6 @@
       "kind": "bug"
     },
     {
-      "id": "PARK15",
-      "name": "Curator file links route",
-      "text": "GET /api/submissions/{id}/files, for the curator group: five-minute presigned GETs for the current round's listed files under held/\u003cid\u003e/, answered only while in-review or publishing (409 otherwise). Needed by Plan 9's review skill and Plan 8's curator screen. A small task after PR #29 merges, with a Decision log row. The same task moves the page write into pages.write_page (PARK16). From the coordinating session, thread 964.",
-      "kind": "improvement"
-    },
-    {
-      "id": "PARK16",
-      "name": "Shared page writer for reindex",
-      "text": "Move the dataset page's S3 write out of ingest's durable _page step into pages.write_page(s3, bucket, html, dataset_id), which the _page step then calls. Plan 8's reindex calls only that and never edits ingest. render_page's signature stays stable. Built in the same task as PARK15, at the coordinating session's request.",
-      "kind": "improvement"
-    },
-    {
       "id": "PARK17",
       "name": "Reminder unproven on AWS",
       "text": "The day-1 reminder (a callback wait that times out, sends the reminder and waits again) has been tested only through a fake durable context. Its first real use on AWS is unproven: watch the first archive's first reminder, or leave a 1-day reminder waiting on the next test stage. Recorded at DCSN4 B.",
@@ -767,6 +755,12 @@
       "name": "Teardown stops running executions",
       "text": "cdk destroy of a stage with a durable execution still running (a submission waiting for review) gets stuck deleting the ingest function's version, then fails DELETE_FAILED after about 10 minutes (Lambda::Version NotStabilized). Seen on ingest-test 2026-11-14 with one waiting submission; stopping it with StopDurableExecution let the retry go through. The teardown path (Plan 10a's deployment skill, and the ingest-e2e script's cleanup) should stop or wait out running executions first.",
       "kind": "bug"
+    },
+    {
+      "id": "PARK20",
+      "name": "Tighten held/ grant test",
+      "text": "The synth test for the submissions role's held/* read would still pass if the GetObject statement were widened to the whole staging bucket. Assert the exact resource list (incoming/*, reports/*, held/*). From PLAN2's final review.",
+      "kind": "improvement"
     }
   ],
   "spec": {
@@ -1018,7 +1012,10 @@
           "does": "GET /api/submissions/{id}/files for curators: five-minute links to the current round's listed files under held/, 409 outside in-review and publishing; the CDK route and the held/ read; a Decision log row",
           "pulls_in": "One handler function, one route with its grant, their tests",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "4470c1d: GET /api/submissions/{id}/files, curator only, 300 s links to held/\u003cid\u003e/\u003cpath\u003e for files[round] only, 404/409 as planned; CDK route + held/* GetObject; Decision log row; just check exit 0",
+          "build_at": "2026-11-14T13:42:34.642275-06:00"
         },
         {
           "id": "TASK9",
@@ -1026,7 +1023,10 @@
           "does": "pages.write_page(s3, bucket, html, dataset_id) takes over the page's S3 write, and ingest's _page step calls it, so Plan 8's reindex can rebuild pages without editing ingest",
           "pulls_in": "One small function moved out of ingest, with its test",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "Plan 8's #51 landed the same change (ingest's _page via pages.write_page, plus per-version pages) first; after the rebase TASK9 is a test that publish writes both pages through the shared writer (55b93a5); just check exit 0 (708 py, 105 ts); PR #52 auto-merge on, checks re-running",
+          "build_at": "2026-11-14T13:42:34.642275-06:00"
         }
       ],
       "approved": {
@@ -1038,24 +1038,24 @@
   ],
   "wrap_up": {
     "file": "wrap-up.md",
-    "hash": "26e49bfa81685d1930d8835a6404ba2e951af17374c10054b272e028fa86ab33",
-    "printed_at": "2026-11-14T10:33:13.490905-06:00",
-    "due_at": "2026-11-14T10:33:00.742053-06:00",
+    "hash": "56f189f5cc1b65f67bf50d4f4f5294cf4750ef542994c9679be691c490bf3132",
+    "printed_at": "2026-11-14T14:08:29.156351-06:00",
+    "due_at": "2026-11-14T14:08:17.104542-06:00",
     "plans_at_print": [
-      "PLAN1"
+      "PLAN1",
+      "PLAN2"
     ]
   },
   "signoff": {
-    "due_at": "2026-11-14T01:01:40.815852-06:00",
-    "built": "PLAN1: contributors submit packages, GuardDuty scans them, cruise checks them, and a curator approves, rejects or requests changes under the admin's review policy. Approved packages are published with a version, a checksummed copy in the archive, a catalog entry and their own dataset page. Merged as research-in-a-box#29 (a22c85a), with #21 (review policy, archive:published) and #28 (the shared config reader). It passed the deployed run on a test stage twice, the second time with Plan 6 underneath, and the stage is torn down.",
+    "due_at": "2026-11-14T13:42:34.642275-06:00",
+    "built": "PLAN2: GET /api/submissions/{id}/files gives a curator five-minute links to a held package's listed files, only while it is in review or publishing, and ingest's page step writes through pages.write_page, the same writer Plan 8's reindex uses (Plan 8's #51 had already made that move, so PLAN2 added the test). Merged as research-in-a-box#52 (d54f2fd). PLAN1 was signed off earlier.",
     "try": [
-      "Read STEP1's results: each deployed run with what it returned, approve, reject, request changes then approve, a blocking error, the skip rule and the two-curator case.",
-      "Look at the code on main: packages/backend/src/archive_backend/ingest.py (the durable function), submissions.py (the API) and pages.py (the dataset page), and packages/infra/src/ingest.ts.",
-      "Read the follow-ups under Later, especially PARK17 (the reminder email never fired on AWS, by your DCSN4 B), PARK19 (teardown must stop running submissions first) and PARK15/PARK16 (the curator files route and shared page writer, the next small plan, which Plans 8 and 9 wait on).",
-      "There is no running archive to try it on: the test stage is gone and there are no screens until Plan 8. Deploy a stage and run `just ingest-e2e \u003cstage\u003e` to see it again."
+      "Plan 9's walk on its test stage is the live check for the files route: its submission_files tool calls it as a curator. Its result will show on Plan 9's page.",
+      "Look at files() in packages/backend/src/archive_backend/submissions.py and the files route in packages/infra/src/ingest.ts on main.",
+      "Read PARK20 under Later: a test that should pin the held/ read more tightly."
     ],
-    "posted_at": "2026-11-14T10:26:39.330602-06:00",
-    "signed_at": "2026-11-14T10:33:00.742053-06:00"
+    "posted_at": "2026-11-14T14:07:08.695837-06:00",
+    "signed_at": "2026-11-14T14:08:17.104542-06:00"
   },
   "messages": [
     {
@@ -1298,6 +1298,15 @@
       "at": "2026-11-14T13:36:53.131997-06:00",
       "state": "answered",
       "claim": "98f22d18d77157b3"
+    },
+    {
+      "id": 24,
+      "card": "SIGNOFF",
+      "from": "user",
+      "action": "sign-off",
+      "at": "2026-11-14T14:08:17.104542-06:00",
+      "state": "answered",
+      "claim": "e4bfedf16fc694df"
     }
   ],
   "planned_history": [
