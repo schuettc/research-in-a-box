@@ -29,6 +29,14 @@ def test_version_item_carries_the_publish_time() -> None:
     assert "publishedAt" not in without
 
 
+def test_publish_time_is_read_through_the_contract_and_written_in_utc() -> None:
+    offset = {"title": "T", "archive:published": "2026-11-13T12:00:00.250+02:00"}
+
+    item = catalog_items("open", "ds", 1, json.dumps(offset))[0]
+
+    assert item["publishedAt"] == {"S": "2026-11-13T10:00:00Z"}
+
+
 def test_rows_from_the_sample_package() -> None:
     manifest = json.loads(SAMPLE.read_text())
     manifest["archive:published"] = "2026-11-13T10:00:00Z"

@@ -31,6 +31,7 @@ from aws_durable_execution_sdk_python.waits import (
 )
 
 from archive_backend.catalog_file import write_catalog_file
+from archive_contract.manifest import Manifest
 
 if TYPE_CHECKING:
     # Dev-only stubs: the Lambda asset is built without them.
@@ -113,6 +114,21 @@ def _file_item(
     return item
 
 
+def _published(manifest: dict[str, Any]) -> str | None:
+    """`archive:published` read through the contract's field, as UTC to the second.
+
+    Only that field is validated, so a manifest the current contract would refuse elsewhere
+    still reindexes.
+    """
+    field = Manifest.model_validate({"archive:published": manifest.get("archive:published")})
+    if field.published is None:
+        return None
+    when = field.published
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    return when.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def catalog_items(
     prefix: str, dataset_id: str, version: int, manifest_text: str
 ) -> list[dict[str, Any]]:
@@ -130,8 +146,8 @@ def catalog_items(
         "prefix": _s(prefix),
         "manifest": _s(manifest_text),
     }
-    published = manifest.get("archive:published")
-    if isinstance(published, str) and published:
+    published = _published(manifest)
+    if published:
         version_item["publishedAt"] = _s(published)
     items: list[dict[str, Any]] = [version_item]
     files: dict[str, dict[str, Any]] = {}
