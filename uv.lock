@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "archive-backend",
+    "archive-client",
     "archive-contract",
     "cruise",
     "femc",
@@ -55,6 +56,11 @@ requires-dist = [
     { name = "cruise", editable = "packages/tool" },
     { name = "pydantic", specifier = ">=2.11" },
 ]
+
+[[package]]
+name = "archive-client"
+version = "0.1.0"
+source = { editable = "packages/client" }
 
 [[package]]
 name = "archive-contract"
