@@ -75,7 +75,7 @@ export class Auth extends Construct {
    * The test-only `e2e` client, for non-prod stages: admin password sign-in, so `just
    * ingest-e2e` signs in the throwaway users it creates. Its outputs are what the run reads.
    */
-  addTestClient(siteDomain: string): cognito.UserPoolClient {
+  addTestClient(): cognito.UserPoolClient {
     if (this.isProd) {
       throw new Error("the e2e client is never created on a prod stage");
     }
@@ -88,7 +88,6 @@ export class Auth extends Construct {
     const stack = Stack.of(this);
     new CfnOutput(stack, "E2eClientId", { key: "E2eClientId", value: client.userPoolClientId });
     new CfnOutput(stack, "UserPoolId", { key: "UserPoolId", value: this.userPool.userPoolId });
-    new CfnOutput(stack, "SiteDomain", { key: "SiteDomain", value: siteDomain });
     return client;
   }
 }

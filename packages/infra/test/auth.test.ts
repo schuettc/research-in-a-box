@@ -129,7 +129,7 @@ test("the ingest-test config makes only the ingest-test stack, with the e2e clie
 test("the e2e client refuses a prod pool", () => {
   const auth = new Auth(new Stack(testApp(), "S"), "Auth", { stage: "prod", isProd: true });
 
-  expect(() => auth.addTestClient("d123.cloudfront.net")).toThrow(/prod/);
+  expect(() => auth.addTestClient()).toThrow(/prod/);
 });
 
 test("the prod user pool is retained with deletion protection; a dev stage's is not", () => {

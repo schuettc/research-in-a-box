@@ -4,12 +4,19 @@
 
 `research-archive-in-a-box/deployment-skill-and-ci` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 0 of 6 · 4 running** → Sign off
+
+PLAN1 building · 0 of 6 done
+
+Running: Task 1: The deploy role stack (PLAN1) · Task 2: CI's security and deploy jobs (PLAN1) · Task 3: just smoke, just destroy and invite-user's groups (PLAN1) · Task 5: The deploy-archive skill (PLAN1)
 
 ## Pick up next
 
 - **PARK1 Page rollout by reindex:** Once Plan 8 makes the reindex rewrite every dataset page after its flip, rolling out a template change is just reindex &lt;stage> after a deploy. Add that to the skill's update step (and decide then whether CI runs it after each deploy, since a reindex wants publishing quiet). Agreed with the coordinating session (muster #960).
 - **PARK2 CodeQL and cdk-nag:** Add CodeQL or cdk-nag to CI's security job once a real finding shows the dependency audits and zizmor miss something.
+- **PARK3 Deploy concurrency group:** Add a concurrency group per stage to the deploy job, so two quick pushes to main don't deploy the same stage at once (from the final review).
+- **PARK4 Smoke after seeding:** Once a stage has been seeded, have smoke fail rather than skip when search stops listing the sample dataset, so a search regression isn't hidden (from the final review).
+- **PARK5 Trust keyed on repo id:** Use GitHub's custom OIDC sub template with the repo id, so a deleted and re-created repo of the same name can't match the deploy role's trust (from the final review).
 
 ## What was asked
 
@@ -50,7 +57,13 @@
 
 ## Plans
 
-None yet.
+- [PLAN1](plans/1-deploy-skill-and-ci.md) The deployment skill and CI: building · 0 of 6 done
+  - TASK1 Task 1: The deploy role stack: building
+  - TASK2 Task 2: CI's security and deploy jobs: building
+  - TASK3 Task 3: just smoke, just destroy and invite-user's groups: building
+  - TASK4 Task 4: just seed: waiting on TASK1, [Plan 9's archive_client PR, Plan 7's submissions API and Plan 8's /auth-config.json merging](https://github.com/schuettc/research-in-a-box/pulls)
+  - TASK5 Task 5: The deploy-archive skill: building
+  - TASK6 Task 6: The live run on a throwaway copy: waiting on TASK4, TASK5
 
 ## Files
 
@@ -60,6 +73,7 @@ None yet.
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `diagrams/` | diazo | The drawn picture (SVG) of each mermaid diagram in the folder. |
 
