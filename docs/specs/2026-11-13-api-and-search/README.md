@@ -4,15 +4,42 @@
 
 `research-archive-in-a-box/api-and-search` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 6 of 11** → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → ✓ Build → ✓ Sign off
 
-PLAN1 built · PLAN3 building · 0 of 5 done
+Signed off 2026-11-14 11:00.
+
+PLAN1 built · PLAN3 built
+
+## Wrap-up
+
+### Anyone can now find and fetch a dataset through the archive's API, by its words or by its meaning.
+
+#### How it works now
+
+The archive answers search, dataset, version and project reads to anyone, from the web app, the CLI or an MCP server, through one endpoint, `/api/search`, and a handful of read routes. Search ranks datasets by how many of the reader's words they match, and an archive can switch on semantic search in `archive.yaml` so that searches like "air pollution" find the aerosol dataset even when those words never appear. Restricted files reach only people the archive invited: sign-up is off, an admin invites with `just invite-user`, and a signed-in user gets a five-minute link. The archive counts downloads every day and can ask readers, optionally, how they use the data.
+
+#### Results
+
+- The read API, server search over catalog.json, restricted links, download counts and the usage form: PLAN1, research-in-a-box#22.
+- Invitation-only accounts and `just invite-user`: PLAN1, research-in-a-box#26.
+- Ranked keyword search and optional semantic search with Titan v2 and a DynamoDB vector index: PLAN3, research-in-a-box#30.
+- Semantic search on Plan 7's publish step: PLAN3, research-in-a-box#38.
+
+#### Different from the plan
+
+- The handoff planned search in the browser with DuckDB; after measuring, you chose search on the server instead.
+- PLAN2 (submission, review and settings endpoints) was dropped when Plan 7 took everything under `/api/submissions`.
+- PLAN1 gained Task 6, invitation-only accounts, at your word during its test deploy.
+- PLAN3 gained Task 12, the embedding call in Plan 7's publish, because Plan 7's publish landed first.
+- The search keyword matching changed from every word to any word ranked by matches, after measuring it on Plan 5's datasets.
 
 ## Pick up next
 
 - **PARK1 Linked resource downloads:** A resource whose path is a URL (data held elsewhere) gets a file item, so the download route answers a /data or presigned link that doesn't resolve. Answer the resource's own URL instead.
 - **PARK2 Expire CloudFront logs:** Nothing expires the derived bucket's logs/, and the daily rollup lists the whole prefix each run, so the listing grows forever. Add a lifecycle rule on logs/ (say 30 days, after the rollup has counted them) or list from the last counted day's key.
-- **PARK3 First search after idle:** On the test deploy the first search after 17 idle minutes took 2.81 s (warm searches 0.14 s median), above the about one second the spec estimated: a cold API Lambda loading Powertools, boto3 and the catalog. Measure the parts and decide whether it matters once Plan 8's search page exists; options are trimming imports, more memory, or SnapStart for Python.
+- **PARK3 First search after idle:** The first search after the API Lambda sits idle is slow: 2.81 s with keyword search alone (PLAN1's test deploy, 17 idle minutes) and 3.58 s with semantic search on (PLAN3's, 16 idle minutes); warm searches take 0.14 s and 0.29 s. A cold Lambda loading Powertools, boto3 and the catalog, plus the first Bedrock call. Measure the parts and decide whether it matters once Plan 8's search page exists; options are trimming imports, more memory, or SnapStart for Python.
+- **PARK4 Empty text breaks embedding:** With embeddings on, a manifest with no title, description or keywords (or text past Titan's input limit) makes Bedrock reject the call and fails the whole reindex batch, though the same manifest reindexes with embeddings off. Skip the embedding for empty text, and truncate long text.
+- **PARK5 Bedrock throttling in reindex:** The reindex embeds datasets one call at a time, up to 200 per batch; Bedrock throttling raises out of the step. Fine at ten datasets; for large archives check the durable step's retry or add backoff.
 
 ## What was asked
 
@@ -75,12 +102,13 @@ PLAN1 built · PLAN3 building · 0 of 5 done
   - TASK4 Task 4: The infrastructure: done. 17f937d plus review fixes 8ab0e43, 1e70452, 6fa02b8; merged as research-in-a-box#22 (6608bba), CI python and typescript pass
   - TASK5 Task 5: The test deploy: done. ResearchArchive-test deployed from main and walked: reindex wrote catalog.json, search filters and facets right, reads, restricted link (checksum match, traversal 404, signed-out 401), invited sign-in, usage form and admin read, rollup counted once; search warm median 0.14 s, after idle 2.81 s (PARK3); destroyed with nothing left
   - TASK6 Task 6: Invitation-only accounts: done. 2989c53: selfSignUpEnabled false (synth test RED then GREEN), just invite-user, Decision log row; just check exit 0; merged as research-in-a-box#26 (aa90504)
-- [PLAN3](plans/3-semantic-search.md) Ranked keyword search and semantic search: building · 0 of 5 done
-  - TASK7 Task 7: Ranked keyword matching: not started
-  - TASK8 Task 8: The embeddings setting and the shared function: not started
-  - TASK9 Task 9: Semantic results in /api/search: not started
-  - TASK10 Task 10: The vector index and permissions: not started
-  - TASK11 Task 11: The test deploy: not started
+- [PLAN3](plans/3-semantic-search.md) Ranked keyword search and semantic search: built
+  - TASK7 Task 7: Ranked keyword matching: done. d942575 + 6a706c7 (short words, review fix): ranked any-word matching; backend 98/98, check-python 0
+  - TASK8 Task 8: The embeddings setting and the shared function: done. 2bebf85 + 94e45eb: modules.embeddings, with_embedding, reindex reads the setting through Plan 7's read_archive_config; pytest 0, check-schema 0
+  - TASK9 Task 9: Semantic results in /api/search: done. ccf1ac1 + c0a4b2c: fusion in /api/search, config read inside the fallback with SemanticFallback metric; pytest 0
+  - TASK10 Task 10: The vector index and permissions: done. 7d17d44 + 94e45eb: vector index, grants, widget, alarm; ARCHIVE_CONFIG_PARAMETER and read grant for API and reindex; infra 60/60, just check 0; PR research-in-a-box#30
+  - TASK11 Task 11: The test deploy: done. search-test deployed from fab8a87 with Plan 5's ten manifests (no data files): every dataset embedded, 22 searches live 19 first / 21 top 3 / 22 found, 'air pollution' first; module off answers keyword results with no index or Bedrock grant; warm 0.29 s, after idle 3.58 s (PARK3); destroyed with nothing left
+  - TASK12 Task 12: Embeddings on Plan 7's publish: done. Merged as research-in-a-box#38 (1643ba7): publish sets the embedding before its put when the module is on, ingest Bedrock grant only when on; CI python and typescript passed
 
 ## Steps
 
@@ -96,6 +124,13 @@ PLAN1 built · PLAN3 building · 0 of 5 done
   9. agent · Read the usage answer as admin, count an open download through the rollup, and time searches warm and after idle · done. whoami groups [admin]; admin usage read 200 with the posted answer; rollup through today counted the /data download (open=1 for 2026-11), a rerun counted 0; search through CloudFront: warm median 0.14 s (min 0.09, max 0.27, n=10), after 17 idle minutes 2.81 s, then 0.15 s
   10. The user · Go for the teardown · done: Go (2026-11-13 23:53, on the page)
   11. agent · Destroy ResearchArchive-test and confirm its stack, buckets and tables are gone · done. cdk destroy exit 0; stack does not exist; no researcharchive-test buckets, tables or functions; user pool and /research-archive/test parameters gone; the S3 auto-delete helper's leftover log group deleted by hand; nothing left
+- STEP2 Walk the test deploy of semantic search with me: done
+  1. agent · Merge Tasks 7 to 10 once CI's python and typescript checks pass · done. research-in-a-box#30 merged as 6a74267 after three rebases onto other plans' Decision log rows; all checks passed
+  2. The user · Go for the deploy · done: Go (2026-11-14 10:04, on the page)
+  3. agent · Deploy with embeddings on, upload the ten datapackage.json records with archive:published, reindex, check every dataset carries an embedding, run the 22 searches through CloudFront, check 'air pollution' puts the IMPROVE aerosol dataset first, and time ten warm searches and one after 15 idle minutes · done. deploy exit 0 from fab8a87; reindex SUCCEEDED (148 items, catalog 10, pages 10); all 10 META items carry a 1,024-number embedding, vector index ACTIVE; 22 searches live: 19 first, 21 in top 3, 22 found; 'air pollution' puts improve-fine-aerosol first; no SemanticFallback in the API log; warm median 0.29 s (n=10); after 16 idle minutes 3.58 s, then 0.30 s
+  4. agent · Redeploy with the module removed; check 'air pollution' answers keyword results with no error and 'ozone' still finds the ozone dataset · done. redeploy exit 0 in 86 s, no failures; 'air pollution' 200 with 0 keyword results (no error); 'ozone' 2 results, ozone-bioindicators first; both catalog tables have 0 vector indexes; API role has no Bedrock or SearchVectors permission; no SemanticFallback lines since the redeploy
+  5. The user · Go for the teardown · done: Go (2026-11-14 10:49, on the page)
+  6. agent · Destroy ResearchArchive-search-test and confirm its stack, buckets, tables and leftover log groups are gone · done. cdk destroy exit 0; stack does not exist; 0 buckets, 0 tables, 0 functions, 0 /research-archive/search-test parameters, function log groups gone; the two CDK helper log groups (bucket deployment, auto-delete) deleted by hand; nothing left
 
 ## Files
 
@@ -105,6 +140,7 @@ PLAN1 built · PLAN3 building · 0 of 5 done
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `wrap-up.md` | the agent, header by diazo | What was built, how it works now, and what went differently from the plan. |
 | `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 | `screenshots/` | the user | The screenshots the user pasted into a note or the opening. |
