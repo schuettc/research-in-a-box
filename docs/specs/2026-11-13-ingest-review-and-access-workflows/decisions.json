@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/subaud-tools/diazo/main/schema/record.json",
   "schema": 4,
   "title": "Ingest, review and access workflows (Plan 7)",
-  "expect": 3,
-  "agent_at": "2026-11-14T04:37:08.640191Z",
+  "expect": 4,
+  "agent_at": "2026-11-14T16:33:13.490905Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 2, folder 8da653f233f9, Plan 3, the quality rules and local tool, and Plan 4, the archive infrastructure.)\n\nBrief: Plan 7 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md`. Plan the ingest pipeline and the review and access workflows (Plan 7). It is one Lambda durable function in Python with a callback wait for curator review. That is decided. Plan the steps, the review policy an admin controls, and the request-changes loop. Take the open questions with me one at a time."
@@ -141,6 +141,188 @@
       }
     ]
   },
+  "steps": [
+    {
+      "id": "STEP1",
+      "what": "Walk the deployed run on the ingest-test stage",
+      "why": "This is TASK7's check: the four paths and the policy cases have to work on real AWS before sign-off.",
+      "how": "One action at a time. Each one opens here when it's your turn.",
+      "done": true,
+      "done_at": "2026-11-14T10:26:33.294508-06:00",
+      "actions": [
+        {
+          "id": "A1",
+          "who": "agent",
+          "what": "Final review of the code, and fixes",
+          "state": "done",
+          "result": "Review (Opus fallback; OpenAI at its usage limit): 0 critical, 4 important + 1 minor fixed with tests (e8e2db0..4adf4dc); just check exit 0, 442 py + 61 ts; pushed 875cb69"
+        },
+        {
+          "id": "A2",
+          "who": "user",
+          "what": "Go for the deploy, and confirm the profile and email",
+          "how": "1. The deploy goes to the `personal` profile (account 316091283514, us-east-1), the same account Plan 4's test used, as the stack `ResearchArchive-ingest-test`, built from branch `plan7/build-plan1` at 875cb69.\n2. The curator emails go to court@subaud.io.\n3. Press Go to deploy, or write a different profile or email in the note.\n\nThe deploy takes about 15 minutes. GuardDuty Malware Protection is charged per GB scanned, which is cents for this run.",
+          "state": "done",
+          "answered_at": "2026-11-13T23:58:03.154926-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go",
+              "detail": "The agent deploys ResearchArchive-ingest-test now"
+            },
+            {
+              "id": "NOGO",
+              "label": "No go",
+              "hands_back": true
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A3",
+          "who": "agent",
+          "what": "Deploy ResearchArchive-ingest-test and subscribe your curator email",
+          "state": "done",
+          "result": "cdk deploy exit 0 in 284 s (126 resources); GuardDuty plan on the staging bucket ACTIVE, no status reasons; court@subaud.io subscribed with audience filter court/all"
+        },
+        {
+          "id": "A4",
+          "who": "user",
+          "what": "Confirm the curator subscription email",
+          "how": "1. Open the email from AWS Notifications titled AWS Notification - Subscription Confirmation, sent to court@subaud.io just now.\n2. Click Confirm subscription.\n3. Press Confirmed here.",
+          "state": "done",
+          "answered_at": "2026-11-14T00:17:26.271636-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "DONE",
+              "label": "Confirmed"
+            }
+          ],
+          "choice": "DONE"
+        },
+        {
+          "id": "A5",
+          "who": "agent",
+          "what": "Run just ingest-e2e ingest-test: the four paths, the skip rule, the two-curator case, and leave one submission waiting for its reminder",
+          "state": "done",
+          "result": "exit 0: approve, reject, request changes then approve, blocking error, skip rule and two curators all pass; reminder submission 7672e8e9 left waiting for court, due after 2026-11-15 07:17 UTC; 3 test users deleted"
+        },
+        {
+          "id": "A6",
+          "who": "user",
+          "what": "Check the reminder email arrived",
+          "how": "1. After 1:17 am Central on Sunday, November 15 (07:17 UTC), look in court@subaud.io for an email from AWS Notifications about submission 7672e8e9 still waiting for review. Its subject starts with `Reminder`.\n2. Press the answer that matches.\n\nYou already have one email from the run itself, sent when that submission entered review. The reminder is a second one.",
+          "state": "done",
+          "answered_at": "2026-11-14T00:34:11.29618-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "ARRIVED",
+              "label": "Reminder arrived"
+            },
+            {
+              "id": "NONE",
+              "label": "No reminder",
+              "hands_back": true
+            }
+          ],
+          "choice": "ARRIVED"
+        },
+        {
+          "id": "A6C",
+          "who": "agent",
+          "what": "Check the Reviews table for the reminded event",
+          "state": "done",
+          "result": "answered at 00:34 CST Nov 14, a day before the reminder is due; Reviews for 7672e8e9 ends at entered-review 06:17:54 UTC, no reminded event, so the email seen was the Review: one from entering review"
+        },
+        {
+          "id": "A10",
+          "who": "user",
+          "what": "On Sunday after 1:17 am Central: check for the Reminder email",
+          "how": "1. After 1:17 am Central on Sunday, November 15, look in court@subaud.io for a second email from AWS Notifications.\n2. Its subject is `Reminder: submission 7672e8e9-8b80-4b32-a467-1a6328de691e waits for review`.\n3. The one you already have, titled `Review: Stream temperature at three invented sites`, is from Saturday and doesn't count.\n4. Press the answer that matches.",
+          "state": "done",
+          "answered_at": "2026-11-14T00:35:57.734328-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "ARRIVED",
+              "label": "Reminder arrived"
+            },
+            {
+              "id": "NONE",
+              "label": "No reminder",
+              "hands_back": true
+            }
+          ],
+          "choice": "ARRIVED"
+        },
+        {
+          "id": "A10C",
+          "who": "agent",
+          "what": "Check the Reviews table again",
+          "state": "done",
+          "result": "answered at 00:36 CST Nov 14, still before the reminder is due; Reviews still ends at entered-review; the choice to wait or finish now is on DCSN4"
+        },
+        {
+          "id": "A7",
+          "who": "agent",
+          "what": "Under DCSN4 B, decide the waiting submission now instead of waiting for its reminder",
+          "state": "done",
+          "result": "approved 7672e8e9 as a temporary curator (deleted after): 202, then published stream-temperature-at-three-invented-sites-elyfee; events created, submitted, scanned, checked, held, entered-review, decided, published; state file removed; reminder on AWS stays unproven (PARK17)"
+        },
+        {
+          "id": "A7B",
+          "who": "agent",
+          "what": "Redeploy ingest-test from PR #29's rebased head (Plan 6 PLAN1 now underneath) and run just ingest-e2e once more",
+          "state": "done",
+          "result": "afd047f deployed in 161 s; e2e exit 0: all six runs pass again on Plans 6 + 7 together; one new submission c2b151b6 left waiting (teardown removes it); CI green, PR #29 merged as a22c85a"
+        },
+        {
+          "id": "A8",
+          "who": "user",
+          "what": "Go or No go on tearing the stage down",
+          "how": "1. Teardown destroys `ResearchArchive-ingest-test` and everything in it, including the test datasets it published and the one submission left waiting.\n2. Press Go to tear it down, or No go to keep it for a look.",
+          "state": "done",
+          "answered_at": "2026-11-14T10:04:34.636489-06:00",
+          "via": "page",
+          "answers": [
+            {
+              "id": "GO",
+              "label": "Go: tear it down"
+            },
+            {
+              "id": "KEEP",
+              "label": "No go: keep it"
+            }
+          ],
+          "choice": "GO"
+        },
+        {
+          "id": "A9",
+          "who": "agent",
+          "what": "Tear down the stage and confirm it is gone",
+          "state": "done",
+          "result": "first destroy stuck on the ingest function's version while c2b151b6 still ran, DELETE_FAILED (PARK19); stopped that execution, second destroy exit 0; stack gone, 0 ingest-test tables, 0 buckets, its GuardDuty plan gone (the two left protect search-test and web-test); state file removed; Plan 10a told"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "id": "LINK1",
+      "url": "https://github.com/schuettc/research-in-a-box/pull/29",
+      "title": "PR #29: Plan 7 PLAN1, submit, review and publish (merged as a22c85a)",
+      "by": "agent"
+    },
+    {
+      "id": "LINK2",
+      "url": "https://github.com/schuettc/research-in-a-box/pull/28",
+      "title": "PR #28: the archive-config parameter and read_archive_config (merged as 9ad339b)",
+      "by": "agent"
+    }
+  ],
   "decisions": [
     {
       "id": "DCSN1",
@@ -257,6 +439,44 @@
           {
             "text": "Approved open files are served at stable public URLs on the CloudFront domain",
             "source": "origin/main packages/infra/src/web.ts (/data/* behavior)"
+          }
+        ]
+      },
+      "state": "decided",
+      "choice": "B"
+    },
+    {
+      "id": "DCSN4",
+      "name": "Wait for the reminder",
+      "question": "Should the deployed run wait until Sunday to see the real reminder, or finish now?",
+      "example": "It's Saturday 00:36 Central. Submission 7672e8e9 is waiting with a 1-day reminder, due after 1:17 am Sunday. Its audit log ends at entered-review. Tonight you got the first email for it, \"Review: Stream temperature at three invented sites\", which proves a curator email reaches you through your subscription filter. Only the timer that sends the second one is unproven on AWS.",
+      "options": [
+        {
+          "id": "A",
+          "title": "Wait until Sunday",
+          "includes": "The stage stays up. After 1:17 am Sunday you check for the \"Reminder: submission 7672e8e9…\" email, I re-run the script to confirm the reminded event and publish the submission, then you choose on teardown. PR #29 merges after that.",
+          "pulls_in": "About 25 hours with the stage up (cents), and PR #29 held until then."
+        },
+        {
+          "id": "B",
+          "title": "Finish now, trusting the timer's unit tests",
+          "includes": "I decide submission 7672e8e9 now (approve, so it publishes), check its events, then ask you to Go on teardown, and merge PR #29. The reminder timer is covered by the unit tests (a reminder then the stale mark, driven through a fake durable context), and email delivery to you is proven by tonight's Review email. A follow-up records that a real reminder hasn't been seen on AWS yet.",
+          "pulls_in": "The reminder's timer on real AWS stays unproven until the first archive uses one."
+        }
+      ],
+      "recommendation": {
+        "option": "A",
+        "why": "The reminder is a callback wait that times out and loops back, which is the one durable path the run hasn't exercised on AWS (the 1-day timer is the only timeout the run sets). Unit tests drive it through a fake context, not the real SDK and service. Waiting costs a day and cents, and catches a bug in that loop before an archive relies on it. B is fair if a day's hold on PR #29 matters more to you.",
+        "evidence": [
+          {
+            "text": "The waiting submission's audit log at 06:36 UTC has no reminded event",
+            "source": "aws dynamodb query on ResearchArchive-ingest-test Reviews, submissionId 7672e8e9",
+            "output": "06:17:53 checked / 06:17:54 held / 06:17:54 entered-review"
+          },
+          {
+            "text": "The run's reminder due time",
+            "source": "just ingest-e2e ingest-test output",
+            "output": "pass    reminder: 7672e8e9-8b80-4b32-a467-1a6328de691e left waiting for court; run again after 2026-11-15 07:17 UTC to check its reminder"
           }
         ]
       },
@@ -455,7 +675,7 @@
     {
       "id": "PARK3",
       "name": "DOIs through DataCite",
-      "text": "The optional DOI module: the config setting, the credentials parameter, minting one DOI per version through DataCite's REST API, tested against DataCite's test environment. A later plan in this folder.",
+      "text": "The optional DOI module: the config setting, the credentials parameter, minting one DOI per version through DataCite's REST API (from the contract's DataCite export, which publish doesn't call yet), tested against DataCite's test environment. A later plan in this folder.",
       "kind": "improvement"
     },
     {
@@ -499,6 +719,54 @@
       "name": "Withdrawing a submission",
       "text": "Let a contributor withdraw a submission before it is decided.",
       "kind": "idea"
+    },
+    {
+      "id": "PARK12",
+      "name": "Duplicate events on step retry",
+      "text": "Write each step's audit event after its SNS call, so a retried step doesn't record the same event twice (final review M1).",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK13",
+      "name": "Hide callbackId in responses",
+      "text": "Leave callbackId out of GET /api/submissions responses (final review M3).",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK14",
+      "name": "Partial META after failed publish",
+      "text": "A publish that fails after claiming its version leaves a partial dataset item (no title) in the catalog until a reindex. Clean the claim up in the failure path.",
+      "kind": "bug"
+    },
+    {
+      "id": "PARK15",
+      "name": "Curator file links route",
+      "text": "GET /api/submissions/{id}/files, for the curator group: five-minute presigned GETs for the current round's listed files under held/\u003cid\u003e/, answered only while in-review or publishing (409 otherwise). Needed by Plan 9's review skill and Plan 8's curator screen. A small task after PR #29 merges, with a Decision log row. The same task moves the page write into pages.write_page (PARK16). From the coordinating session, thread 964.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK16",
+      "name": "Shared page writer for reindex",
+      "text": "Move the dataset page's S3 write out of ingest's durable _page step into pages.write_page(s3, bucket, html, dataset_id), which the _page step then calls. Plan 8's reindex calls only that and never edits ingest. render_page's signature stays stable. Built in the same task as PARK15, at the coordinating session's request.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK17",
+      "name": "Reminder unproven on AWS",
+      "text": "The day-1 reminder (a callback wait that times out, sends the reminder and waits again) has been tested only through a fake durable context. Its first real use on AWS is unproven: watch the first archive's first reminder, or leave a 1-day reminder waiting on the next test stage. Recorded at DCSN4 B.",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK18",
+      "name": "Publish writes eml.xml",
+      "text": "Publish writes eml.xml, from the contract's EML export, into the version's prefix beside datapackage.json, and lists it in checksums.sha256 so the weekly integrity check holds. The brief asked for it; nobody needs it until a harvester does. Found by Plan 10b, via the coordinating session (thread 984).",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK19",
+      "name": "Teardown stops running executions",
+      "text": "cdk destroy of a stage with a durable execution still running (a submission waiting for review) gets stuck deleting the ingest function's version, then fails DELETE_FAILED after about 10 minutes (Lambda::Version NotStabilized). Seen on ingest-test 2026-11-14 with one waiting submission; stopping it with StopDurableExecution let the retry go through. The teardown path (Plan 10a's deployment skill, and the ingest-e2e script's cleanup) should stop or wait out running executions first.",
+      "kind": "bug"
     }
   ],
   "spec": {
@@ -636,7 +904,7 @@
       "id": "PLAN1",
       "topic": "submit-review-publish",
       "covers": "The whole first path: policy model, submissions API, durable ingest with scan, checks, review and the request-changes loop, publish, notifications, infra, and the test-stage run",
-      "hash": "22b15995438c84321c7c579feb0197dee72b5366db98e03f5a0b7b320d935306",
+      "hash": "2626c3cfe8272b185c0458198dc7fcaeae7203725d69690b289204768fb645eb",
       "tasks": [
         {
           "id": "TASK1",
@@ -646,7 +914,10 @@
           "serves": [
             "DCSN1"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "9db583a + 287415b (decision log row), rebased on Plan 6's #20; just check exit 0; PR #21 CI re-running after rebase",
+          "build_at": "2026-11-13T22:44:33.149876-06:00"
         },
         {
           "id": "TASK2",
@@ -654,7 +925,10 @@
           "does": "Adds cruise to archive-backend, expires only incoming/ in staging, adds the /datasets/\u003cid\u003e site rewrite and the archive-config SSM parameter, and tests the asset size",
           "pulls_in": "Small edits to storage.ts, web.ts, research-archive.ts and their tests",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "df8febe..18db588 (lifecycle incoming/, /datasets/\u003cid\u003e rewrite, archive-config SSM param, cruise in backend, asset-size test); just check exit 0; asset 92.8 MiB of 250",
+          "build_at": "2026-11-13T22:50:17.54696-06:00"
         },
         {
           "id": "TASK3",
@@ -664,7 +938,10 @@
           "serves": [
             "DCSN1"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "33531a3: archive_backend.submissions, 8 routes, 23 tests; just check exit 0 (390 py). Owner check moves to the caller's published submissions (fixed at the start of TASK4)",
+          "build_at": "2026-11-13T22:57:22.49596-06:00"
         },
         {
           "id": "TASK4",
@@ -676,7 +953,10 @@
             "DCSN2",
             "DCSN3"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "6f23230 (owner check via the caller's published submissions), 93faf4c (durable ingest, 11 fake-context tests); just check exit 0 (404 py)",
+          "build_at": "2026-11-13T23:07:13.308544-06:00"
         },
         {
           "id": "TASK5",
@@ -684,7 +964,10 @@
           "does": "Publish: assign the version, fill in fields, copy with checksums, write catalog items with the reindex builders, write the dataset page, then finish",
           "pulls_in": "Publish steps, archive_backend.pages and their tests",
           "serves": [],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "ac6caae (submitterIsCurator), b02633b (expired at 360 days), 0133a6e (dataset page), 0e5a215 (publish: version, fill, checksummed copy, catalog items via reindex builders, page, finish); just check exit 0. Catalog-file call is a marked spot until Plan 6's writer lands",
+          "build_at": "2026-11-13T23:15:43.9801-06:00"
         },
         {
           "id": "TASK6",
@@ -695,7 +978,10 @@
             "DCSN2",
             "DCSN3"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "81e777e (page Cache-Control, datasetId pattern), 3f2dd01 (Ingest construct: durable fn + live alias, 10 GiB /tmp, submissions fn + routes, curators' topic, GuardDuty plan on incoming/, least-privilege grants, just add-curator); just check exit 0 (423 py, 55 ts)",
+          "build_at": "2026-11-13T23:25:00.300495-06:00"
         },
         {
           "id": "TASK7",
@@ -707,16 +993,41 @@
             "DCSN2",
             "DCSN3"
           ],
-          "state": "keep"
+          "state": "keep",
+          "build": "done",
+          "result": "5b2374a, 541652f (e2e client, script, ingest-test config) plus review fixes; deployed run on ingest-test passed twice (875cb69, then rebased afd047f on Plan 6): all six paths; reminder decided early under DCSN4 B (PARK17). PR #29 merged as a22c85a",
+          "build_at": "2026-11-14T01:01:40.815852-06:00"
         }
       ],
       "approved": {
         "hash": "22b15995438c84321c7c579feb0197dee72b5366db98e03f5a0b7b320d935306",
         "at": "2026-11-13T22:39:54.240045-06:00",
         "body": "# PLAN1: Submit, review and publish\n\n## Spec\n\n`spec.md` in this folder, approved. This plan builds all of it: the review policy, the submissions API, the durable ingest (scan, checks, hold, review with reminders and the stale mark, the request-changes loop), publish, the curators' topic, the infrastructure, and the run on a test stage.\n\n## The change\n\n- The contract gains `ReviewPolicy` and its matcher.\n- archive-backend gains a dependency on cruise and three modules: `submissions` (records, events and the API), `ingest` (the durable function) and `pages` (the dataset page).\n- The infra package gains an `Ingest` construct and three small edits to Plan 4's code: the staging lifecycle rule, the site function, and the archive-config parameter.\n- A test-only Cognito app client on non-prod stages lets one scripted run (`just ingest-e2e \u003cstage\u003e`) drive the four paths and the policy cases on a deployed stage.\n\nEvery task leaves `just check` green.\n\nThe durable SDK pinned in archive-backend is `aws-durable-execution-sdk-python==3.0.2`. It provides:\n\n- `context.wait_for_callback(submitter, name=..., config=WaitForCallbackConfig(timeout=Duration...))`, which raises `CallbackTimeoutError` (in `aws_durable_execution_sdk_python.exceptions`) on timeout.\n- `context.wait_for_condition` and `context.step`.\n\nThe Lambda API offers `SendDurableExecutionCallbackSuccess(CallbackId, Result)`, and `Invoke` takes `DurableExecutionName`. The reindex (`archive_backend/reindex.py`, `infra/src/reindex.ts`) is the working pattern for the handler, the steps, the `live` alias and the IAM, and its tests show how to drive a handler with a fake `DurableContext`.\n\n## Left out\n\nEverything in the spec's Left out section: by-request access, takedown and access changes, DOIs, previews, extension checks, in-place edits, contributor email, multipart uploads, creating projects and withdrawing a submission. The call to Plan 6's catalog-file writer is added when that writer exists in archive-backend. If it exists when Task 5 runs, Task 5 calls it.\n\n## Where\n\nBranch `plan7/build-plan1` from `origin/main`, in the worktree `/Users/courtschuett/GitHub/personal/.worktrees/research-archive-in-a-box/plan7/build-plan1`. One pull request per task, or one for the plan, against `main`, with auto-merge on once checks pass. The deployed run in Task 7 uses a non-prod stage named `test` through `ARCHIVE_CONFIG`, so `archive.yaml` is not edited.\n\n### Task 1: The review policy model and matcher\n\n**Does:** Adds `ReviewPolicy` to `archive_contract` (new module `review.py`, exported from the package) as the spec's review-policy section gives it. The fields are `required`, `rules`, `reviewers`, `reminders` and `staleDays`, with their defaults. A `Rule` has optional matchers (`submitters`: user ids or the literal `curators`; `kind`: `new-dataset` or `new-version`; `access`: a list of access levels; `themes`: a list) and an `outcome` of `skip`, `one` or `two`. Adds `match(policy, facts) -\u003e (outcome, rule_index | None)`, where the first match wins and the default follows `required`, and `reminder_schedule(policy)`, which returns the reminder days before `staleDays`, sorted, each a positive whole number. Adds the model to the generated JSON Schema, and adds `Manifest.published: datetime | None` (alias `archive:published`), the publish time that only publish writes.\n**Files:** `packages/contract/src/archive_contract/review.py`, `packages/contract/src/archive_contract/__init__.py`, `packages/contract/src/archive_contract/schema.py` if models are listed there, `packages/contract/tests/test_review.py`, the regenerated schema file (`just schema`).\n**Checks:** `just check`\n**Serves:** DCSN1 (rests on calls AGNT12, AGNT13)\n\nRebase onto `origin/main` first. If Plan 6 has already added `Manifest.published`, use it as it is and don't add it again.\n\nTests cover:\n\n- each matcher alone and combined\n- the first match winning over a later one\n- the default with `required` true and with it false\n- the empty policy's defaults\n- reminders on or after `staleDays` being refused\n- the JSON Schema containing `ReviewPolicy`\n\n### Task 2: Groundwork in Plan 4's code\n\n**Does:** Groundwork in Plan 4's code, listed below.\n**Files:** `packages/backend/pyproject.toml`, `uv.lock`, `packages/infra/src/storage.ts`, `packages/infra/src/web.ts`, `packages/infra/src/research-archive.ts` (exposes `archiveConfigParameter`), the tests in `packages/infra/test/` for storage, web and the app, and a new `packages/infra/test/assets.test.ts`.\n**Checks:** `just check`\n**Serves:** none (rests on calls AGNT3, AGNT9, AGNT14)\n\n- Adds `cruise` to archive-backend's dependencies through a workspace source.\n- Changes the staging bucket's lifecycle rule to expire only `incoming/` after 30 days.\n- Changes the site function so `/datasets/\u003cid\u003e` and `/datasets/\u003cid\u003e/` go to `/datasets/\u003cid\u003e/index.html`, and every other extensionless path still goes to `/index.html`.\n- Makes the construct write the config as JSON to the standard SSM parameter `/research-archive/\u003cstage\u003e/archive-config`. Synth throws when the JSON is over 4096 bytes.\n- Adds a packaging test that fails when the unzipped `assets/python` folder reaches 250 MB.\n\nThe site function has a unit test that runs the inline JS over `/`, `/about`, `/datasets/abc`, `/datasets/abc/` and `/app.js`. The lifecycle test asserts the `incoming/` prefix filter. The asset test runs after `just lambda-assets`, which `check-ts` already depends on. Measure the asset size with cruise and DuckDB in it and put the number in the task result.\n\n### Task 3: Submission records, events and the API\n\n**Does:** Adds `archive_backend.submissions`, listed below.\n**Files:** `packages/backend/src/archive_backend/submissions.py`, `packages/backend/tests/test_submissions.py`.\n**Checks:** `just check`\n**Serves:** DCSN1 (rests on calls AGNT1, AGNT2, AGNT6, AGNT7, AGNT12)\n\nAdds `archive_backend.submissions`:\n\n- The Submission record (the spec's fields) and its status values.\n- `put_event(table, submission_id, type, actor, round, **details)`, which writes `eventKey = \u003cISO time\u003e#\u003cuuid\u003e`.\n- One API handler for every route in the spec's endpoint table, with the role checked from the token's `cognito:groups` claim.\n\nCreate validates the file list (relative safe paths, sizes, SHA-256 in hex), resolves `newVersion` and the owner check against the active catalog's dataset item when the manifest id is given in the request, and returns presigned PUTs with `ChecksumSHA256` required. Submit on round 1 invokes the ingest alias with `InvocationType=Event` and `DurableExecutionName=\u003csubmissionId\u003e`. On a later round it completes the stored `callbackId` with `{\"kind\": \"resubmit\", \"round\": n}`. Decision checks the caller is a curator, refuses a second approval from the same curator, writes the `decided` event (with `selfReview` when the curator is the submitter), then completes the callback with `{\"kind\": \"decision\", \"decision\": ..., \"by\": ..., \"note\": ...}`. Policy `GET` returns the stored policy or the defaults, and `PUT` validates it with `ReviewPolicy` and stores it as the Settings item `review-policy`.\n\nTests use stubbed clients, as the reindex tests do. They cover:\n\n- role refusals for each route\n- the owner check for a new version\n- a bad path refused\n- the presigned URL carrying the checksum\n- submit invoking with the execution name\n- resubmit and decision completing the stored callback\n- a second approval from the same curator refused\n- the policy round trip and an invalid policy refused\n\n### Task 4: The durable ingest function\n\n**Does:** Adds `archive_backend.ingest` with `handler = durable_execution(run)`, following the spec's path as listed below.\n**Files:** `packages/backend/src/archive_backend/ingest.py`, `packages/backend/tests/test_ingest.py`.\n**Checks:** `just check`\n**Serves:** DCSN1, DCSN2, DCSN3 (rests on calls AGNT3, AGNT4, AGNT5, AGNT7, AGNT13)\n\nAdds `archive_backend.ingest` with `handler = durable_execution(run)`, following the spec's path:\n\n- **Scan.** `wait_for_condition` on every round file's `GuardDutyMalwareScanStatus` tag, with backoff capped at one hour.\n- **Check.** `cruise.diagnose` on the round, downloaded to `/tmp`, with the profiles and required fields from the config parameter. The report goes to `reports/\u003cid\u003e/\u003cround\u003e.json`. An error finding, or a scan status other than `NO_THREATS_FOUND`, sends the round to needs-changes.\n- **Hold.** Copy the round to `held/\u003cid\u003e/`.\n- **Policy.** Read the policy once and record the matched rule.\n- **Review.** Repeated `wait_for_callback`. The timeout runs to the next reminder or the stale mark. On `CallbackTimeoutError` the function sends a reminder or sets `stale` and alerts, then waits again. On a decision it publishes, counts a first approval in a two-curator case, rejects, or requests changes.\n- **Request changes.** A resubmit `wait_for_callback` with a 30-day timeout, which ends as `abandoned` and deletes `held/`.\n- **Failure.** A failing step ends as `failed` with an admin alert.\n\nEvery status change writes its event in the same step. The publish call is a stub here, and Task 5 fills it in.\n\nCurator messages go to the curators' topic with the message attribute `audience` set to a named reviewer's user id or `all`. The function looks up the reviewer for the package's first theme (`archive:themes`) in `policy.reviewers`.\n\nTests drive `run` with a fake `DurableContext`. The fake replays `step`, raises `CallbackTimeoutError` on a scripted timeout, and returns scripted callback payloads. The tests cover:\n\n- approve\n- reject\n- request changes then approve\n- a blocking error\n- a threat tag\n- a skip rule\n- a two-curator case that waits after the first approval and publishes after the second\n- a reminder then the stale mark\n- abandoned\n\nEach test asserts the final status and the ordered event types. Check the field name for themes against `archive_contract.manifest` before writing the lookup.\n\n### Task 5: Publish and the dataset page\n\n**Does:** Fills in publish as the spec's seven steps, each a named step that is safe to repeat, as listed below.\n**Files:** `packages/backend/src/archive_backend/ingest.py`, `packages/backend/src/archive_backend/pages.py`, `packages/backend/tests/test_publish.py`, `packages/backend/tests/test_pages.py`.\n**Checks:** `just check`\n**Serves:** none (rests on calls AGNT6, AGNT8, AGNT9, AGNT10, AGNT11)\n\nFills in publish as the spec's seven steps, each a named step that is safe to repeat:\n\n- Assign the version from the active catalog.\n- Fill in `id`, `version`, `archive:published` (the publish time, made inside the step; the exports' publication year is its year), publisher and identifier.\n- Regenerate `README.md` with the contract's readme export and rewrite `checksums.sha256`.\n- Copy to `open|restricted/\u003cid\u003e/\u003cversion\u003e/` with one PUT per file and `ChecksumSHA256`, putting the manifest last.\n- Put the catalog items built by `reindex.catalog_items` and `reindex.dataset_item` into the active table.\n- Write `site/datasets/\u003cid\u003e/index.html` from `archive_backend.pages`, an escaped HTML template with the title, description, citation, version, open file links and the schema.org JSON-LD from the contract's export.\n- Call Plan 6's catalog-file writer if it exists.\n- Delete `held/` and record `published`.\n\nThe dataset id, when none is given, is a slug of the title plus six random lower-case characters, made inside a step.\n\nTests publish the sample package against stubs. They cover:\n\n- version 1, then version 2 for the same id\n- the open and restricted prefixes\n- every PUT carrying a checksum, with the manifest last\n- the rewritten `checksums.sha256` validating with `archive_contract.validate`\n- catalog items equal to what the reindex builds from the published manifest\n- the page escaping a title containing `\u003cscript\u003e` and holding JSON-LD that parses\n\n### Task 6: The Ingest construct\n\n**Does:** Adds `packages/infra/src/ingest.ts` and builds it in `ResearchArchive`, as listed below.\n**Files:** `packages/infra/src/ingest.ts`, `packages/infra/src/research-archive.ts`, `packages/infra/test/ingest.test.ts`, `justfile`.\n**Checks:** `just check`\n**Serves:** DCSN2, DCSN3 (rests on calls AGNT1, AGNT14)\n\nAdds `packages/infra/src/ingest.ts` and builds it in `ResearchArchive`, through `archive.pythonFunction`:\n\n- `IngestFunction`, with `durableConfig` set to an execution timeout of 365 days and retention of 30 days, a 15-minute timeout and 2048 MB, plus its `live` alias.\n- `SubmissionsFunction`.\n- The routes under `/api/submissions`, behind the authorizer.\n- The curators' topic.\n- `AWS::GuardDuty::MalwareProtectionPlan` on the staging bucket, with `ObjectPrefixes: [\"incoming/\"]`, tagging on, and its role as in the AWS documentation.\n- Least-privilege grants: staging read and write, archive write, derived `site/*` write, active catalog read and write and both tables, Submissions, Reviews and Settings, the config parameter read, alert and curator topics publish, `lambda:InvokeFunction` on the alias, and `lambda:SendDurableExecutionCallbackSuccess` on the function.\n- A stack output `IngestFunction`.\n\nAdds `just add-curator \u003cstage\u003e \u003cemail\u003e \u003cuserId\u003e`, which subscribes the email to the curators' topic with the filter policy `{\"audience\": [\"\u003cuserId\u003e\", \"all\"]}`.\n\nSynth tests assert:\n\n- the alias\n- the durable config\n- each route's method and authorizer\n- the GuardDuty plan's bucket and prefix\n- the topic\n- the callback permission scoped to the ingest function\n\nCheck the GuardDuty plan's CloudFormation properties against the AWS documentation before writing them.\n\n### Task 7: The run on a test stage\n\n**Does:** A test-only Cognito app client and `just ingest-e2e \u003cstage\u003e`, which drives the runs listed below.\n**Files:** `packages/infra/src/auth.ts`, `packages/infra/test/auth.test.ts`, `scripts/ingest_e2e.py`, `justfile`, a test config such as `examples/test-stage/archive.yaml`.\n**Checks:** `just check`; `just ingest-e2e test` against the deployed stage\n**Serves:** DCSN1, DCSN2, DCSN3 (rests on calls AGNT13, AGNT15)\n\nAdds a test-only Cognito app client `e2e` with `ADMIN_USER_PASSWORD_AUTH`, created only on non-prod stages, and `scripts/ingest_e2e.py` behind `just ingest-e2e \u003cstage\u003e`. The script:\n\n1. Creates three throwaway users (a contributor and two curators) with admin APIs.\n2. Sets a policy.\n3. Drives these runs against the deployed API:\n   - approve, which is then fetched at `/data/\u003cid\u003e/1/datapackage.json` and `/datasets/\u003cid\u003e`\n   - reject\n   - request changes, then round 2 approved\n   - a copy of the sample with a core field removed, which returns `needs-changes`\n   - a skip rule that publishes without review\n   - a two-curator case that waits after one approval and publishes after the second\n   - a reminder set to the policy's smallest interval, checked as an event\n4. Asserts the event types in Reviews for each run.\n5. Deletes its users.\n\nDeploying the stage and confirming the curator subscription are your steps. Seeing the reminder email arrive is part of your step. Tearing the test stage down after the run is a step with Go / No go, as Plan 4's was.\n\nA synth test pins that a `prod` stage has no `e2e` client and no `ADMIN_USER_PASSWORD_AUTH` flow on any client.\n\nThe reminder interval is in days, so the run checks the reminder with a policy whose smallest reminder is 1 day, and leaves that run's submission waiting. The script records its id, and a re-run the next day asserts the `reminded` event and decides it. This waits a day because day is the policy's smallest unit. Making the unit smaller only for a test would be a second path.\n"
-      }
+      },
+      "edited": "2026-11-13T23:17:18.697474-06:00"
     }
   ],
+  "wrap_up": {
+    "file": "wrap-up.md",
+    "hash": "26e49bfa81685d1930d8835a6404ba2e951af17374c10054b272e028fa86ab33",
+    "printed_at": "2026-11-14T10:33:13.490905-06:00",
+    "due_at": "2026-11-14T10:33:00.742053-06:00",
+    "plans_at_print": [
+      "PLAN1"
+    ]
+  },
+  "signoff": {
+    "due_at": "2026-11-14T01:01:40.815852-06:00",
+    "built": "PLAN1: contributors submit packages, GuardDuty scans them, cruise checks them, and a curator approves, rejects or requests changes under the admin's review policy. Approved packages are published with a version, a checksummed copy in the archive, a catalog entry and their own dataset page. Merged as research-in-a-box#29 (a22c85a), with #21 (review policy, archive:published) and #28 (the shared config reader). It passed the deployed run on a test stage twice, the second time with Plan 6 underneath, and the stage is torn down.",
+    "try": [
+      "Read STEP1's results: each deployed run with what it returned, approve, reject, request changes then approve, a blocking error, the skip rule and the two-curator case.",
+      "Look at the code on main: packages/backend/src/archive_backend/ingest.py (the durable function), submissions.py (the API) and pages.py (the dataset page), and packages/infra/src/ingest.ts.",
+      "Read the follow-ups under Later, especially PARK17 (the reminder email never fired on AWS, by your DCSN4 B), PARK19 (teardown must stop running submissions first) and PARK15/PARK16 (the curator files route and shared page writer, the next small plan, which Plans 8 and 9 wait on).",
+      "There is no running archive to try it on: the test stage is gone and there are no screens until Plan 8. Deploy a stage and run `just ingest-e2e \u003cstage\u003e` to see it again."
+    ],
+    "posted_at": "2026-11-14T10:26:39.330602-06:00",
+    "signed_at": "2026-11-14T10:33:00.742053-06:00"
+  },
   "messages": [
     {
       "id": 1,
@@ -827,6 +1138,128 @@
       "at": "2026-11-13T22:39:54.240045-06:00",
       "state": "answered",
       "claim": "c5d3413ecc577742"
+    },
+    {
+      "id": 12,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session, at Court's word. (1) Stage collision: Plan 6's Task 5 also deploys a stage named test (ResearchArchive-test) to the same kind of account and destroys it at the end, and your Task 7 keeps a test stage up overnight for the reminder. Please use a stage of your own, such as ingest-test, in your test config so the two never overwrite or tear down each other. (2) Court chose invitation-only accounts: self-service sign-up goes off (selfSignUpEnabled false), and admins invite users, with an optional group. Plan 6 is asked to make that change. Your e2e script already creates users with admin APIs, so it should be unaffected; just don't rely on sign-up anywhere. Contributors are therefore people an admin invited into the contributor group.",
+      "at": "2026-11-13T23:17:02.398797-06:00",
+      "state": "answered",
+      "claim": "a8217246153c4c8d",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 13,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A2",
+      "answer": "GO",
+      "at": "2026-11-13T23:58:03.154926-06:00",
+      "state": "answered",
+      "claim": "eda5ca5a0423d663"
+    },
+    {
+      "id": 14,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A4",
+      "answer": "DONE",
+      "at": "2026-11-14T00:17:26.271636-06:00",
+      "state": "answered",
+      "claim": "cd265487af0f9927"
+    },
+    {
+      "id": 15,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A6",
+      "answer": "ARRIVED",
+      "at": "2026-11-14T00:34:11.29618-06:00",
+      "state": "answered",
+      "claim": "f1274fa734288bbc"
+    },
+    {
+      "id": 16,
+      "card": "STEP1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Thanks. One thing first: it's only 00:34 Central on Saturday, and the reminder isn't due until 1:17 am on Sunday. The Reviews table for 7672e8e9 has no reminded event yet. Its last event is entered-review at 06:17 UTC, so the email you saw was almost certainly that first one, titled \"Review: …\". I've added a fresh check for after the reminder is due. Nothing is wrong with the run.",
+      "at": "2026-11-14T00:34:57.851197-06:00",
+      "answers": [
+        15
+      ]
+    },
+    {
+      "id": 17,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A10",
+      "answer": "ARRIVED",
+      "at": "2026-11-14T00:35:57.734328-06:00",
+      "state": "answered",
+      "claim": "f64c868cc9b2f9df"
+    },
+    {
+      "id": 18,
+      "card": "STEP1",
+      "from": "agent",
+      "action": "reply",
+      "text": "Thanks. It's still Saturday 00:36 Central, and the audit log still ends at entered-review, so the reminder hasn't been sent yet. Rather than ask you a third time, I've put the choice on a card, DCSN4: wait until Sunday for the real reminder, or finish the run now.",
+      "at": "2026-11-14T00:36:26.253583-06:00",
+      "answers": [
+        17
+      ]
+    },
+    {
+      "id": 19,
+      "card": "DCSN4",
+      "from": "user",
+      "action": "choose",
+      "option": "B",
+      "at": "2026-11-14T00:44:20.131056-06:00",
+      "state": "answered",
+      "claim": "c4abd815748487b8"
+    },
+    {
+      "id": 20,
+      "card": "STEP1",
+      "from": "user",
+      "action": "answer",
+      "option": "A8",
+      "answer": "GO",
+      "at": "2026-11-14T10:04:34.636489-06:00",
+      "state": "answered",
+      "claim": "e9e5bef58a5c3f9d"
+    },
+    {
+      "id": 21,
+      "card": "plan",
+      "from": "session",
+      "action": "note",
+      "text": "From the coordinating session, at Court's word: main on schuettc/research-in-a-box is now protected. Every change goes through a pull request (direct pushes and force pushes are refused, admins included), and a merge needs the python, typescript and security checks green. Branches don't have to be up to date with main. Auto-merge is on for the repo (gh pr merge \u003cn\u003e --auto), and head branches are deleted on merge.",
+      "at": "2026-11-14T10:18:52.998515-06:00",
+      "state": "answered",
+      "claim": "6001351790cf22bd",
+      "sender": {
+        "project": "personal"
+      }
+    },
+    {
+      "id": 22,
+      "card": "SIGNOFF",
+      "from": "user",
+      "action": "sign-off",
+      "at": "2026-11-14T10:33:00.742053-06:00",
+      "state": "answered",
+      "claim": "3d42a66d3ac44892"
     }
   ],
   "planned_history": [

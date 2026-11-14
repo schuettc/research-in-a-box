@@ -1,7 +1,7 @@
 ---
 diazo: research-archive-in-a-box/ingest-review-and-access-workflows
 file: PLAN1
-status: waiting
+status: done
 approved: 2026-11-13T22:39:54-06:00
 hash: 2626c3cfe8272b185c0458198dc7fcaeae7203725d69690b289204768fb645eb
 rests_on: [AGNT1, AGNT10, AGNT11, AGNT12, AGNT13, AGNT14, AGNT15, AGNT2, AGNT3, AGNT4, AGNT5, AGNT6, AGNT7, AGNT8, AGNT9, DCSN1, DCSN2, DCSN3]
