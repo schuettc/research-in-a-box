@@ -12,6 +12,7 @@ members = [
     "packages/tool",
     "packages/backend",
     "packages/client",
+    "packages/agent",
     "examples/femc",
 ]
 
@@ -45,6 +46,7 @@ mypy_path = [
     "packages/tool/src",
     "packages/backend/src",
     "packages/client/src",
+    "packages/agent/src",
     "examples/femc/src",
     "scripts",
 ]
@@ -62,7 +64,8 @@ known-first-party = [
     "archive_contract",
     "cruise",
     "archive_backend",
+    "archive_client",
+    "archive_agent",
     "femc",
     "smoke",
-    "archive_client",
 ]
