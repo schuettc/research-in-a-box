@@ -115,6 +115,20 @@ smoke stage domain="":
     fi
     python3 scripts/smoke.py "$domain"
 
+# Publish the sample package on the stage as its admin, signed in in the browser, and wait for it
+seed stage:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    region="$({{just_executable()}} _stage-field "{{stage}}" region)"
+    domain="$(aws ${region:+--region "$region"} cloudformation describe-stacks \
+        --stack-name "ResearchArchive-{{stage}}" \
+        --query "Stacks[0].Outputs[?OutputKey=='SiteDomain'].OutputValue" --output text)"
+    if [ -z "$domain" ] || [ "$domain" = "None" ]; then
+        echo "ResearchArchive-{{stage}} has no SiteDomain output"
+        exit 1
+    fi
+    uv run --all-packages --frozen python scripts/seed.py "$domain"
+
 # Delete the stage's stack and the log group CDK's S3 auto-delete helper leaves behind; run from a laptop, never CI
 destroy stage:
     #!/usr/bin/env bash

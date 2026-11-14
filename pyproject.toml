@@ -68,4 +68,5 @@ known-first-party = [
     "archive_agent",
     "femc",
     "smoke",
+    "seed",
 ]
