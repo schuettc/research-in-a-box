@@ -3,7 +3,7 @@
   "schema": 4,
   "title": "FEMC migration and practice corpus (Plan 5)",
   "expect": 2,
-  "agent_at": "2026-11-14T04:58:01.480363Z",
+  "agent_at": "2026-11-14T05:10:16.229618Z",
   "start": {
     "opening": {
       "text": "can we start all of the plans as planned so we don't forget them and have a way to track them with their own sessions\n\n(Saved as planned: mark this plan Planned with diazo_update planned: true and wait for Start planning. Do no research until then. It waits on Plan 2, folder 8da653f233f9, and Plan 3, the quality rules and local tool.)\n\nBrief: Plan 5 in docs/planning-handoff.md. Starter prompt from the handoff:\n\n\u003e Read `docs/planning-handoff.md` and `practice-data/femc/SOURCES.md`. Plan the conversion of the FEMC practice corpus (Plan 5). One dataset is already converted by hand. Plan the other five in order of what each will teach us, and propose which datasets to add to reach 10 to 20."
@@ -368,7 +368,29 @@
     }
   ],
   "principles": [],
-  "follow_ups": [],
+  "follow_ups": [
+    {
+      "id": "PARK1",
+      "name": "Unzipped raster folders",
+      "text": "femc convert finds an ArcInfo grid only inside a zip; a grid delivered as an unpacked folder is ignored. FEMC delivers zips, so no real case yet (final review, finding 2).",
+      "from": "PLAN1",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK2",
+      "name": "Keyword thesaurus kept",
+      "text": "The project keywordSet rewrite keeps only keyword text; a keywordThesaurus or other child would be dropped without a not-imported line. None of the ten FEMC records has one (final review, finding 3).",
+      "from": "PLAN1",
+      "kind": "improvement"
+    },
+    {
+      "id": "PARK3",
+      "name": "Where project records live",
+      "text": "Each converted package keeps its project record in _build/project.json. Plan 7 has decided project records live at projects/\u003cprojectId\u003e/project.json in the archive bucket (its AGNT8, in the handoff Decision log); when FEMC packages are first submitted through Plan 7, write their project records in that layout.",
+      "from": "PLAN1",
+      "kind": "idea"
+    }
+  ],
   "spec": {
     "hash": "b0e4d1f91b32fa7afade457651148613482bfb2a5f13fb1cd1a113799dc91119",
     "sections": [
@@ -540,8 +562,26 @@
       }
     }
   ],
+  "wrap_up": {
+    "file": "wrap-up.md",
+    "hash": "d995529ae8e59f493f8b6c5c3f9983558c9a2259d89899e5382e8cac8dda0bc7",
+    "printed_at": "2026-11-13T23:10:16.229618-06:00",
+    "due_at": "2026-11-13T22:59:47.652114-06:00",
+    "plans_at_print": [
+      "PLAN1"
+    ]
+  },
   "signoff": {
-    "due_at": "2026-11-13T22:58:01.480363-06:00"
+    "due_at": "2026-11-13T22:58:01.480363-06:00",
+    "built": "The femc converter in examples/femc (FEMC's archive.yaml plus `femc convert`), all ten FEMC datasets converted with no structure findings, and the audit counts for the FEMC report in documents/femc-audit-counts.md. PR schuettc/research-in-a-box#23 (CI running; I merge it when green). The shared contract and cruise are unchanged.",
+    "try": [
+      "Open documents/femc-audit-counts.md in this planning folder: one row per dataset with errors, warnings, notes, score, and the rules that fired.",
+      "Run a diagnose on one converted package from the worktree: cd ~/GitHub/personal/.worktrees/research-archive-in-a-box/plan5/femc-converter \u0026\u0026 uv run cruise diagnose ~/GitHub/personal/research-archive-in-a-box/practice-data/packages/ozone-bioindicators",
+      "Read what the converter could not import for a dataset: cat ~/GitHub/personal/research-archive-in-a-box/practice-data/packages/aerial-detection-survey/_build/not-imported.txt",
+      "Look at a converted package's generated README.md, such as practice-data/packages/vegetation-class-raster/README.md."
+    ],
+    "posted_at": "2026-11-13T22:58:58.330082-06:00",
+    "signed_at": "2026-11-13T22:59:47.652114-06:00"
   },
   "messages": [
     {
@@ -713,6 +753,15 @@
       "at": "2026-11-13T22:26:53.874735-06:00",
       "state": "answered",
       "claim": "6946fe9bbb9679fc"
+    },
+    {
+      "id": 17,
+      "card": "SIGNOFF",
+      "from": "user",
+      "action": "sign-off",
+      "at": "2026-11-13T22:59:47.652114-06:00",
+      "state": "answered",
+      "claim": "802fabf79e39f431"
     }
   ],
   "planned_history": [
