@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { sendUsage, type UsageAnswers } from "./api";
 
 const DONE_KEY = "usage-panel-done";
@@ -26,17 +26,29 @@ export function usagePanelDone(): boolean {
 }
 
 /**
- * The optional "how will you use this data?" panel shown after a download starts. It never
- * blocks the download, asks for nothing identifying, and is shown once per visit.
+ * The optional "how will you use this data?" question, a modal dialog opened after a download
+ * starts. It overlays the page rather than pushing it down, never blocks the download, asks
+ * for nothing identifying, and is shown once per visit. Escape or No thanks dismisses it.
  */
 export function UsagePanel({ datasetId, onClose }: { datasetId: string; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
   const [organisation, setOrganisation] = useState("");
   const [purpose, setPurpose] = useState("");
   const [note, setNote] = useState("");
   const [sent, setSent] = useState(false);
 
+  useEffect(() => {
+    const element = dialog.current;
+    if (element && !element.open) element.showModal();
+  }, []);
+
   function finish() {
     sessionStorage.setItem(DONE_KEY, "1");
+  }
+
+  function dismiss() {
+    finish();
+    onClose();
   }
 
   function send() {
@@ -50,61 +62,80 @@ export function UsagePanel({ datasetId, onClose }: { datasetId: string; onClose:
     setSent(true);
   }
 
-  if (sent) return <p className="usage">Thanks, your answers were sent anonymously.</p>;
-
   return (
-    <section className="usage" aria-labelledby="usage-heading">
-      <h2 id="usage-heading">Help this archive: how will you use this data?</h2>
-      <p className="hint">All optional. We don't ask who you are.</p>
-      <div className="usage-fields">
-        <label className="field">
-          Kind of organisation
-          <select value={organisation} onChange={(event) => setOrganisation(event.target.value)}>
-            <option value="">Choose…</option>
-            {ORGANISATIONS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          Purpose
-          <select value={purpose} onChange={(event) => setPurpose(event.target.value)}>
-            <option value="">Choose…</option>
-            {PURPOSES.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field wide">
-          <span>
-            Note <span className="muted">(optional)</span>
-          </span>
-          <textarea
-            rows={2}
-            maxLength={500}
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-          />
-        </label>
-      </div>
-      <div className="actions">
-        <button type="button" className="primary" onClick={send}>
-          Send
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            finish();
-            onClose();
-          }}
-        >
-          No thanks
-        </button>
-      </div>
-    </section>
+    <dialog
+      ref={dialog}
+      className="usage"
+      aria-labelledby="usage-heading"
+      onCancel={(event) => {
+        event.preventDefault();
+        dismiss();
+      }}
+    >
+      {sent ? (
+        <>
+          <p className="usage-thanks" role="status">
+            Thanks, your answers were sent anonymously.
+          </p>
+          <div className="actions">
+            <button type="button" className="primary" autoFocus onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="usage-started">Your download has started.</p>
+          <h2 id="usage-heading">Help this archive: how will you use this data?</h2>
+          <p className="hint">All optional. We don't ask who you are.</p>
+          <div className="usage-fields">
+            <label className="field">
+              Kind of organisation
+              <select
+                value={organisation}
+                onChange={(event) => setOrganisation(event.target.value)}
+              >
+                <option value="">Choose…</option>
+                {ORGANISATIONS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Purpose
+              <select value={purpose} onChange={(event) => setPurpose(event.target.value)}>
+                <option value="">Choose…</option>
+                {PURPOSES.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field wide">
+              <span>
+                Note <span className="muted">(optional)</span>
+              </span>
+              <textarea
+                rows={2}
+                maxLength={500}
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="actions">
+            <button type="button" className="primary" onClick={send}>
+              Send
+            </button>
+            <button type="button" onClick={dismiss}>
+              No thanks
+            </button>
+          </div>
+        </>
+      )}
+    </dialog>
   );
 }

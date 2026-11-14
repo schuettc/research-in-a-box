@@ -768,16 +768,33 @@ section.block > h2 {
   gap: 0.25rem 0.75rem;
 }
 
-.file > .usage {
-  grid-column: 1 / -1;
-}
-
+/* The usage question is a modal dialog: it overlays the page, so opening it moves nothing. */
 .usage {
-  margin-top: 0.75rem;
-  padding: 1.25rem 1.4rem;
-  background: var(--soft);
+  width: min(32rem, calc(100vw - 2rem));
+  margin: auto;
+  padding: 1.5rem 1.6rem;
+  background: #fff;
+  color: var(--ink);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.2);
+}
+
+.usage::backdrop {
+  background: rgb(20 24 32 / 0.45);
+}
+
+.usage-started {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-ink, var(--muted));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.usage-thanks {
+  margin: 0 0 1rem;
 }
 
 .usage h2 {
@@ -992,18 +1009,80 @@ table.cols tbody th {
   gap: 0.3rem;
 }
 
+/* The account slot keeps one width whether it holds Sign in or Account, so signing in or out
+   never moves the nav beside it. */
 .account {
+  position: relative;
+  flex: none;
+  width: 7.5rem;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 1rem;
-  margin: 0 0 0 1.5rem;
-  font-size: 0.88rem;
-  color: var(--muted);
+  justify-content: flex-end;
+  margin-left: 1.5rem;
 }
 
-.account .link-button {
-  font-size: 0.88rem;
+.account-button {
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.account-button:hover,
+.account-button[aria-expanded="true"] {
+  border-color: var(--brand);
+}
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 10;
+  min-width: 15rem;
+  padding: 0.4rem;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+
+.account-who {
+  margin: 0;
+  padding: 0.5rem 0.6rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.account-who strong {
+  display: block;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.account-menu [role="menuitem"] {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.6rem;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: none;
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.account-menu [role="menuitem"]:hover,
+.account-menu [role="menuitem"]:focus-visible {
+  background: var(--soft);
 }
 
 @media (max-width: 51rem) {
@@ -1018,11 +1097,6 @@ table.cols tbody th {
 }
 
 @media (max-width: 40rem) {
-  .account {
-    margin: 0;
-    width: 100%;
-  }
-
   .file {
     grid-template-columns: minmax(0, 1fr);
     padding: 1rem;
@@ -1048,10 +1122,6 @@ table.cols tbody th {
   .file .file-action .button.download {
     width: 100%;
     min-height: 2.5rem;
-  }
-
-  .file > .usage {
-    order: 11;
   }
 
   .usage-fields {

@@ -160,22 +160,46 @@ test.each(["/", "/datasets/ds-1", "/about", "/nowhere", "/datasets/missing"])(
   },
 );
 
-test("signed in, the header names the reader with Sign out and Add a passkey", () => {
+test("signed in, one Account button opens a menu naming the reader, with Add a passkey and Sign out", () => {
   vi.mocked(signedInEmail).mockReturnValue("reader@example.org");
   renderAt("/");
 
   const banner = within(screen.getByRole("banner"));
-  expect(banner.getByText("Signed in as reader@example.org")).toBeDefined();
-  fireEvent.click(banner.getByRole("button", { name: "Add a passkey" }));
+  const trigger = banner.getByRole("button", { name: /Account/ });
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  expect(banner.queryByRole("menuitem", { name: "Sign out" })).toBeNull();
+
+  fireEvent.click(trigger);
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  const menu = within(banner.getByRole("menu"));
+  expect(menu.getByText("reader@example.org")).toBeDefined();
+  fireEvent.click(menu.getByRole("menuitem", { name: "Add a passkey" }));
   expect(addPasskey).toHaveBeenCalledWith("/");
-  fireEvent.click(banner.getByRole("button", { name: "Sign out" }));
+
+  fireEvent.click(trigger);
+  fireEvent.click(within(banner.getByRole("menu")).getByRole("menuitem", { name: "Sign out" }));
   expect(signOut).toHaveBeenCalled();
 });
 
-test("signed out, the header says nothing of an account", () => {
+test("the account menu closes on Escape and returns focus to its button", () => {
+  vi.mocked(signedInEmail).mockReturnValue("reader@example.org");
   renderAt("/");
+  const trigger = within(screen.getByRole("banner")).getByRole("button", { name: /Account/ });
 
-  expect(within(screen.getByRole("banner")).queryByRole("button", { name: "Sign out" })).toBeNull();
+  fireEvent.click(trigger);
+  fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(document.activeElement).toBe(trigger);
+});
+
+test("signed out, the header offers Sign in in the same place, coming back to this page", () => {
+  renderAt("/about");
+
+  const banner = within(screen.getByRole("banner"));
+  expect(banner.queryByRole("button", { name: /Account/ })).toBeNull();
+  fireEvent.click(banner.getByRole("button", { name: "Sign in" }));
+  expect(signIn).toHaveBeenCalledWith("/about");
 });
 
 test("a failed sign-in offers Back to the dataset and Try again", async () => {
@@ -200,7 +224,7 @@ test("back from adding a passkey, with no code, the callback says Passkey added 
   expect(completeSignIn).not.toHaveBeenCalled();
   const back = screen.getByRole("link", { name: "Back to the dataset" });
   expect(back.getAttribute("href")).toBe("/datasets/ds-1");
-  fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+  fireEvent.click(within(screen.getByRole("main")).getByRole("button", { name: "Sign in" }));
   expect(signIn).toHaveBeenCalledWith("/datasets/ds-1");
   await waitFor(() => expect(sessionStorage.getItem("passkey-add-return-to")).toBeNull());
 });

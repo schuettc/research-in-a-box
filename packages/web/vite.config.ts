@@ -189,5 +189,6 @@ export default defineConfig({
   build: { rolldownOptions: { input: "src/main.tsx" } },
   test: {
     environment: "jsdom",
+    setupFiles: ["src/test-setup.ts"],
   },
 });

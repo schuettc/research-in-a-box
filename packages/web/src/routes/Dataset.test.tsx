@@ -276,15 +276,18 @@ test("on the versioned route, an open prefix with no archive:access gives a plai
   expect(logger.getAttribute("href")).toBe(`/data/${ID}/1/data/logger.csv`);
 });
 
-test("the usage panel appears beside the pressed download, is announced, and sends the answers", async () => {
+test("after a download the usage question opens as a modal dialog, outside the page, and sends the answers", async () => {
   renderDataset();
   const files = await filesList();
-  expect(screen.queryByRole("region", { name: /how will you use this data/ })).toBeNull();
+  expect(screen.queryByRole("dialog", { name: /how will you use this data/ })).toBeNull();
 
   fireEvent.click(within(files).getByRole("link", { name: LOGGER }));
-  const panel = screen.getByRole("region", { name: /how will you use this data/ });
-  expect(panel.closest("li")).toBe(itemOf(files, "Logger readings"));
-  expect(screen.getByRole("status").textContent).toContain("Your download has started");
+  const panel = screen.getByRole("dialog", { name: /how will you use this data/ });
+  // Opened modally, so it overlays the page instead of pushing the files down.
+  expect(panel.tagName).toBe("DIALOG");
+  expect(panel.hasAttribute("open")).toBe(true);
+  expect(files.contains(panel)).toBe(false);
+  expect(within(panel).getByText(/Your download has started/)).toBeDefined();
   fireEvent.change(within(panel).getByLabelText("Kind of organisation"), {
     target: { value: "university" },
   });
@@ -311,14 +314,14 @@ test("after No thanks the usage panel stays gone for the visit", async () => {
 
   fireEvent.click(download);
   fireEvent.click(screen.getByRole("button", { name: "No thanks" }));
-  expect(screen.queryByRole("region", { name: /how will you use this data/ })).toBeNull();
+  expect(screen.queryByRole("dialog", { name: /how will you use this data/ })).toBeNull();
   fireEvent.click(download);
 
-  expect(screen.queryByRole("region", { name: /how will you use this data/ })).toBeNull();
+  expect(screen.queryByRole("dialog", { name: /how will you use this data/ })).toBeNull();
   cleanup();
   renderDataset();
   fireEvent.click(within(await filesList()).getByRole("link", { name: LOGGER }));
-  expect(screen.queryByRole("region", { name: /how will you use this data/ })).toBeNull();
+  expect(screen.queryByRole("dialog", { name: /how will you use this data/ })).toBeNull();
 });
 
 test("a restricted page explains access, names the contact and offers one Sign in", async () => {
@@ -351,7 +354,7 @@ test("signed in, a restricted download asks the API for its link with the access
   const [url, init] = fetchMock.mock.calls[2] as [string, RequestInit];
   expect(url).toBe(`/api/datasets/${RESTRICTED_ID}/versions/1/download?path=data%2Flogger.csv`);
   expect(new Headers(init.headers).get("Authorization")).toBe("Bearer TOKEN");
-  expect(screen.getByRole("region", { name: /how will you use this data/ })).toBeDefined();
+  expect(await screen.findByRole("dialog", { name: /how will you use this data/ })).toBeDefined();
 });
 
 test("a 401 asks the reader to sign in again", async () => {
