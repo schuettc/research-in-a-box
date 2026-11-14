@@ -130,6 +130,14 @@ jobs:
         run: just lambda-assets
       - if: steps.role.outputs.connected == 'true'
         working-directory: packages/infra
-        run: npx cdk deploy "ResearchArchive-$STAGE" --require-approval never
+        run: npx cdk deploy "ResearchArchive-$STAGE" --require-approval never --outputs-file "$RUNNER_TEMP/cdk-outputs.json"
+      # The deploy role may only assume CDK's roles, so the smoke test takes the site's domain
+      # from cdk deploy's outputs rather than reading the stack.
       - if: steps.role.outputs.connected == 'true'
-        run: just smoke "$STAGE"
+        run: |
+          domain="$(jq -r --arg stack "ResearchArchive-$STAGE" '.[$stack].SiteDomain // empty' "$RUNNER_TEMP/cdk-outputs.json")"
+          if [ -z "$domain" ]; then
+            echo "::error::ResearchArchive-$STAGE has no SiteDomain output"
+            exit 1
+          fi
+          just smoke "$STAGE" "$domain"
