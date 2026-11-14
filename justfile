@@ -61,7 +61,8 @@ invite-user stage email group="":
     fi
     echo "invited {{email}} to {{stage}} {{group}}"
 
-# Install archive-backend and its locked dependencies as arm64 Lambda wheels, without Docker
+# Install archive-backend, its workspace packages (the contract and cruise) and its locked
+# dependencies as arm64 Lambda wheels, without Docker
 lambda-assets:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -69,8 +70,9 @@ lambda-assets:
     trap 'rm -rf "$tmp"' EXIT
     rm -rf packages/infra/assets/python
     uv export --package archive-backend --no-dev --no-hashes --frozen --no-emit-workspace -o "$tmp/requirements.txt"
-    uv pip install --python-platform aarch64-manylinux2014 --python-version 3.13 --only-binary :all: --target packages/infra/assets/python -r "$tmp/requirements.txt"
-    uv pip install --no-deps --python-version 3.13 --target packages/infra/assets/python packages/contract packages/backend
+    # manylinux_2_28: DuckDB ships no older aarch64 wheel; the python3.13 runtime (AL2023) has glibc 2.34.
+    uv pip install --python-platform aarch64-manylinux_2_28 --python-version 3.13 --only-binary :all: --target packages/infra/assets/python -r "$tmp/requirements.txt"
+    uv pip install --no-deps --python-version 3.13 --target packages/infra/assets/python packages/contract packages/tool packages/backend
 
 # Fail when the committed JSON Schema, the construct's config type or the OpenAPI spec differs from the code
 check-schema:

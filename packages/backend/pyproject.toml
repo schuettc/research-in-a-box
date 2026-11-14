@@ -8,11 +8,13 @@ dependencies = [
     "aws-durable-execution-sdk-python==3.0.2",
     "aws-lambda-powertools>=3.40.0",
     "boto3",
+    "cruise",
     "pydantic>=2.11",
 ]
 
 [tool.uv.sources]
 archive-contract = { workspace = true }
+cruise = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

@@ -42,6 +42,7 @@ dependencies = [
     { name = "aws-durable-execution-sdk-python" },
     { name = "aws-lambda-powertools" },
     { name = "boto3" },
+    { name = "cruise" },
     { name = "pydantic" },
 ]
 
@@ -51,6 +52,7 @@ requires-dist = [
     { name = "aws-durable-execution-sdk-python", specifier = "==3.0.2" },
     { name = "aws-lambda-powertools", specifier = ">=3.40.0" },
     { name = "boto3" },
+    { name = "cruise", editable = "packages/tool" },
     { name = "pydantic", specifier = ">=2.11" },
 ]
 
