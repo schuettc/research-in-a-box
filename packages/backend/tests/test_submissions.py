@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import re
+from collections.abc import Callable
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
@@ -71,6 +72,10 @@ class FakeTable:
         current = self.items.get(self._id(Key))
         self._check(current, kwargs)
         assert current is not None
+        if UpdateExpression.startswith("REMOVE "):
+            for name in UpdateExpression[7:].split(","):
+                current.pop(kwargs["ExpressionAttributeNames"][name.strip()], None)
+            return {}
         assert UpdateExpression.startswith("SET ")
         for assignment in UpdateExpression[4:].split(","):
             name, value = (part.strip() for part in assignment.split("="))
@@ -113,6 +118,8 @@ class FakeLambda:
     def __init__(self) -> None:
         self.invocations: list[dict[str, Any]] = []
         self.callbacks: list[dict[str, Any]] = []
+        # What the pipeline does as a callback lands, before the API's call returns.
+        self.on_callback: Callable[[], None] = lambda: None
 
     def invoke(self, **kwargs: Any) -> dict[str, Any]:
         self.invocations.append(kwargs)
@@ -120,6 +127,7 @@ class FakeLambda:
 
     def send_durable_execution_callback_success(self, **kwargs: Any) -> dict[str, Any]:
         self.callbacks.append({**kwargs, "Result": json.loads(kwargs["Result"])})
+        self.on_callback()
         return {}
 
 
@@ -687,3 +695,115 @@ def test_the_files_route_answers_409_while_nothing_is_held(world: World, status:
 
     assert code == 409
     assert world.s3.presigned == []
+
+
+def test_answers_say_whether_the_pipeline_waits_and_never_carry_the_callback(
+    world: World,
+) -> None:
+    sid = world.create("alice")
+
+    def answers() -> list[dict[str, Any]]:
+        _, read = world.call("GET", "/api/submissions/{id}", "alice", "contributor", sid=sid)
+        _, mine = world.call("GET", "/api/submissions", "alice", "contributor")
+        status = str(world.submissions.items[(sid,)]["status"])
+        _, queue = world.call(
+            "GET", "/api/submissions", "carol", "curator", query={"status": status}
+        )
+        return [read["submission"], *mine["submissions"], *queue["submissions"]]
+
+    assert [a["waiting"] for a in answers()] == [False, False, False]
+    world.submissions.items[(sid,)].update(status="needs-changes", callbackId="cb-secret")
+
+    seen = answers()
+
+    assert [a["waiting"] for a in seen] == [True, True, True]
+    assert all("callbackId" not in a for a in seen)
+    assert "cb-secret" not in json.dumps(seen)
+
+
+def test_the_read_answer_keeps_each_event_s_details(world: World) -> None:
+    sid = _in_review(world)
+    submissions.put_event(
+        world.clients.reviews,
+        sid,
+        "entered-review",
+        "pipeline",
+        1,
+        rule=2,
+        outcome="two",
+        audience="all",
+    )
+
+    _, body = world.call("GET", "/api/submissions/{id}", "carol", "curator", sid=sid)
+
+    entered = body["events"][-1]
+    assert {k: entered[k] for k in ("type", "actor", "round", "rule", "outcome", "audience")} == {
+        "type": "entered-review",
+        "actor": "pipeline",
+        "round": 1,
+        "rule": 2,
+        "outcome": "two",
+        "audience": "all",
+    }
+    assert "note" not in entered
+
+
+def test_a_decision_closes_the_callback_it_completed(world: World) -> None:
+    sid = _in_review(world)
+
+    status, _ = world.call(
+        "POST",
+        "/api/submissions/{id}/decision",
+        "carol",
+        "curator",
+        {"decision": "approve"},
+        sid=sid,
+    )
+
+    assert status == 202
+    assert "callbackId" not in world.submissions.items[(sid,)]
+    _, body = world.call("GET", "/api/submissions/{id}", "dave", "curator", sid=sid)
+    assert body["submission"]["waiting"] is False
+    again, body = world.call(
+        "POST",
+        "/api/submissions/{id}/decision",
+        "dave",
+        "curator",
+        {"decision": "approve"},
+        sid=sid,
+    )
+    assert again == 409, body
+    assert [e["type"] for e in world.events(sid)] == ["created", "decided"]
+
+
+def test_a_wait_the_pipeline_opened_since_is_kept(world: World) -> None:
+    sid = _in_review(world)
+    world.lambda_.on_callback = lambda: world.submissions.items[(sid,)].update(
+        callbackId="cb-second"
+    )
+
+    status, _ = world.call(
+        "POST",
+        "/api/submissions/{id}/decision",
+        "carol",
+        "curator",
+        {"decision": "approve"},
+        sid=sid,
+    )
+
+    assert status == 202
+    assert world.submissions.items[(sid,)]["callbackId"] == "cb-second"
+
+
+def test_a_resubmit_closes_the_callback_it_completed(world: World) -> None:
+    sid = world.create("alice")
+    world.submissions.items[(sid,)].update(status="needs-changes", callbackId="cb-resubmit")
+    world.call(
+        "POST", "/api/submissions/{id}/uploads", "alice", "contributor", {"files": FILES}, sid=sid
+    )
+    world.s3.upload_all()
+
+    status, _ = world.call("POST", "/api/submissions/{id}/submit", "alice", "contributor", sid=sid)
+
+    assert status == 202
+    assert "callbackId" not in world.submissions.items[(sid,)]

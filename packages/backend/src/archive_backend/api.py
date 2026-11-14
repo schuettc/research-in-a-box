@@ -5,7 +5,8 @@ in the derived bucket, checking its ETag at most once a minute. Dataset, version
 come from the active catalog table, named by the active-catalog parameter and cached a minute.
 With the embeddings module on, search also asks the vector index for the datasets nearest `q`.
 
-Usage: python -m archive_backend.api <path> writes the OpenAPI spec.
+Usage: python -m archive_backend.api <path> writes the OpenAPI spec: these routes and the
+submissions function's (`archive_backend.submissions_api`).
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ from pydantic import BaseModel
 from pydantic import Field as PydanticField
 
 from archive_backend import search as catalog_search
+from archive_backend import submissions_api
 from archive_backend.catalog_file import KEY as CATALOG_KEY
 from archive_backend.config import read_archive_config
 from archive_backend.embeddings import Bedrock, embed, vector_attribute
@@ -566,7 +568,17 @@ def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
 
 
 def render() -> str:
+    """The read API's spec, with the submissions function's hand-routed paths beside it."""
     spec = json.loads(app.get_openapi_json_schema(title="Research archive API", version="0.1.0"))
+    paths, schemas = submissions_api.paths()
+    for kind, ours, theirs in (
+        ("path", paths, spec["paths"]),
+        ("schema", schemas, spec["components"]["schemas"]),
+    ):
+        clash = sorted(set(ours) & set(theirs))
+        if clash:
+            raise ValueError(f"the submissions API redeclares the read API's {kind}s: {clash}")
+        theirs.update(ours)
     return json.dumps(spec, indent=2, sort_keys=True) + "\n"
 
 

@@ -21,6 +21,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/curators": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List the curators */
+    get: operations["list_the_curators"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/datasets/{id}": {
     parameters: {
       query?: never;
@@ -106,6 +123,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/people": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Look up people */
+    get: operations["look_up_people"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/projects/{id}": {
     parameters: {
       query?: never;
@@ -140,10 +174,136 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/submissions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List submissions */
+    get: operations["list_submissions"];
+    put?: never;
+    /** Create a submission */
+    post: operations["create_a_submission"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/submissions/policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read the review policy */
+    get: operations["read_the_review_policy"];
+    /** Save the review policy */
+    put: operations["save_the_review_policy"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/submissions/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read a submission */
+    get: operations["read_a_submission"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/submissions/{id}/decision": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Decide a submission */
+    post: operations["decide_a_submission"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/submissions/{id}/files": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List the held files */
+    get: operations["list_the_held_files"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/submissions/{id}/submit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Submit a round */
+    post: operations["submit_a_round"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/submissions/{id}/uploads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Renew upload links */
+    post: operations["renew_upload_links"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** ApiError */
+    ApiError: {
+      /** Error */
+      error: string;
+    };
     /** CatalogRow */
     CatalogRow: {
       /** Access */
@@ -181,6 +341,38 @@ export interface components {
       /** Version */
       version: number;
     };
+    /**
+     * CheckCount
+     * @description How many of the checks that applied passed.
+     */
+    CheckCount: {
+      /** Applicable */
+      applicable: number;
+      /** Passed */
+      passed: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * CreateRequest
+     * @description `POST /api/submissions`: the first round's files, and the dataset it is for.
+     */
+    CreateRequest: {
+      /**
+       * Datasetid
+       * @default null
+       */
+      datasetId: string | null;
+      /** Files */
+      files: components["schemas"]["SubmittedFile"][];
+    };
+    /** Curator */
+    Curator: {
+      /** Email */
+      email: string;
+      /** Sub */
+      sub: string;
+    };
     /** DatasetAnswer */
     DatasetAnswer: {
       /** Access */
@@ -213,10 +405,198 @@ export interface components {
       /** Title */
       title: string;
     };
+    /** DecisionAnswer */
+    DecisionAnswer: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "approve" | "reject" | "request-changes";
+      /** Submissionid */
+      submissionId: string;
+    };
+    /**
+     * DecisionRequest
+     * @description `POST /api/submissions/{id}/decision`: a curator's decision and an optional note.
+     */
+    DecisionRequest: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "approve" | "reject" | "request-changes";
+      /**
+       * Note
+       * @default null
+       */
+      note: string | null;
+    };
     /** DownloadAnswer */
     DownloadAnswer: {
       /** Url */
       url: string;
+    };
+    /**
+     * Event
+     * @description One audit event; the details present depend on `type`.
+     *
+     *     scanned: files, threats. checked: errors, warnings, notes, reportKey, blocked. held: files.
+     *     entered-review: rule, outcome, audience. reminded: day, audience. stale: days, audience.
+     *     decided: decision, note, selfReview. rejected: note. published: rule, datasetId, version.
+     *     abandoned and expired: days. failed: error.
+     */
+    Event: {
+      /**
+       * Actor
+       * @description A user id, or `pipeline`.
+       */
+      actor: string;
+      /** At */
+      at: string;
+      /**
+       * Audience
+       * @description A curator's user id, or `all`.
+       * @default null
+       */
+      audience: string | null;
+      /**
+       * Blocked
+       * @default null
+       */
+      blocked: boolean | null;
+      /**
+       * Datasetid
+       * @default null
+       */
+      datasetId: string | null;
+      /**
+       * Day
+       * @default null
+       */
+      day: number | null;
+      /**
+       * Days
+       * @default null
+       */
+      days: number | null;
+      /**
+       * Decision
+       * @default null
+       */
+      decision: ("approve" | "reject" | "request-changes") | null;
+      /**
+       * Error
+       * @default null
+       */
+      error: string | null;
+      /**
+       * Errors
+       * @default null
+       */
+      errors: number | null;
+      /** Eventkey */
+      eventKey: string;
+      /**
+       * Files
+       * @default null
+       */
+      files: number | null;
+      /**
+       * Note
+       * @default null
+       */
+      note: string | null;
+      /**
+       * Notes
+       * @default null
+       */
+      notes: number | null;
+      /**
+       * Outcome
+       * @default null
+       */
+      outcome: ("one" | "two") | null;
+      /**
+       * Reportkey
+       * @default null
+       */
+      reportKey: string | null;
+      /** Round */
+      round: number;
+      /**
+       * Rule
+       * @default null
+       */
+      rule: number | null;
+      /**
+       * Selfreview
+       * @default null
+       */
+      selfReview: boolean | null;
+      /** Submissionid */
+      submissionId: string;
+      /**
+       * Threats
+       * @default null
+       */
+      threats: {
+        [key: string]: string;
+      } | null;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type:
+        | "created"
+        | "submitted"
+        | "scanned"
+        | "checked"
+        | "held"
+        | "entered-review"
+        | "reminded"
+        | "stale"
+        | "decided"
+        | "resubmitted"
+        | "published"
+        | "rejected"
+        | "abandoned"
+        | "expired"
+        | "failed";
+      /**
+       * Version
+       * @default null
+       */
+      version: number | null;
+      /**
+       * Warnings
+       * @default null
+       */
+      warnings: number | null;
+    };
+    /**
+     * Evidence
+     * @description The rows or values that show the problem or justify the change.
+     *
+     *     `count` is how many rows show it, since a problem on thousands of rows can't list them all.
+     */
+    Evidence: {
+      /**
+       * Count
+       * @default null
+       */
+      count: number | null;
+      /**
+       * Rows
+       * @default null
+       */
+      rows: number[] | null;
+      /**
+       * Values
+       * @default null
+       */
+      values: unknown[] | null;
+    } & {
+      [key: string]: unknown;
     };
     /** FileEntry */
     FileEntry: {
@@ -231,10 +611,93 @@ export interface components {
       /** Path */
       path: string;
     };
+    /**
+     * FilesRequest
+     * @description `POST /api/submissions/{id}/uploads`: the round's files.
+     */
+    FilesRequest: {
+      /** Files */
+      files: components["schemas"]["SubmittedFile"][];
+    };
+    /**
+     * Finding
+     * @description One problem found in a package, by the rule with id `ruleId`.
+     */
+    Finding: {
+      /** @default null */
+      evidence: components["schemas"]["Evidence"] | null;
+      /** Message */
+      message: string;
+      /** Ruleid */
+      ruleId: string;
+      /**
+       * Severity
+       * @enum {string}
+       */
+      severity: "error" | "warning" | "note";
+      /**
+       * Suggestedfix
+       * @default null
+       */
+      suggestedFix: string | null;
+      /** @default null */
+      target: components["schemas"]["Target"] | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * FindingsReport
+     * @description The JSON at `reportUrl`: a round's checks. Both verdicts are null when the scan
+     *     blocked the round, and `quality` is null when the manifest can't be read.
+     */
+    FindingsReport: {
+      /** Findings */
+      findings: components["schemas"]["Finding"][];
+      quality: components["schemas"]["QualityVerdict"] | null;
+      /** Round */
+      round: number;
+      validation: components["schemas"]["ValidationVerdict"] | null;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
+    };
+    /**
+     * HeldFile
+     * @description A held file with a five-minute download link.
+     */
+    HeldFile: {
+      /** Path */
+      path: string;
+      /** Sha256 */
+      sha256: string;
+      /** Size */
+      size: number;
+      /** Url */
+      url: string;
+    };
+    /** HeldFiles */
+    HeldFiles: {
+      /** Files */
+      files: components["schemas"]["HeldFile"][];
+      /** Round */
+      round: number;
+    };
+    /**
+     * People
+     * @description `GET /api/people`: each known id's email; unknown ids are left out.
+     */
+    People: {
+      /** People */
+      people: {
+        [key: string]: components["schemas"]["Person"];
+      };
+    };
+    /** Person */
+    Person: {
+      /** Email */
+      email: string;
     };
     /** ProjectAnswer */
     ProjectAnswer: {
@@ -245,10 +708,110 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /**
+     * QualityVerdict
+     * @description The counts of findings by severity from the last audit, and the completeness score.
+     *
+     *     `score` is the share of checks passed, as a whole percent rounded down; `find`,
+     *     `understand` and `trust` count the checks for each of the three questions.
+     */
+    QualityVerdict: {
+      /**
+       * Auditedat
+       * Format: date-time
+       */
+      auditedAt: string;
+      /** Errors */
+      errors: number;
+      /** @default null */
+      find: components["schemas"]["CheckCount"] | null;
+      /** Notes */
+      notes: number;
+      /**
+       * Score
+       * @default null
+       */
+      score: number | null;
+      /** @default null */
+      trust: components["schemas"]["CheckCount"] | null;
+      /** @default null */
+      understand: components["schemas"]["CheckCount"] | null;
+      /** Warnings */
+      warnings: number;
+    } & {
+      [key: string]: unknown;
+    };
     /** ResponseValidationError */
     ResponseValidationError: {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
+    };
+    /**
+     * ReviewPolicy
+     * @description The admin's review policy, the Settings item `review-policy`.
+     *
+     *     `rules` are tried in order and the first match wins; with no match the outcome is `one`
+     *     when `required` is true and `skip` when it is false. `reviewers` maps a theme to the
+     *     curators asked first. `reminders` are the days after entering review on which to remind,
+     *     each before `staleDays`, when a waiting review is marked stale.
+     */
+    ReviewPolicy: {
+      /** Reminders */
+      reminders?: number[];
+      /**
+       * Required
+       * @default true
+       */
+      required: boolean;
+      /** Reviewers */
+      reviewers?: {
+        [key: string]: string[];
+      };
+      /** Rules */
+      rules?: components["schemas"]["Rule"][];
+      /**
+       * Staledays
+       * @default 14
+       */
+      staleDays: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * Rule
+     * @description One policy rule. Every matcher it sets must hold; a rule that sets none matches all.
+     *
+     *     `submitters` lists user ids, or `curators` for the curator group; `themes` matches when
+     *     the submission has any of them.
+     */
+    Rule: {
+      /**
+       * Access
+       * @default null
+       */
+      access: ("open" | "restricted" | "by-request" | "description-only")[] | null;
+      /**
+       * Kind
+       * @default null
+       */
+      kind: ("new-dataset" | "new-version") | null;
+      /**
+       * Outcome
+       * @enum {string}
+       */
+      outcome: "skip" | "one" | "two";
+      /**
+       * Submitters
+       * @default null
+       */
+      submitters: string[] | null;
+      /**
+       * Themes
+       * @default null
+       */
+      themes: string[] | null;
+    } & {
+      [key: string]: unknown;
     };
     /** SearchAnswer */
     SearchAnswer: {
@@ -262,6 +825,158 @@ export interface components {
       rows: components["schemas"]["CatalogRow"][];
       /** Total */
       total: number;
+    };
+    /**
+     * Submission
+     * @description A submission as the API shows it.
+     *
+     *     `waiting` is true while the pipeline holds an open callback: a resubmit or a decision is
+     *     taken only then. `files` maps each round (as a string) to its files.
+     */
+    Submission: {
+      /** Approvals */
+      approvals: string[];
+      /** Createdat */
+      createdAt: string;
+      /**
+       * Datasetid
+       * @default null
+       */
+      datasetId: string | null;
+      /** Files */
+      files: {
+        [key: string]: components["schemas"]["SubmittedFile"][];
+      };
+      /** Newversion */
+      newVersion: boolean;
+      /**
+       * Reportkey
+       * @default null
+       */
+      reportKey: string | null;
+      /** Round */
+      round: number;
+      /**
+       * Rule
+       * @default null
+       */
+      rule: number | null;
+      /** Stale */
+      stale: boolean;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        | "draft"
+        | "checking"
+        | "needs-changes"
+        | "in-review"
+        | "publishing"
+        | "published"
+        | "rejected"
+        | "abandoned"
+        | "expired"
+        | "failed";
+      /** Submissionid */
+      submissionId: string;
+      /** Submitter */
+      submitter: string;
+      /** Submitteriscurator */
+      submitterIsCurator: boolean;
+      /** Waiting */
+      waiting: boolean;
+    };
+    /** SubmissionList */
+    SubmissionList: {
+      /** Submissions */
+      submissions: components["schemas"]["Submission"][];
+    };
+    /**
+     * SubmissionRead
+     * @description A submission, its events in order, and a link to its latest findings report.
+     */
+    SubmissionRead: {
+      /** Events */
+      events: components["schemas"]["Event"][];
+      /**
+       * Reporturl
+       * @default null
+       */
+      reportUrl: string | null;
+      submission: components["schemas"]["Submission"];
+    };
+    /** SubmitAnswer */
+    SubmitAnswer: {
+      /** Round */
+      round: number;
+      /**
+       * Status
+       * @constant
+       */
+      status: "checking";
+      /** Submissionid */
+      submissionId: string;
+    };
+    /**
+     * SubmittedFile
+     * @description One file of a round: a relative path, its size in bytes and its SHA-256 in hex.
+     */
+    SubmittedFile: {
+      /** Path */
+      path: string;
+      /** Sha256 */
+      sha256: string;
+      /** Size */
+      size: number;
+    };
+    /**
+     * Target
+     * @description What a finding or a change is about: a resource and field, or a file in the package.
+     */
+    Target: {
+      /**
+       * Field
+       * @default null
+       */
+      field: string | null;
+      /**
+       * Path
+       * @default null
+       */
+      path: string | null;
+      /**
+       * Resource
+       * @default null
+       */
+      resource: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * Upload
+     * @description A presigned PUT: send the file to `url` with `headers`, or S3 refuses it.
+     */
+    Upload: {
+      headers: components["schemas"]["UploadHeaders"];
+      /** Path */
+      path: string;
+      /** Url */
+      url: string;
+    };
+    /** UploadHeaders */
+    UploadHeaders: {
+      /** X-Amz-Checksum-Sha256 */
+      "x-amz-checksum-sha256": string;
+    };
+    /** UploadsAnswer */
+    UploadsAnswer: {
+      /** Round */
+      round: number;
+      /** Submissionid */
+      submissionId: string;
+      /** Uploads */
+      uploads: components["schemas"]["Upload"][];
     };
     /**
      * UsageAnswers
@@ -305,6 +1020,23 @@ export interface components {
       loc: (string | number)[];
       /** Error Type */
       type: string;
+    };
+    /**
+     * ValidationVerdict
+     * @description Whether the package is structurally valid, by which contract version, and when.
+     */
+    ValidationVerdict: {
+      /**
+       * Checkedat
+       * Format: date-time
+       */
+      checkedAt: string;
+      /** Contractversion */
+      contractVersion: string;
+      /** Valid */
+      valid: boolean;
+    } & {
+      [key: string]: unknown;
     };
     /** VersionAnswer */
     VersionAnswer: {
@@ -371,6 +1103,35 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_the_curators: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Curator"][];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
         };
       };
     };
@@ -536,6 +1297,46 @@ export interface operations {
       };
     };
   };
+  look_up_people: {
+    parameters: {
+      query?: {
+        sub?: string[];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["People"];
+        };
+      };
+      /** @description Refused */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+    };
+  };
   get_project_api_projects__id__get: {
     parameters: {
       query?: never;
@@ -604,6 +1405,432 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_submissions: {
+    parameters: {
+      query?: {
+        status?:
+          | "draft"
+          | "checking"
+          | "needs-changes"
+          | "in-review"
+          | "publishing"
+          | "published"
+          | "rejected"
+          | "abandoned"
+          | "expired"
+          | "failed";
+        mine?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SubmissionList"];
+        };
+      };
+      /** @description Refused */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+    };
+  };
+  create_a_submission: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadsAnswer"];
+        };
+      };
+      /** @description Refused */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+    };
+  };
+  read_the_review_policy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewPolicy"];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+    };
+  };
+  save_the_review_policy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReviewPolicy"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewPolicy"];
+        };
+      };
+      /** @description Refused */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+    };
+  };
+  read_a_submission: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SubmissionRead"];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+    };
+  };
+  decide_a_submission: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DecisionRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DecisionAnswer"];
+        };
+      };
+      /** @description Refused */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+    };
+  };
+  list_the_held_files: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HeldFiles"];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+    };
+  };
+  submit_a_round: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SubmitAnswer"];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+    };
+  };
+  renew_upload_links: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FilesRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadsAnswer"];
+        };
+      };
+      /** @description Refused */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      /** @description Refused */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
         };
       };
     };

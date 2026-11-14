@@ -131,6 +131,15 @@ def e2e_policy(reviewer: str | None) -> dict[str, Any]:
     }
 
 
+def holds(submission: dict[str, Any], status: str) -> bool:
+    """Whether the submission has `status`; a waiting status counts only once the pipeline
+    waits (the read answer's `waiting`), since a decision or resubmit sent before then has
+    nothing to complete."""
+    if submission.get("status") != status:
+        return False
+    return status not in ("in-review", "needs-changes") or bool(submission.get("waiting"))
+
+
 def event_mismatch(expected: Iterable[str], events: Iterable[dict[str, Any]]) -> str | None:
     """None when the events' types are exactly `expected` (in any order), else what differs.
 
@@ -337,18 +346,13 @@ class Stage:
         ready: Callable[[dict[str, Any]], bool] = lambda _: True,
         what: str = "",
     ) -> dict[str, Any]:
-        """Poll as the curator until the submission has `status` and `ready` holds.
-
-        A waiting status counts only once its callback is stored, since a decision or resubmit
-        sent before then has nothing to complete.
-        """
-        waiting = status in ("in-review", "needs-changes")
+        """Poll as the curator until the submission `holds` the status and `ready` holds."""
         deadline = time.monotonic() + WAIT_SECONDS
         seen = ""
         while time.monotonic() < deadline:
             submission = self.api.read(self.curator, sid)["submission"]
             seen = str(submission.get("status"))
-            if seen == status and (not waiting or submission.get("callbackId")):
+            if holds(submission, status):
                 if ready(submission):
                     return cast(dict[str, Any], submission)
             elif seen in ("failed", "expired", "abandoned") or (
@@ -463,15 +467,13 @@ def run_skip(s: Stage) -> str:
 
 def run_two(s: Stage) -> str:
     sid = s.submit(s.folder(themed(TWO_THEME)))
-    first = s.wait(sid, "in-review")
+    s.wait(sid, "in-review")
     s.decide(s.curator, sid, "approve")
+    # The decision closes the wait it completed, so `waiting` is the pipeline's next wait.
     s.wait(
         sid,
         "in-review",
-        lambda sub: (
-            sub.get("approvals") == [s.curator.sub]
-            and sub.get("callbackId") != first.get("callbackId")
-        ),
+        lambda sub: sub.get("approvals") == [s.curator.sub],
         "waiting for a second curator",
     )
     s.decide(s.curator, sid, "approve", expect=409)

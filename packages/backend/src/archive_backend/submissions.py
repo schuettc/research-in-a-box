@@ -13,69 +13,48 @@ from __future__ import annotations
 import base64
 import json
 import os
-import re
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Literal, Protocol, TypedDict, cast, get_args
+from typing import Any, Protocol, TypedDict, cast
 
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from archive_backend import people
 from archive_backend.people import Cognito as Cognito
+from archive_backend.submissions_api import STATUSES as STATUSES
+from archive_backend.submissions_api import (
+    CreateRequest,
+    Curator,
+    DecisionAnswer,
+    DecisionRequest,
+    Event,
+    EventType,
+    FilesRequest,
+    HeldFiles,
+    People,
+    Status,
+    SubmissionList,
+    SubmissionRead,
+    SubmitAnswer,
+    UploadsAnswer,
+)
+from archive_backend.submissions_api import Submission as SubmissionAnswer
 from archive_backend.whoami import _groups
 from archive_contract import ReviewPolicy
-
-Status = Literal[
-    "draft",
-    "checking",
-    "needs-changes",
-    "in-review",
-    "publishing",
-    "published",
-    "rejected",
-    "abandoned",
-    "expired",
-    "failed",
-]
-STATUSES: tuple[Status, ...] = get_args(Status)
-
-EventType = Literal[
-    "created",
-    "submitted",
-    "scanned",
-    "checked",
-    "held",
-    "entered-review",
-    "reminded",
-    "stale",
-    "decided",
-    "resubmitted",
-    "published",
-    "rejected",
-    "abandoned",
-    "expired",
-    "failed",
-]
-
-Decision = Literal["approve", "reject", "request-changes"]
-DECISIONS: tuple[Decision, ...] = get_args(Decision)
 
 CONTRIBUTOR = "contributor"
 CURATOR = "curator"
 ADMIN = "admin"
 POLICY_SETTING = "review-policy"
-MAX_PUT = 5 * 1024**3
-MAX_FILES = 1000
 URL_SECONDS = 3600
 HELD_URL_SECONDS = 300
 HELD: tuple[Status, ...] = ("in-review", "publishing")
-SHA256 = re.compile(r"[0-9a-fA-F]{64}")
 S3_CONFIG = Config(signature_version="s3v4", s3={"addressing_style": "virtual"})
 
 
@@ -218,6 +197,10 @@ def _response(status: int, body: Any) -> dict[str, Any]:
     }
 
 
+def _answer(status: int, model: BaseModel) -> dict[str, Any]:
+    return _response(status, model.model_dump(mode="json", by_alias=True, exclude_none=True))
+
+
 def _plain(value: object) -> object:
     # The Table resource reads numbers back as Decimal.
     if isinstance(value, Decimal):
@@ -225,35 +208,30 @@ def _plain(value: object) -> object:
     raise TypeError(f"not JSON serializable: {type(value).__name__}")
 
 
-def _safe_path(path: object) -> bool:
-    if not isinstance(path, str) or not path or len(path) > 900:
-        return False
-    if path.startswith("/") or "\\" in path or any(ord(ch) < 32 for ch in path):
-        return False
-    return all(part not in ("", ".", "..") for part in path.split("/"))
+def _parse[M: BaseModel](model: type[M], body: dict[str, Any]) -> M:
+    """The body as `model`, or a 400 with the model's own message."""
+    try:
+        return model.model_validate(body)
+    except ValidationError as error:
+        first = error.errors()[0]
+        cause = (first.get("ctx") or {}).get("error")
+        raise Refused(400, str(cause) if cause is not None else first["msg"]) from error
 
 
-def validate_files(value: object) -> list[FileEntry]:
-    """A round's file list: relative safe paths, each once, sizes up to 5 GB, SHA-256 in hex."""
-    if not isinstance(value, list) or not value or len(value) > MAX_FILES:
-        raise Refused(400, f"files must list 1 to {MAX_FILES} files")
-    files: list[FileEntry] = []
-    seen: set[str] = set()
-    for entry in value:
-        if not isinstance(entry, dict):
-            raise Refused(400, "each file needs path, size and sha256")
-        path, size, digest = entry.get("path"), entry.get("size"), entry.get("sha256")
-        if not _safe_path(path) or not isinstance(path, str):
-            raise Refused(400, f"unsafe path: {path!r}")
-        if path in seen:
-            raise Refused(400, f"path listed twice: {path}")
-        if isinstance(size, bool) or not isinstance(size, int) or not 0 <= size <= MAX_PUT:
-            raise Refused(400, f"size of {path} must be 0 to {MAX_PUT} bytes")
-        if not isinstance(digest, str) or not SHA256.fullmatch(digest):
-            raise Refused(400, f"sha256 of {path} must be 64 hex digits")
-        seen.add(path)
-        files.append({"path": path, "size": size, "sha256": digest.lower()})
-    return files
+def _close_callback(c: Clients, sid: str, callback: str) -> None:
+    """Forget a callback this call completed, so `waiting` turns false until the pipeline
+    opens its next wait; a wait it opened since is a different id and is kept."""
+    try:
+        c.submissions.update_item(
+            Key={"submissionId": sid},
+            UpdateExpression="REMOVE #c",
+            ConditionExpression="#c = :c",
+            ExpressionAttributeNames={"#c": "callbackId"},
+            ExpressionAttributeValues={":c": callback},
+        )
+    except ClientError:
+        # The callback went through; a stale id only leaves `waiting` true a little longer.
+        pass
 
 
 def presigned_put(s3: S3, bucket: str, key: str, digest: str) -> dict[str, Any]:
@@ -277,6 +255,13 @@ def _uploads(c: Clients, env: Env, sid: str, round: int, files: list[FileEntry])
         }
         for f in files
     ]
+
+
+def _uploads_answer(
+    c: Clients, env: Env, sid: str, round: int, files: list[FileEntry]
+) -> UploadsAnswer:
+    uploads = _uploads(c, env, sid, round, files)
+    return UploadsAnswer.model_validate({"submissionId": sid, "round": round, "uploads": uploads})
 
 
 def _missing(c: Clients, env: Env, sid: str, round: int, files: list[Any]) -> list[str]:
@@ -371,13 +356,11 @@ def _published_by(c: Clients, user: str, dataset_id: str) -> bool:
 
 def create(c: Clients, env: Env, caller: Caller, body: dict[str, Any]) -> dict[str, Any]:
     caller.need(CONTRIBUTOR)
-    files = validate_files(body.get("files"))
+    request = _parse(CreateRequest, body)
+    files = cast(list[FileEntry], [f.model_dump() for f in request.files])
     record: dict[str, Any] = {"newVersion": False}
-    dataset_id = body.get("datasetId")
+    dataset_id = request.dataset_id
     if dataset_id is not None:
-        # No '.' or '/': the site function routes /datasets/<id> only for such an id.
-        if not isinstance(dataset_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", dataset_id):
-            raise Refused(400, "datasetId must be a dataset id")
         record["datasetId"] = dataset_id
         published = _dataset(c, env, dataset_id)
         if published is not None:
@@ -399,9 +382,7 @@ def create(c: Clients, env: Env, caller: Caller, body: dict[str, Any]) -> dict[s
     }
     c.submissions.put_item(Item=item, ConditionExpression="attribute_not_exists(submissionId)")
     put_event(c.reviews, sid, "created", caller.user, 1)
-    return _response(
-        201, {"submissionId": sid, "round": 1, "uploads": _uploads(c, env, sid, 1, files)}
-    )
+    return _answer(201, _uploads_answer(c, env, sid, 1, files))
 
 
 def uploads(c: Clients, env: Env, caller: Caller, sid: str | None, body: Any) -> dict[str, Any]:
@@ -412,7 +393,7 @@ def uploads(c: Clients, env: Env, caller: Caller, sid: str | None, body: Any) ->
     caller.need(CONTRIBUTOR)
     submission = _load(c, sid)
     _own(caller, submission)
-    files = validate_files(body.get("files"))
+    files = cast(list[FileEntry], [f.model_dump() for f in _parse(FilesRequest, body).files])
     current = int(submission["round"])
     status = submission.get("status")
     expect: Status
@@ -426,9 +407,7 @@ def uploads(c: Clients, env: Env, caller: Caller, sid: str | None, body: Any) ->
     rounds = dict(submission.get("files") or {})
     rounds[str(round)] = files
     _update(c, sid, {"files": rounds, "round": round, "status": "draft"}, expect)
-    return _response(
-        200, {"submissionId": sid, "round": round, "uploads": _uploads(c, env, sid, round, files)}
-    )
+    return _answer(200, _uploads_answer(c, env, sid, round, files))
 
 
 def submit(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, Any]:
@@ -463,19 +442,18 @@ def submit(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, A
     except ClientError:
         _update(c, sid, {"status": "draft"}, "checking")
         raise
+    if callback and round > 1:
+        _close_callback(c, sid, str(callback))
     put_event(c.reviews, sid, "submitted" if round == 1 else "resubmitted", caller.user, round)
-    return _response(202, {"submissionId": sid, "round": round, "status": "checking"})
+    return _answer(202, SubmitAnswer(submission_id=sid, round=round, status="checking"))
 
 
 def decide(c: Clients, caller: Caller, sid: str | None, body: dict[str, Any]) -> dict[str, Any]:
     caller.need(CURATOR)
     submission = _load(c, sid)
     sid = cast(str, sid)
-    decision, note = body.get("decision"), body.get("note")
-    if decision not in DECISIONS:
-        raise Refused(400, f"decision must be one of {', '.join(DECISIONS)}")
-    if note is not None and not isinstance(note, str):
-        raise Refused(400, "note must be text")
+    request = _parse(DecisionRequest, body)
+    decision, note = request.decision, request.note
     callback = submission.get("callbackId")
     if submission.get("status") != "in-review" or not callback:
         raise Refused(409, f"not in review ({submission.get('status')})")
@@ -494,7 +472,8 @@ def decide(c: Clients, caller: Caller, sid: str | None, body: dict[str, Any]) ->
         )
     except ClientError as error:
         raise Refused(409, "the review wait has already closed") from error
-    return _response(202, {"submissionId": sid, "decision": decision})
+    _close_callback(c, sid, str(callback))
+    return _answer(202, DecisionAnswer(submission_id=sid, decision=decision))
 
 
 def listing(c: Clients, caller: Caller, query: dict[str, str]) -> dict[str, Any]:
@@ -514,7 +493,8 @@ def listing(c: Clients, caller: Caller, query: dict[str, str]) -> dict[str, Any]
         ExpressionAttributeNames={"#k": field},
         ExpressionAttributeValues={":k": value},
     )
-    return _response(200, {"submissions": found.get("Items", [])})
+    listed = [SubmissionAnswer.of(item) for item in found.get("Items", [])]
+    return _answer(200, SubmissionList(submissions=listed))
 
 
 def read(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, Any]:
@@ -527,15 +507,22 @@ def read(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, Any
         ExpressionAttributeNames={"#k": "submissionId"},
         ExpressionAttributeValues={":k": sid},
     ).get("Items", [])
-    body: dict[str, Any] = {"submission": submission, "events": events}
     report = submission.get("reportKey")
-    if report:
-        body["reportUrl"] = c.s3.generate_presigned_url(
+    url = (
+        c.s3.generate_presigned_url(
             "get_object",
             Params={"Bucket": env.staging_bucket, "Key": report},
             ExpiresIn=URL_SECONDS,
         )
-    return _response(200, body)
+        if report
+        else None
+    )
+    answer = SubmissionRead(
+        submission=SubmissionAnswer.of(submission),
+        events=[Event.model_validate(event) for event in events],
+        report_url=url,
+    )
+    return _answer(200, answer)
 
 
 def files(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, Any]:
@@ -548,8 +535,7 @@ def files(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, An
         raise Refused(409, f"nothing is held while {status}")
     round = int(submission["round"])
     listed = (submission.get("files") or {}).get(str(round)) or []
-    return _response(
-        200,
+    held = HeldFiles.model_validate(
         {
             "round": round,
             "files": [
@@ -565,8 +551,9 @@ def files(c: Clients, env: Env, caller: Caller, sid: str | None) -> dict[str, An
                 }
                 for f in listed
             ],
-        },
+        }
     )
+    return _answer(200, held)
 
 
 def stored_policy(settings: Table) -> ReviewPolicy:
@@ -607,13 +594,15 @@ def lookup_people(c: Clients, env: Env, caller: Caller, subs: list[str]) -> dict
     for sub in subs:
         if not people.SUB.fullmatch(sub):
             raise Refused(400, f"not a user id: {sub!r}")
-    return _response(200, {"people": people.emails(c.cognito, env.user_pool_id, subs)})
+    found = People.model_validate({"people": people.emails(c.cognito, env.user_pool_id, subs)})
+    return _answer(200, found)
 
 
 def list_curators(c: Clients, env: Env, caller: Caller) -> dict[str, Any]:
     """The curator group, for the admin choosing named reviewers."""
     caller.need(ADMIN)
-    return _response(200, people.curators(c.cognito, env.user_pool_id))
+    listed = [Curator.model_validate(p) for p in people.curators(c.cognito, env.user_pool_id)]
+    return _response(200, [curator.answer() for curator in listed])
 
 
 def handle(event: dict[str, Any], c: Clients, env: Env) -> dict[str, Any]:
