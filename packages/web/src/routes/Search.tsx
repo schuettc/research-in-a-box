@@ -147,7 +147,8 @@ export function Search() {
     setParams(new URLSearchParams());
   }
 
-  const answer = result && "answer" in result ? result.answer : null;
+  // The last answer stays on screen while the next one loads, so focus isn't lost.
+  const answer = loaded && "answer" in loaded ? loaded.answer : null;
 
   return (
     <div className="search">
@@ -209,6 +210,7 @@ export function Search() {
           </fieldset>
         </aside>
         <section className="results" aria-label="Results">
+          <p aria-live="polite">{result ? "" : "Searching…"}</p>
           {result && "unavailable" in result && (
             <>
               <p role="alert">Search is unavailable right now.</p>

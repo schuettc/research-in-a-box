@@ -101,6 +101,21 @@ test("checking a facet adds a repeated parameter and keeps the others", async ()
   expect(sent?.get("size")).toBe("20");
 });
 
+test("while the next search loads, the last answer stays and the unchecked facet keeps focus", async () => {
+  renderAt("/?access=open");
+  const box = await screen.findByRole("checkbox", { name: "open (1)" });
+  fetchMock.mockImplementation(() => new Promise(() => {}));
+  box.focus();
+  fireEvent.click(box);
+
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  expect(screen.getByText("Searching…").getAttribute("aria-live")).toBe("polite");
+  const after = screen.getByRole("checkbox", { name: "open (1)" }) as HTMLInputElement;
+  expect(after.checked).toBe(false);
+  expect(document.activeElement).toBe(after);
+  expect(screen.getByRole("link", { name: ANSWER.rows[0]?.title })).toBeDefined();
+});
+
 test("a search URL loaded fresh sends the same request", async () => {
   renderAt("/?q=stream&license=CC-BY-4.0&format=csv&format=shp&from=2020&to=2024&page=3");
 
