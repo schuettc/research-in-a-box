@@ -4,7 +4,9 @@
 
 `research-archive-in-a-box/femc-findings-report` · repo `research-archive-in-a-box`
 
-✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → **Plans** → Build → Sign off
+✓ Start → ✓ Understanding → ✓ Decisions → ✓ Spec → ✓ Plans → **Build · 0 of 4** → Sign off
+
+PLAN1 building · 0 of 4 done
 
 ## What was asked
 
@@ -37,7 +39,11 @@
 
 ## Plans
 
-None yet.
+- [PLAN1](plans/1-write-the-femc-report.md) Write the FEMC report: building · 0 of 4 done
+  - TASK1 Task 1: The evidence notes: not started
+  - TASK2 Task 2: The Ozone after-package: not started
+  - TASK3 Task 3: The report: not started
+  - TASK4 Task 4: Review and the PDF: not started
 
 ## Files
 
@@ -47,6 +53,7 @@ None yet.
 | `record.html` | diazo | The whole record as one page that works offline. |
 | `decisions.json` | diazo | The full record, every thread. Names its schema. |
 | `spec.md` | the agent, header by diazo | The spec. |
+| `plans/` | the agent, header by diazo | One file per plan. |
 | `mockups/` | the agent and the user | Mockups (HTML) and the agent's pictures; the user's screenshots from before screenshots/. |
 
 ## Ids

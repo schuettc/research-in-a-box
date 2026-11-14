@@ -3,7 +3,7 @@ diazo: research-archive-in-a-box/femc-findings-report
 file: spec
 status: approved
 approved: 2026-11-14T00:56:57-06:00
-hash: 7642a0a54c1d53dca0ae885babeb4ef73c5c20bcf75336fa86f7a32671cd79da
+hash: 0f1405e6b9ab20c2ad576dad5f919e74148188c7b5318415cc46842ad7557f25
 rests_on: [AGNT3, AGNT4, AGNT5, DCSN2, DCSN1, AGNT1, AGNT2]
 record: README.md
 ---
@@ -20,7 +20,7 @@ The report follows the handoff's eight sections. Each section's sources are fixe
 
 | # | Section | What it says | Sources |
 | --- | --- | --- | --- |
-| 1 | What the archive does well | Specific strengths, stated first: an EML record for every dataset, stable package ids, a parent project for every dataset, five access states including Linked, seven browsing themes, anonymous downloads with an optional usage form that supports their funding case, and decades of monitoring data kept safe. | FEMC's public pages (the handoff's "From their public pages"), the ten EML records |
+| 1 | What the archive does well | Specific strengths, stated first: an EML record for every dataset, stable package ids, a parent project for every dataset, five access states including Linked, six browsing themes (air, climate change, forest, soil, water, wildlife, as FEMC's themes page shows on 2026-11-14; the handoff's seven counts the All Projects tab), anonymous downloads with an optional usage form that supports their funding case, and decades of monitoring data kept safe. | FEMC's public pages (the handoff's "From their public pages"), the ten EML records |
 | 2 | What we looked at | The ten datasets by name with a link to each FEMC page, the dates downloaded (2026-11-12 and 2026-11-13), how (anonymous public downloads, the usage form left blank, under FEMC's data policy), and what we did not see (anything behind an account, the database behind the CSV exports, any other dataset). | `practice-data/femc/SOURCES.md` |
 | 3 | What we found | The findings below, each naming a dataset page and a field, with counts from the audit. | `practice-data/femc/*/eml.xml`, Plan 5's `documents/femc-audit-counts.md`, `practice-data/audit/audit.json`, `practice-data/packages/*/_build/not-imported.txt` |
 | 4 | Before and after | Ozone Bioindicators as its record stands today, beside the same dataset as a package filled only from FEMC's own public sources, with both audit scores and the gaps only FEMC can fill. | The Ozone package of the next section |
