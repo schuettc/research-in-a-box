@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 package = false
 
 [tool.uv.workspace]
-members = ["packages/contract", "packages/tool", "packages/backend"]
+members = ["packages/contract", "packages/tool", "packages/backend", "examples/femc"]
 
 [dependency-groups]
 dev = [
@@ -34,14 +34,19 @@ select = ["E", "F", "W", "I", "B", "UP"]
 [tool.mypy]
 strict = true
 plugins = ["pydantic.mypy"]
-mypy_path = ["packages/contract/src", "packages/tool/src", "packages/backend/src"]
+mypy_path = [
+    "packages/contract/src",
+    "packages/tool/src",
+    "packages/backend/src",
+    "examples/femc/src",
+]
 explicit_package_bases = true
 # Third-party code for the Lambda bundle: installed by just lambda-assets, staged by cdk synth
 exclude = ["^packages/infra/assets/", "^packages/infra/cdk\\.out/"]
 
 [tool.pytest.ini_options]
-testpaths = ["packages"]
+testpaths = ["packages", "examples/femc"]
 addopts = ["--import-mode=importlib"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["archive_contract", "cruise", "archive_backend"]
+known-first-party = ["archive_contract", "cruise", "archive_backend", "femc"]

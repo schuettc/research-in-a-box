@@ -9,7 +9,7 @@ check: check-python check-ts check-schema
 check-python:
     uv run ruff format --check
     uv run ruff check
-    uv run mypy packages
+    uv run mypy packages examples/femc
     uv run pytest
 
 # TypeScript: format check, lint, type check, tests, web build
