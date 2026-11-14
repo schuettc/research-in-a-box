@@ -222,11 +222,9 @@ def test_a_port_already_in_use_says_another_sign_in_may_be_waiting(stub: Stub) -
             sign_in(config(stub), open_browser=lambda url: True, port=port, timeout=1)
 
 
-def test_a_browser_that_wont_open_is_reported_with_the_sign_in_url(stub: Stub) -> None:
-    with pytest.raises(SignInError, match="no browser could be opened") as raised:
+def test_a_browser_that_wont_open_is_reported(stub: Stub) -> None:
+    with pytest.raises(SignInError, match="no browser could be opened"):
         sign_in(config(stub), open_browser=lambda url: False, port=0, timeout=5)
-
-    assert f"{stub.url}/oauth2/authorize?" in str(raised.value)
 
 
 def test_a_silent_connection_cant_hold_the_listener(

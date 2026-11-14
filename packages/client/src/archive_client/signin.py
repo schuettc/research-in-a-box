@@ -205,7 +205,7 @@ def sign_in(
         authorize = f"{config.base_url}/oauth2/authorize?{query}"
         if not open_browser(authorize):
             raise SignInError(
-                f"no browser could be opened to sign in; the sign-in address is {authorize}"
+                "no browser could be opened to sign in; sign in from a machine with a web browser"
             )
         params = _wait(server, timeout)
     if not secrets.compare_digest(params.get("state", ""), state):
