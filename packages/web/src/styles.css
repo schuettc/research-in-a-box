@@ -388,51 +388,149 @@ section.block > h2 {
   }
 }
 
-/* Search and the dataset page */
+/* Search */
 
-.search form {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
+.search .lede {
+  margin: 0 0 1.5rem;
 }
 
-.search input[type="search"] {
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-width: 44rem;
+  margin: 0 0 2.5rem;
+}
+
+.search-form label {
+  flex-basis: 100%;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.search-form input {
   flex: 1;
-  font: inherit;
-  padding: 0.4rem;
+  min-width: 0;
+  font-size: 1.05rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.search-form button {
+  padding: 0.7rem 1.4rem;
+}
+
+.filters-toggle {
+  display: none;
 }
 
 .search-layout {
   display: grid;
-  grid-template-columns: 14rem 1fr;
-  gap: var(--gap);
-  margin-top: var(--gap);
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: 3.5rem;
 }
 
-.filters fieldset {
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  margin: 0 0 var(--gap);
+.facet-group {
+  border: 0;
+  padding: 0;
+  margin: 0 0 1.75rem;
+  min-width: 0;
 }
 
-.facet,
-.year {
-  display: block;
+.facet-group legend {
+  padding: 0;
+  margin-bottom: 0.6rem;
+  font-weight: 600;
+  font-variant: small-caps;
+  text-transform: lowercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
 }
 
-.year input {
-  width: 5rem;
-  margin-left: 0.5rem;
+.facet {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.95rem;
+  cursor: pointer;
 }
 
-.result {
+.facet .count {
+  margin-left: auto;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+
+.facet.none {
+  color: var(--muted);
+}
+
+.year-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.year-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.year-row input {
+  width: 4.5rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.hint {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.hint:empty {
+  display: none;
+}
+
+.results-head {
+  margin: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--ink);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.results-head strong {
+  color: var(--ink);
+}
+
+.entry {
+  padding: 1.5rem 0;
   border-bottom: 1px solid var(--rule);
-  padding-bottom: var(--gap);
 }
 
-.result h2 {
-  font-size: 1.15rem;
-  margin-bottom: 0.25rem;
+.entry h2 {
+  font-size: 1.4rem;
+  margin: 0.4rem 0 0.35rem;
+}
+
+.entry h2 a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.entry h2 a:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
+.entry .by {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.92rem;
 }
 
 .clamp {
@@ -441,43 +539,76 @@ section.block > h2 {
   -webkit-line-clamp: 3;
   line-clamp: 3;
   overflow: hidden;
-  margin: 0.25rem 0;
+  max-width: 42rem;
+  margin: 0 0 0.6rem;
 }
 
-.badges {
+.meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  list-style: none;
-  padding: 0;
-  margin: 0.5rem 0;
-}
-
-.badges li {
+  gap: 0.35rem 1.1rem;
+  margin: 0;
   font-size: 0.85rem;
-  padding: 0 0.5rem;
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  background: var(--soft);
+  color: var(--muted);
 }
 
-.pages {
+.meta b {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.none .actions,
+.actions {
   display: flex;
-  gap: 0.5rem;
-  margin-top: var(--gap);
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.pager {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding-top: 1.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 @media (max-width: 40rem) {
+  .search-form button {
+    flex-basis: 100%;
+  }
+
+  .search-form {
+    margin-bottom: 1rem;
+  }
+
+  .filters-toggle {
+    display: inline-flex;
+    margin-bottom: 1rem;
+  }
+
   .search-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .filters {
+    display: none;
+  }
+
+  .filters.open {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .filters .facet-group:last-child {
+    grid-column: 1 / -1;
   }
 }
 
-.note {
-  padding: 0.5rem var(--gap);
-  border-left: 4px solid var(--brand);
-  background: var(--soft);
-}
+/* The dataset page */
 
 .citation {
   padding: 0.75rem;
