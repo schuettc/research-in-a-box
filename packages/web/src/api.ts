@@ -71,3 +71,21 @@ export async function sendUsage(id: string, answers: UsageAnswers): Promise<void
   if (response.status >= 500) throw new ApiUnreachable(response.status);
   if (!response.ok) throw new ApiRefused(response.status);
 }
+
+/**
+ * `GET /api/datasets/{id}/versions/{version}/download` with the reader's access token: the
+ * short-lived link to one file. 401 means sign in again, 403 the account can't have it.
+ */
+export async function downloadLink(
+  id: string,
+  version: number,
+  path: string,
+  token: string,
+): Promise<string> {
+  const query = new URLSearchParams({ path });
+  const answer = await getJson<Schemas["DownloadAnswer"]>(
+    `/api/datasets/${segment(id)}/versions/${version}/download?${query}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return answer.url;
+}

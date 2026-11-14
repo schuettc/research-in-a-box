@@ -6,9 +6,12 @@ import type { Root } from "react-dom/client";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi, type Mock } from "vitest";
 import type { DatasetAnswer, VersionAnswer, VersionsAnswer } from "../api";
+import { accessToken, signIn } from "../auth";
 import type { Manifest } from "../generated/manifest";
 import { mount } from "../main";
 import { Dataset } from "./Dataset";
+
+vi.mock("../auth", () => ({ accessToken: vi.fn(() => null), signIn: vi.fn(async () => {}) }));
 
 const SAMPLE = join(import.meta.dirname, "../../../../examples/sample-package");
 const MANIFEST = JSON.parse(readFileSync(join(SAMPLE, "datapackage.json"), "utf-8")) as Manifest;
@@ -38,7 +41,17 @@ const VERSIONS: VersionsAnswer = {
   ],
 };
 
+const RESTRICTED_ID = "restricted-sample";
+const RESTRICTED: DatasetAnswer = {
+  ...DATASET,
+  id: RESTRICTED_ID,
+  access: "restricted",
+  prefix: `restricted/${RESTRICTED_ID}/1/`,
+  manifest: { ...MANIFEST, "archive:access": "restricted" },
+};
+
 let fetchMock: Mock;
+let downloadStatus = 200;
 
 function apiAnswers(): Mock {
   return vi.fn(async (url: string, init?: RequestInit) => {
@@ -47,14 +60,19 @@ function apiAnswers(): Mock {
     if (path === `/api/datasets/${ID}`) return Response.json(DATASET);
     if (path === `/api/datasets/${ID}/versions/1`) return Response.json(VERSION);
     if (path === `/api/datasets/${ID}/versions`) return Response.json(VERSIONS);
+    if (path === `/api/datasets/${RESTRICTED_ID}`) return Response.json(RESTRICTED);
+    if (path === `/api/datasets/${RESTRICTED_ID}/versions/1/download`) {
+      if (downloadStatus !== 200) return Response.json({}, { status: downloadStatus });
+      return Response.json({ url: "https://bucket.example/restricted/logger.csv?sig" });
+    }
     return Response.json({ message: "not found" }, { status: 404 });
   });
 }
 
-function renderDataset(version?: number) {
+function renderDataset(version?: number, id = ID) {
   return render(
-    <MemoryRouter>
-      <Dataset id={ID} version={version} />
+    <MemoryRouter initialEntries={[`/datasets/${id}`]}>
+      <Dataset id={id} version={version} />
     </MemoryRouter>,
   );
 }
@@ -75,6 +93,9 @@ beforeEach(() => {
   fetchMock = apiAnswers();
   vi.stubGlobal("fetch", fetchMock);
   sessionStorage.clear();
+  downloadStatus = 200;
+  vi.mocked(accessToken).mockReturnValue(null);
+  vi.mocked(signIn).mockClear();
 });
 
 afterEach(() => {
@@ -181,6 +202,60 @@ test("after No thanks the usage panel stays gone for the visit", async () => {
     within(await filesTable()).getByRole("link", { name: "Download Logger readings" }),
   );
   expect(screen.queryByRole("region", { name: /how will you use this data/ })).toBeNull();
+});
+
+test("a restricted file asks a reader who isn't signed in to sign in, and comes back here", async () => {
+  renderDataset(undefined, RESTRICTED_ID);
+  const files = await filesTable();
+
+  fireEvent.click(
+    within(files).getByRole("button", { name: "Sign in to download Logger readings" }),
+  );
+
+  expect(signIn).toHaveBeenCalledWith(`/datasets/${RESTRICTED_ID}`);
+  expect(within(files).queryByRole("link", { name: "Download Logger readings" })).toBeNull();
+});
+
+test("signed in, a restricted download asks the API for its link with the access token", async () => {
+  vi.mocked(accessToken).mockReturnValue("TOKEN");
+  renderDataset(undefined, RESTRICTED_ID);
+  const files = await filesTable();
+
+  fireEvent.click(within(files).getByRole("button", { name: "Download Logger readings" }));
+
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+  expect(url).toBe(`/api/datasets/${RESTRICTED_ID}/versions/1/download?path=data%2Flogger.csv`);
+  expect(new Headers(init.headers).get("Authorization")).toBe("Bearer TOKEN");
+  expect(screen.getByRole("region", { name: /how will you use this data/ })).toBeDefined();
+});
+
+test("a 401 asks the reader to sign in again", async () => {
+  vi.mocked(accessToken).mockReturnValue("TOKEN");
+  downloadStatus = 401;
+  renderDataset(undefined, RESTRICTED_ID);
+  const files = await filesTable();
+
+  fireEvent.click(within(files).getByRole("button", { name: "Download Logger readings" }));
+
+  expect(await within(files).findByText("Your sign-in has expired.")).toBeDefined();
+  fireEvent.click(
+    within(files).getByRole("button", { name: "Sign in to download Logger readings" }),
+  );
+  expect(signIn).toHaveBeenCalledWith(`/datasets/${RESTRICTED_ID}`);
+});
+
+test("a 403 says the file isn't available to this account", async () => {
+  vi.mocked(accessToken).mockReturnValue("TOKEN");
+  downloadStatus = 403;
+  renderDataset(undefined, RESTRICTED_ID);
+  const files = await filesTable();
+
+  fireEvent.click(within(files).getByRole("button", { name: "Download Logger readings" }));
+
+  expect(
+    await within(files).findByText("This file isn't available to this account."),
+  ).toBeDefined();
 });
 
 test("on a static dataset page, the static content stays when the API can't be reached", async () => {

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router";
-import { ApiRefused, getDataset, getVersion, getVersions } from "../api";
+import { Link, useLocation } from "react-router";
+import { ApiRefused, downloadLink, getDataset, getVersion, getVersions } from "../api";
+import { accessToken, signIn } from "../auth";
 import { citation, creatorNames } from "../citation";
 import type { Field, Manifest, Resource, TableSchema } from "../generated/manifest";
 import { UsagePanel, usagePanelDone } from "../UsagePanel";
@@ -113,8 +114,53 @@ interface FileProps {
   onDownload: () => void;
 }
 
+/** A file of a dataset that isn't open: signed in, its link comes from the API. */
+function SignedDownload({ id, version, path, label, onDownload }: Omit<FileProps, "access">) {
+  const location = useLocation();
+  const [problem, setProblem] = useState<"expired" | "refused" | "failed" | null>(null);
+  const token = accessToken();
+  const hidden = <span className="visually-hidden">{label}</span>;
+
+  if (!token || problem === "expired") {
+    return (
+      <>
+        {problem === "expired" && <span>Your sign-in has expired.</span>}{" "}
+        <button type="button" onClick={() => void signIn(location.pathname + location.search)}>
+          Sign in to download {hidden}
+        </button>
+      </>
+    );
+  }
+  if (problem === "refused") return <span>This file isn't available to this account.</span>;
+
+  async function download(token: string) {
+    try {
+      const url = await downloadLink(id, version, path, token);
+      onDownload();
+      window.location.assign(url);
+    } catch (error) {
+      if (error instanceof ApiRefused && error.status === 401) setProblem("expired");
+      else if (error instanceof ApiRefused && error.status === 403) setProblem("refused");
+      else setProblem("failed");
+    }
+  }
+
+  return (
+    <>
+      <button type="button" onClick={() => void download(token)}>
+        Download {hidden}
+      </button>
+      {problem === "failed" && <span> The download couldn't start. Try again.</span>}
+    </>
+  );
+}
+
 function FileDownload({ id, version, access, path, label, onDownload }: FileProps) {
-  if (access !== "open") return <span>Restricted</span>;
+  if (access !== "open") {
+    return (
+      <SignedDownload id={id} version={version} path={path} label={label} onDownload={onDownload} />
+    );
+  }
   const href = `/data/${encodeURIComponent(id)}/${version}/${path.split("/").map(encodeURIComponent).join("/")}`;
   return (
     <a href={href} download onClick={onDownload}>
